@@ -166,7 +166,8 @@ class ShotgridProcessor:
                 self._sg = shotgun_api3.Shotgun(
                     self.sg_url,
                     script_name=self.sg_script_name,
-                    api_key=self.sg_api_key
+                    api_key=self.sg_api_key,
+                    http_proxy="proxy-srv.eu.rvx.is:3128"
                 )
             except Exception as e:
                 self.log.error("Unable to create Shotgrid Session.")

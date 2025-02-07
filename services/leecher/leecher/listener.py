@@ -117,7 +117,8 @@ class ShotgridListener:
             self.sg_session = shotgun_api3.Shotgun(
                 self.sg_url,
                 script_name=self.sg_script_name,
-                api_key=self.sg_api_key
+                api_key=self.sg_api_key,
+                http_proxy="proxy-srv.eu.rvx.is:3128"
             )
             self.sg_session.connect()
         except Exception as e:

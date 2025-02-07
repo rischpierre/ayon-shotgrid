@@ -1,5 +1,5 @@
 ADDON_VERSION := $(shell grep "version" ../package.py | cut -d' ' -f3 | tr -d '"')
-IMAGE := ynput/ayon-shotgrid-$(SERVICE):$(ADDON_VERSION)
+IMAGE := rvx/ayon-shotgrid-$(SERVICE):$(ADDON_VERSION)
 SERVICE = $(error Please specify the service to build with 'SERVICE', for example: 'make build SERVICE=leecher')
 
 default:
@@ -28,17 +28,9 @@ build:
 	docker build -t $(IMAGE) -f $(SERVICE)/Dockerfile .
 
 build-all:
-	docker build -t ynput/ayon-shotgrid-leecher:$(ADDON_VERSION) -f ./leecher/Dockerfile .
-	docker build -t ynput/ayon-shotgrid-processor:$(ADDON_VERSION) -f ./processor/Dockerfile .
-	docker build -t ynput/ayon-shotgrid-transmitter:$(ADDON_VERSION) -f ./transmitter/Dockerfile .
-
-dist:
-	docker push $(IMAGE)
-
-dist-all:
-	docker push ynput/ayon-shotgrid-leecher:$(ADDON_VERSION)
-	docker push ynput/ayon-shotgrid-processor:$(ADDON_VERSION)
-	docker push ynput/ayon-shotgrid-transmitter:$(ADDON_VERSION)
+	docker build -t rvx/ayon-shotgrid-leecher:$(ADDON_VERSION) -f ./leecher/Dockerfile .
+	docker build -t rvx/ayon-shotgrid-processor:$(ADDON_VERSION) -f ./processor/Dockerfile .
+	docker build -t rvx/ayon-shotgrid-transmitter:$(ADDON_VERSION) -f ./transmitter/Dockerfile .
 
 clean:
 	if docker images "$(IMAGE)"; then \
@@ -49,9 +41,9 @@ clean-build: clean
 	docker build --no-cache -t $(IMAGE) -f $(SERVICE)/Dockerfile .
 
 clean-build-all:
-	docker build --no-cache -t ynput/ayon-shotgrid-leecher:$(ADDON_VERSION) -f ./leecher/Dockerfile .
-	docker build --no-cache -t ynput/ayon-shotgrid-processor:$(ADDON_VERSION) -f ./processor/Dockerfile .
-	docker build --no-cache -t ynput/ayon-shotgrid-transmitter:$(ADDON_VERSION) -f ./transmitter/Dockerfile .
+	docker build --no-cache -t rvx/ayon-shotgrid-leecher:$(ADDON_VERSION) -f ./leecher/Dockerfile .
+	docker build --no-cache -t rvx/ayon-shotgrid-processor:$(ADDON_VERSION) -f ./processor/Dockerfile .
+	docker build --no-cache -t rvx/ayon-shotgrid-transmitter:$(ADDON_VERSION) -f ./transmitter/Dockerfile .
 
 
 dev:

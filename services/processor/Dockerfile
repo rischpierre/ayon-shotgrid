@@ -1,6 +1,11 @@
 # In order for this Dockerfile to work it needs to be built from the `services` directory
 FROM python:3.11-alpine3.18
 ENV PYTHONUNBUFFERED=1
+ENV HTTP_PROXY=http://proxy-srv.eu.rvx.is:3128
+ENV HTTPS_PROXY=http://proxy-srv.eu.rvx.is:3128
+ENV http_proxy=http://proxy-srv.eu.rvx.is:3128
+ENV https_proxy=http://proxy-srv.eu.rvx.is:3128
+ENV LOGLEVEL=DEBUG
 
 # Install python/pip
 RUN apk add --update --no-cache git curl build-base libffi-dev
