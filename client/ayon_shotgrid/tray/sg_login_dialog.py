@@ -1,4 +1,5 @@
 import os
+import re
 
 from ayon_shotgrid.lib import credentials
 
@@ -140,6 +141,10 @@ class SgLoginDialog(QtWidgets.QDialog):
                 "api_key": self.addon.get_sg_api_key(),
                 "script_name": self.addon.get_sg_script_name(),
             })
+
+        proxy = re.sub(r"https?://", "", os.environ.get("HTTPS_PROXY", ""))
+        if proxy:
+            kwargs["proxy"] = proxy
 
         login_result, login_message = credentials.check_user_permissions(
             **kwargs)
