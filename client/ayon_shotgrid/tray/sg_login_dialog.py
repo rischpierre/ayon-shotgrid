@@ -18,9 +18,6 @@ class SgLoginDialog(QtWidgets.QDialog):
 
     def __init__(self, addon, parent=None):
         super(SgLoginDialog, self).__init__(parent)
-        import pdb
-        breakpoint()
-
         self.addon = addon
         self.login_type = self.addon.get_client_login_type()
 
