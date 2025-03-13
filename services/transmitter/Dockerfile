@@ -5,6 +5,7 @@ ENV HTTP_PROXY=http://proxy-srv.eu.rvx.is:3128
 ENV HTTPS_PROXY=http://proxy-srv.eu.rvx.is:3128
 ENV http_proxy=http://proxy-srv.eu.rvx.is:3128
 ENV https_proxy=http://proxy-srv.eu.rvx.is:3128
+ENV no_proxy=localhost,127.0.0.0/8,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8,.local,.eu.rvx.is
 ENV LOGLEVEL=DEBUG
 
 # Install python/pip
