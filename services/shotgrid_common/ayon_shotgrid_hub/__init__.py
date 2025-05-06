@@ -26,7 +26,7 @@ from .update_from_shotgrid import (
 from .update_from_ayon import (
     create_sg_entity_from_ayon_event,
     update_sg_entity_from_ayon_event,
-    remove_sg_entity_from_ayon_event
+    remove_sg_entity_from_ayon_event,
 )
 
 from utils import (
@@ -36,6 +36,7 @@ from utils import (
     get_sg_project_enabled_entities,
     get_sg_project_by_name,
     get_sg_user_id,
+    upload_ay_reviewable_to_sg
 )
 
 import ayon_api
@@ -85,7 +86,10 @@ class AyonShotgridHub:
         custom_attribs_types=None,
         sg_enabled_entities=None,
     ):
-        self.settings = ayon_api.get_service_addon_settings(project_name)
+        try:
+            self.settings = ayon_api.get_service_addon_settings(project_name)
+        except ayon_api.exceptions.HTTPRequestError:
+            self.log.warning(f"Project {project_name} does not exist in AYON.")
 
         self._sg = sg_connection
 
@@ -352,6 +356,12 @@ class AyonShotgridHub:
                     f"| {sg_event_meta['entity_type']} "
                     f"| {sg_event_meta['entity_id']}"
                 )
+                if sg_event_meta["entity_type"] == "Version":
+                    attr_name = sg_event_meta["attribute_name"]
+                    self.log.info(
+                        f"Skipping attribute change '{attr_name}' for Version"
+                    )
+                    return
                 update_ayon_entity_from_sg_event(
                     sg_event_meta,
                     self._sg_project,
@@ -401,14 +411,20 @@ class AyonShotgridHub:
             return
 
         match ayon_event["topic"]:
-            case "entity.task.created" | "entity.folder.created":
+            case (
+                "entity.task.created" |
+                "entity.folder.created" |
+                "entity.version.created"
+            ):
                 create_sg_entity_from_ayon_event(
                     ayon_event,
                     self._sg,
                     self._ay_project,
                     self._sg_project,
                     self.sg_enabled_entities,
+                    self.sg_project_code_field,
                     self.custom_attribs_map,
+                    self.settings
                 )
 
             case "entity.task.deleted" | "entity.folder.deleted":
@@ -423,6 +439,7 @@ class AyonShotgridHub:
                     self._sg,
                     self._ay_project,
                     self.custom_attribs_map,
+                    self.settings
                 )
             case "entity.task.attrib_changed" | "entity.folder.attrib_changed":
                 attrib_key = next(iter(ayon_event["payload"]["newValue"]))
@@ -437,6 +454,7 @@ class AyonShotgridHub:
                     self._sg,
                     self._ay_project,
                     self.custom_attribs_map,
+                    self.settings,
                 )
             case (
                 "entity.task.status_changed"
@@ -452,6 +470,14 @@ class AyonShotgridHub:
                     self._sg,
                     self._ay_project,
                     self.custom_attribs_map,
+                    self.settings,
+                )
+            case ("reviewable.created"):
+                ay_version_id = ayon_event["summary"]["versionId"]
+                upload_ay_reviewable_to_sg(
+                    self._sg,
+                    self._ay_project,  # EntityHub
+                    ay_version_id
                 )
             case _:
                 raise ValueError(

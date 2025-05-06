@@ -159,7 +159,9 @@ class ShotgridTransmitter:
             "entity.folder.attrib_changed",
             "entity.folder.status_changed",
             "entity.folder.tags_changed",
+            "entity.version.created",
             "entity.version.status_changed",
+            "reviewable.created"
         ]
 
         last_comments_sync = datetime.min.replace(tzinfo=timezone.utc)
@@ -287,7 +289,7 @@ class ShotgridTransmitter:
         response = ayon_api.dispatch_event(
             SHOTGRID_COMMENTS_TOPIC,
             description=(
-                "Synchronizing comments from ftrack to AYON."
+                "Synchronizing comments from SG to AYON."
             ),
             summary=None,
             payload={},
