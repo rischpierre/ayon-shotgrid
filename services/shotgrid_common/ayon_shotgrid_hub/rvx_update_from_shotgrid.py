@@ -65,6 +65,9 @@ def rvx_validate_sg_asset(sg_ay_dict, sg):
     if not sg_asset:
         raise ValueError(f"Unable to find asset: {id_} in ShotGrid.")
 
+    if not sg_asset["sg_asset_type"]:
+        raise ValueError(f"Unable to find asset type for: {sg_asset['code']} in ShotGrid.")
+
     ay_folder_type = sg_asset["sg_ayon_folder_type"]
 
     if ay_folder_type == "VariantAsset":

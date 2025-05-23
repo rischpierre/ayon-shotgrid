@@ -227,8 +227,20 @@ def update_sg_entity_from_ayon_event(
         if ay_entity["entity_type"] == "task":
             sg_field_name = "content"
 
+        # Change the name of the variant asset: in SG: pedestrian_A, in AY: A
+        name = ay_entity["name"]
+        if sg_entity_type == "Asset":
+            sg_asset = sg_session.find_one(
+                "Asset",
+                filters=[["id", "is", int(sg_id)]],
+                fields=["sg_ayon_folder_type", "code"]
+            )
+            if sg_asset and sg_asset["sg_ayon_folder_type"] == "VariantAsset":
+                name = name.split("_")[-1]  # pedestrian_A -> A
+                log.debug(f"Updating AYON Asset name: {sg_asset['code']}, new name: {name}")
+
         data_to_update = {
-            sg_field_name: ay_entity["name"],
+            sg_field_name: name,
             CUST_FIELD_CODE_ID: ay_entity["id"]
         }
         # Add any possible new values to update
