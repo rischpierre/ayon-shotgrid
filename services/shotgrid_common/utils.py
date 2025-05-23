@@ -1,4 +1,5 @@
 import copy
+import fnmatch
 import os
 import json
 import hashlib
@@ -29,6 +30,7 @@ from ayon_api.entity_hub import (
 )
 from ayon_api.utils import slugify_string
 from ayon_api import get_attributes_for_type
+from ayon_core.settings import get_project_settings
 
 import shotgun_api3
 
@@ -1919,6 +1921,25 @@ def _add_paths(ay_project_name: str, ay_entity: Dict, data_to_update: Dict):
             thumbnail_path = local_path
             continue
 
+        project_settings = get_project_settings(ay_project_name)
+        paths_to_frames_reps = project_settings["shotgrid"].get("rvx_settings", {}).get("paths_versions", {}).get("sg_path_to_frame", ["exr"])
+        paths_to_movie_reps = project_settings["shotgrid"].get("rvx_settings", {}).get("paths_versions", {}).get("sg_path_to_movie", ["mov*"])
+
+        path_to_frame = re.sub(r"\.\d+\.", ".%04d.", local_path)
+        for pattern in paths_to_frames_reps:
+            if fnmatch.fnmatch(representation_name, pattern):
+                data_to_update.update({
+                    "sg_path_to_frames": path_to_frame,
+                })
+                break
+
+        for pattern in paths_to_movie_reps:
+            if fnmatch.fnmatch(representation_name, pattern):
+                data_to_update.update({
+                    "sg_path_to_movie": local_path,
+                })
+                break
+
         if not representation_name.startswith("review"):
             continue
 
@@ -1941,11 +1962,15 @@ def _add_paths(ay_project_name: str, ay_entity: Dict, data_to_update: Dict):
             if has_slate:
                 data_to_update["sg_frames_have_slate"] = True
 
-    if not found_reviewable and thumbnail_path:
-        data_to_update.update({
-            "sg_path_to_movie": thumbnail_path,
-            "sg_path_to_frames": thumbnail_path,
-        })
+        log.debug("Using path to movie: ", data_to_update["sg_path_to_movie"])
+        log.debug("Using path to frames: ", data_to_update["sg_path_to_frames"])
+
+    # There is no reason to put the thumbnail to the paths
+    # if not found_reviewable and thumbnail_path:
+    #     data_to_update.update({
+    #         "sg_path_to_movie": thumbnail_path,
+    #         "sg_path_to_frames": thumbnail_path,
+    #     })
 
 def upload_ay_reviewable_to_sg(
     sg_session: shotgun_api3.Shotgun,

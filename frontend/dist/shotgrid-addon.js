@@ -130,18 +130,52 @@ const syncUsers = async () => {
 
   sgUsers.forEach((sg_user) => {
     let already_exists = false
+
+    // in SG the user name can be `user` or `user@mail.com`
+    const sg_user_name = sg_user.login.split('@')[0];
     ayonUsers.forEach((user) => {
-      if (sg_user.login == user.name) {
+      if (sg_user_name === user.name) {
           already_exists = true
       }
     })
-    if (!already_exists) {
+    if (already_exists) {
+      console.log("User: " + sg_user_name + " already exists in AYON, updating sg_user_id")
+      updateUserInAyon(sg_user.id ,sg_user_name)
+    }
+    else {
+      console.log("Create User in AYON: " + sg_user_name)
       createNewUserInAyon(
-        sg_user.id ,sg_user.login, sg_user.email, sg_user.name)
+          sg_user.id ,sg_user_name, sg_user.email, sg_user.name)
     }
   })
 }
 
+const updateUserInAyon = async (sg_id, sg_login) => {
+    /* Update the AYON user with the Shotgrid user id. */
+  call_result_paragraph = document.getElementById("call-result");
+
+  // make sure no @ and . or - is in login string
+  let fixed_login = validateLogin(sg_login);
+
+  ay_user = await ayonAPI
+      .get("/api/users/" + fixed_login)
+      .then((result) => result.data)
+      .catch((error) => {
+        console.log("Unable to get user in AYON!")
+        console.log(error)
+        call_result_paragraph.innerHTML = `Unable to get user in AYON! ${error}`
+      });
+  ay_user["data"]["sg_user_id"] = sg_id
+
+  response = await ayonAPI
+    .patch("/api/users/" + fixed_login, ay_user)
+    .then((result) => result)
+    .catch((error) => {
+      console.log("Unable to patch user in AYON!")
+      console.log(error)
+      call_result_paragraph.innerHTML = `Unable to patch user in AYON! ${error}`
+    });
+}
 
 const getShotgridUsers = async () => {
   /* Query Shotgrid for all active users. */

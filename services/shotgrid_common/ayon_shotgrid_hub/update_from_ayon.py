@@ -141,6 +141,24 @@ def create_sg_entity_from_ayon_event(
             exc_info=True
         )
 
+    if sg_type == "Version" and hasattr(ay_entity, "thumbnail_id"):
+        rvx_add_sg_thumbnail(sg_session, sg_id, ay_entity, ayon_entity_hub)
+
+
+def rvx_add_sg_thumbnail(sg_session, sg_id, ay_entity, ay_hub):
+    # import placed here to isolate rvx overrides
+    from ayon_core.pipeline.thumbnails import get_thumbnail_path
+    thumbnail = ayon_api.get_thumbnail_by_id(project_name=ay_hub.project_name, thumbnail_id=ay_entity.thumbnail_id)
+
+    if not thumbnail:
+        log.warning(f"[RVX] Unable to get thumbnail for {ay_entity['name']}")
+        return
+    path = get_thumbnail_path(ay_hub.project_name, thumbnail.id)
+    if not path:
+        log.warning(f"[RVX] Unable to get thumbnail path for {ay_entity['name']}")
+        return
+    sg_session.upload_thumbnail(entity_type="Version", entity_id=sg_id, path=path)
+
 
 def _get_sg_parent_entity(sg_session, ay_entity, ayon_event):
     """Returns SG parent for currently created ay_entity
