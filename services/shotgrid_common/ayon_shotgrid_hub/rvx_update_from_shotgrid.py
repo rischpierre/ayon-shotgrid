@@ -9,7 +9,7 @@ def rvx_update_asset(ay_entity, sg_ay_dict, sg, ay_entity_hub):
     sg_asset = sg.find_one(
         "Asset",
         [["id", "is", sg_ay_dict["attribs"]["shotgridId"]]],
-        ["code", "sg_asset_type", "parents", "sg_ayon_folder_type"],
+        ["code", "sg_asset_type", "parents", "sg_ayon_folder_type", "assets"],
     )
 
     ay_folder_type = sg_asset["sg_ayon_folder_type"]
@@ -32,12 +32,12 @@ def rvx_update_asset(ay_entity, sg_ay_dict, sg, ay_entity_hub):
     # if an asset is switched from variant to sub asset we need to reparent
     elif ay_folder_type in ("SubAsset", "ShowAsset"):
         sg_asset_type = sg_asset["sg_asset_type"]
-        ay_parent = ayon_api.get_folder_by_name(ay_entity_hub.project_name, sg_asset_type.lower())
+        ay_asset_category = ayon_api.get_folder_by_name(ay_entity_hub.project_name, sg_asset_type.lower())
         if ay_entity.parent.name != sg_asset_type:
-            if ay_parent:
-                    ay_parent = ay_entity_hub.get_or_query_entity_by_id(ay_parent["id"], ["folder"])
-                    log.debug(f"Updating AYON Asset parent: {sg_asset_type}")
-                    ay_entity.set_parent(ay_parent)
+            if ay_asset_category:
+                ay_asset_category = ay_entity_hub.get_or_query_entity_by_id(ay_asset_category["id"], ["folder"])
+                log.debug(f"Updating AYON Asset parent: {sg_asset_type}")
+                ay_entity.set_parent(ay_asset_category)
             else:
                 log.debug(f"AYON Asset parent not found: {sg_asset_type}")
                 assets_folder = ayon_api.get_folder_by_name(ay_entity_hub.project_name, "assets")

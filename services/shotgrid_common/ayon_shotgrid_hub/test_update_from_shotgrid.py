@@ -303,3 +303,34 @@ class TestUpdateFromShotGrid(unittest.TestCase):
 
         self.assertEqual("SubAsset", ay_test_sub_asset_b.folder_type)
         self.assertEqual("environment", ay_test_sub_asset_b.parent.name)
+
+    def test_update_asset_type_affects_children(self):
+        # when changing the asset type of the sub asset and the variant asset, they should be both updated
+        self._delete_all_ay_assets()
+        ay_test_sub_asset_a = self._create_ay_test_sub_asset_a()
+        ay_test_variant = self._create_ay_test_variant_asset()
+
+        self.sg.update("Asset", self.sg_test_sub_asset_a["id"], {"sg_asset_type": "Environment"})
+        self.sg.update("Asset", self.sg_test_variant_asset["id"], {"sg_asset_type": "Environment"})
+        self.sg_test_sub_asset_a["sg_asset_type"] = "Environment"
+        self.sg_test_variant_asset["sg_asset_type"] = "Environment"
+
+        sg_event = {
+            "event_type": "attribute_change",
+            "entity_type": "Asset",
+            "entity_id": self.sg_test_sub_asset_a["id"],
+            "project_id": self.sg_project["id"],
+        }
+        update_ayon_entity_from_sg_event(
+            sg_event=sg_event,
+            sg_project=self.sg_project,
+            sg_session=self.sg,
+            ayon_entity_hub=self.entity_hub,
+            sg_enabled_entities=self.sg_enabled_entities,
+            project_code_field=self.project_code_field,
+            custom_attribs_map=self.custom_attribs_map,
+            addon_settings=self.addon_settings,
+        )
+
+        self.assertEqual("environment", ay_test_sub_asset_a.parent.name)
+        self.assertEqual(self.test_sub_asset_name_a, ay_test_variant.parent.name)

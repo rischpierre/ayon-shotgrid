@@ -399,7 +399,8 @@ def update_ayon_entity_from_sg_event(
                 ayon_entity_hub,
                 sg_enabled_entities,
                 project_code_field,
-                custom_attribs_map
+                custom_attribs_map,
+                addon_settings
             )
         except Exception:
             log.debug("AYON Entity could not be created", exc_info=True)
