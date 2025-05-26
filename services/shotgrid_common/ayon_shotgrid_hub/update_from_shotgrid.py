@@ -32,6 +32,7 @@ from ayon_api import slugify_string
 
 from typing import Dict, List, Optional, Any
 
+from ayon_shotgrid_hub.rvx_update_from_shotgrid import rvx_update_asset, rvx_validate_sg_asset
 from utils import (
     create_new_ayon_entity,
     get_sg_entity_as_ay_dict,
@@ -102,6 +103,10 @@ def create_ay_entity_from_sg_event(
         custom_attribs_map=custom_attribs_map,
         extra_fields=extra_fields,
     )
+
+    if sg_event["entity_type"] == "Asset":
+        rvx_validate_sg_asset(sg_ay_dict, sg_session)
+
     log.debug(f"ShotGrid Entity as AYON dict: {sg_ay_dict}")
     if not sg_ay_dict:
         log.warning(
@@ -193,6 +198,9 @@ def create_ay_entity_from_sg_event(
             ay_parent_entity,
             sg_ay_dict
         )
+
+        if shotgrid_type == "Asset":
+            rvx_update_asset(ay_entity, sg_ay_dict, sg_session, ayon_entity_hub)
 
     return ay_entity
 
@@ -365,6 +373,9 @@ def update_ayon_entity_from_sg_event(
         custom_attribs_map=custom_attribs_map
     )
 
+    if sg_event["entity_type"] == "Asset":
+        rvx_validate_sg_asset(sg_ay_dict, sg_session)
+
     if not sg_ay_dict:
         log.warning(
             f"Entity {sg_event['entity_type']} <{sg_event['entity_id']}> "
@@ -388,7 +399,8 @@ def update_ayon_entity_from_sg_event(
                 ayon_entity_hub,
                 sg_enabled_entities,
                 project_code_field,
-                custom_attribs_map
+                custom_attribs_map,
+                addon_settings
             )
         except Exception:
             log.debug("AYON Entity could not be created", exc_info=True)
@@ -454,6 +466,9 @@ def update_ayon_entity_from_sg_event(
         SHOTGRID_TYPE_ATTRIB,
         sg_ay_dict["attribs"].get(SHOTGRID_TYPE_ATTRIB, "")
     )
+
+    if sg_ay_dict["attribs"]["shotgridType"] == "Asset":
+        rvx_update_asset(ay_entity, sg_ay_dict, sg_session, ayon_entity_hub)
 
     return ay_entity
 

@@ -243,9 +243,17 @@ class ShotgridListener:
         last_event_id = None
 
         while True:
+            # RVX: each flow project can be linked to a different AYON server
+            # so we can run the production services and test services at the same time
+            # they will not interfere with each other
             sg_projects = self.sg_session.find(
-                "Project", filters=[["sg_ayon_auto_sync", "is", True]]
+                "Project",
+                filters=[["sg_ayon_auto_sync", "is", True], ["sg_ayon_server_url", "is", ayon_api.get_base_url()]],
+                fields=["code"]
             )
+            for p in sg_projects:
+                self.log.debug(f"Listening project: {p['code']}")
+
             sg_filters = self._build_shotgrid_filters(sg_projects)
 
             self.log.debug(f"Last Event ID: {last_event_id}")

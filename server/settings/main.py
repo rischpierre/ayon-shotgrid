@@ -212,6 +212,32 @@ class FolderReparentingModel(BaseSettingsModel):
         title="Type grouping",
     )
 
+
+class PathsToAddInVersion(BaseSettingsModel):
+    sg_path_to_frame: list[str] = SettingsField(
+        title="Paths to Frame Representations",
+        # default_factory=default_path_to_frame_representations,
+        default_factory=lambda: ["exr"],
+        description=(
+            "When a version is published on Flow, the sg_path_to_frame will be set with the representation given here"
+        ),
+    )
+    sg_path_to_movie: list[str] = SettingsField(
+        title="Path to Movie Representations",
+        default_factory=lambda: ["mov*", "baking*", "dailies*"],
+        description=(
+            "When a version is published on Flow, the sg_path_to_version will be set with the representation given here"
+        ),
+    )
+
+
+class RVXSettings(BaseSettingsModel):
+    paths_versions: PathsToAddInVersion = SettingsField(
+        default_factory=PathsToAddInVersion,
+        title="Version Paths",
+    )
+
+
 class ShotgridCompatibilitySettings(BaseSettingsModel):
     """Settings to define relationships between ShotGrid and AYON."""
 
@@ -377,4 +403,8 @@ class ShotgridSettings(BaseSettingsModel):
         default_factory=ShotgridServiceSettings,
         title="Service settings",
         scope=["studio"],
+    )
+    rvx_settings: RVXSettings = SettingsField(
+        default_factory=RVXSettings,
+        title="RVX settings",
     )

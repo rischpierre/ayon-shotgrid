@@ -141,6 +141,24 @@ def create_sg_entity_from_ayon_event(
             exc_info=True
         )
 
+    if sg_type == "Version" and hasattr(ay_entity, "thumbnail_id"):
+        rvx_add_sg_thumbnail(sg_session, sg_id, ay_entity, ayon_entity_hub)
+
+
+def rvx_add_sg_thumbnail(sg_session, sg_id, ay_entity, ay_hub):
+    # import placed here to isolate rvx overrides
+    from ayon_core.pipeline.thumbnails import get_thumbnail_path
+    thumbnail = ayon_api.get_thumbnail_by_id(project_name=ay_hub.project_name, thumbnail_id=ay_entity.thumbnail_id)
+
+    if not thumbnail:
+        log.warning(f"[RVX] Unable to get thumbnail for {ay_entity['name']}")
+        return
+    path = get_thumbnail_path(ay_hub.project_name, thumbnail.id)
+    if not path:
+        log.warning(f"[RVX] Unable to get thumbnail path for {ay_entity['name']}")
+        return
+    sg_session.upload_thumbnail(entity_type="Version", entity_id=sg_id, path=path)
+
 
 def _get_sg_parent_entity(sg_session, ay_entity, ayon_event):
     """Returns SG parent for currently created ay_entity
@@ -209,8 +227,20 @@ def update_sg_entity_from_ayon_event(
         if ay_entity["entity_type"] == "task":
             sg_field_name = "content"
 
+        # Change the name of the variant asset: in SG: pedestrian_A, in AY: A
+        name = ay_entity["name"]
+        if sg_entity_type == "Asset":
+            sg_asset = sg_session.find_one(
+                "Asset",
+                filters=[["id", "is", int(sg_id)]],
+                fields=["sg_ayon_folder_type", "code"]
+            )
+            if sg_asset and sg_asset["sg_ayon_folder_type"] == "VariantAsset":
+                name = name.split("_")[-1]  # pedestrian_A -> A
+                log.debug(f"Updating AYON Asset name: {sg_asset['code']}, new name: {name}")
+
         data_to_update = {
-            sg_field_name: ay_entity["name"],
+            sg_field_name: name,
             CUST_FIELD_CODE_ID: ay_entity["id"]
         }
         # Add any possible new values to update
