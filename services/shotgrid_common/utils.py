@@ -30,7 +30,6 @@ from ayon_api.entity_hub import (
 )
 from ayon_api.utils import slugify_string
 from ayon_api import get_attributes_for_type
-from ayon_core.settings import get_project_settings
 
 import shotgun_api3
 
@@ -1921,9 +1920,14 @@ def _add_paths(ay_project_name: str, ay_entity: Dict, data_to_update: Dict):
             thumbnail_path = local_path
             continue
 
-        project_settings = get_project_settings(ay_project_name)
-        paths_to_frames_reps = project_settings["shotgrid"].get("rvx_settings", {}).get("paths_versions", {}).get("sg_path_to_frame", ["exr"])
-        paths_to_movie_reps = project_settings["shotgrid"].get("rvx_settings", {}).get("paths_versions", {}).get("sg_path_to_movie", ["mov*"])
+        sg_settings = ayon_api.get_addon_project_settings(addon_name=ayon_api.get_service_addon_name(),
+                                                          addon_version=ayon_api.get_service_addon_version(),
+                                                          variant=ayon_api.get_default_settings_variant(),
+                                                          project_name=ay_project_name)
+
+
+        paths_to_frames_reps = sg_settings.get("rvx_settings", {}).get("paths_versions", {}).get("sg_path_to_frame", ["exr"])
+        paths_to_movie_reps = sg_settings.get("rvx_settings", {}).get("paths_versions", {}).get("sg_path_to_movie", ["mov*"])
 
         path_to_frame = re.sub(r"\.\d+\.", ".%04d.", local_path)
         for pattern in paths_to_frames_reps:
