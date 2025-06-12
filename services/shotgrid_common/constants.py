@@ -143,8 +143,10 @@ SG_RESTRICTED_ATTR_FIELDS = [
 SG_EVENT_TYPES = [
     "Shotgun_{0}_New",  # a new entity was created.
     "Shotgun_{0}_Change",  # an entity was modified.
-    "Shotgun_{0}_Retirement",  # an entity was deleted.
-    "Shotgun_{0}_Revival",  # an entity was revived.
+    # RVX: We don't use these events in case someone deletes an enity by error in SG
+    # There is no revival possible in AYON
+    # "Shotgun_{0}_Retirement",  # an entity was deleted.
+    # "Shotgun_{0}_Revival",  # an entity was revived.
 ]
 
 SG_EVENT_QUERY_FIELDS = [
