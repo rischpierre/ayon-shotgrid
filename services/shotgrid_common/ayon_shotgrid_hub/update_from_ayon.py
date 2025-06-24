@@ -1,6 +1,8 @@
 """Module that handles creation, update or removal of SG entities based on AYON events.
 """
 from typing import Dict, List, Any
+import tempfile
+import os
 
 import shotgun_api3
 
@@ -141,29 +143,45 @@ def create_sg_entity_from_ayon_event(
             exc_info=True
         )
 
-    if sg_type == "Version" and hasattr(ay_entity, "thumbnail_id"):
-        rvx_add_sg_thumbnail(sg_session, sg_id, ay_entity, ayon_entity_hub)
+    if sg_type == "Version":
+        if hasattr(ay_entity, "thumbnail_id"):
+            rvx_add_sg_thumbnail(sg_session, sg_id, ay_entity, ayon_entity_hub)
+        else:
+            log.warning(
+                f"AYON Version: {ay_entity.parent.name} version: {ay_entity.version} does not have a thumbnail_id, "
+                "skipping thumbnail upload."
+            )
 
 
 def rvx_add_sg_thumbnail(sg_session, sg_id, ay_entity, ay_hub):
-    thumbnail = ayon_api.get_thumbnail_by_id(project_name=ay_hub.project_name, thumbnail_id=ay_entity.thumbnail_id)
+    log.debug(
+        f"Adding thumbnail to SG Version: {sg_id}, ay version: {ay_entity.parent.name} version: {ay_entity.version}"
+    )
+    thumbnail = ayon_api.get_version_thumbnail(project_name=ay_hub.project_name, version_id=ay_entity.id)
 
     if not thumbnail:
-        log.warning(f"[RVX] Unable to get thumbnail for {ay_entity['name']}")
+        log.warning(f"[RVX] Unable to get thumbnail for {ay_entity.parent.name} version: {ay_entity.version}")
         return
 
-    rep = ayon_api.get_representation_by_name(ay_hub.project_name, "thumbnail", ay_entity.id)
-    if not rep:
-        log.warning(f"[RVX] Unable to get thumbnail from version: {ay_entity['name']}")
+    if thumbnail.content_type not in ("image/jpeg", "image/png"):
+        log.warning(
+            f"[RVX] Thumbnail for {ay_entity.parent.name} version: {ay_entity.version} is not a JPEG, "
+            "skipping upload."
+        )
         return
 
-    path = rep.get("attrib", {}).get("path", None)
+    extension = f".{thumbnail.content_type.split('/')[-1]}"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=extension) as tmp_file:
+        tmp_file.write(thumbnail.content)
+        tmp_file_path = tmp_file.name
 
-    if not path:
-        log.warning(f"[RVX] Unable to get thumbnail path for {ay_entity['name']}")
-        return
+    try:
+        log.debug(f"[RVX] Uploading thumbnail: {tmp_file_path}")
+        sg_session.upload_thumbnail(entity_type="Version", entity_id=sg_id, path=tmp_file_path)
 
-    sg_session.upload_thumbnail(entity_type="Version", entity_id=sg_id, path=path)
+    finally:
+        if os.path.exists(tmp_file_path):
+            os.remove(tmp_file_path)
 
 
 def _get_sg_parent_entity(sg_session, ay_entity, ayon_event):
