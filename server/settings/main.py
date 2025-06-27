@@ -214,12 +214,12 @@ class FolderReparentingModel(BaseSettingsModel):
 
 
 class PathsToAddInVersion(BaseSettingsModel):
-    sg_path_to_frame: list[str] = SettingsField(
-        title="Paths to Frame Representations",
+    sg_path_to_frames: list[str] = SettingsField(
+        title="Path to Frames Representations",
         # default_factory=default_path_to_frame_representations,
         default_factory=lambda: ["exr"],
         description=(
-            "When a version is published on Flow, the sg_path_to_frame will be set with the representation given here"
+            "When a version is published on Flow, the sg_path_to_frames will be set with the representation given here"
         ),
     )
     sg_path_to_movie: list[str] = SettingsField(

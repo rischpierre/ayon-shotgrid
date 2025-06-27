@@ -161,6 +161,8 @@ class ShotgridTransmitter:
             "entity.folder.tags_changed",
             "entity.version.created",
             "entity.version.status_changed",
+            "entity.version.thumbnail_changed",
+            "entity.representation.created",
             "reviewable.created"
         ]
 

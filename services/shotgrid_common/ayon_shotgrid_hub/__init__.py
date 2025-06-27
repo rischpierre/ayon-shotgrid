@@ -3,7 +3,10 @@ that provided a valid Project name and code, will perform all the necessary
 checks and provide methods to keep an AYON and Shotgrid project in sync.
 """
 import collections
+import fnmatch
+import os
 import re
+import tempfile
 
 from constants import (
     AYON_SHOTGRID_ENTITY_TYPE_MAP,
@@ -479,10 +482,106 @@ class AyonShotgridHub:
                     self._ay_project,  # EntityHub
                     ay_version_id
                 )
+            case "entity.version.thumbnail_changed":
+                # we add the thumbnail here because in some cases the thumbnail is updated after the version is created in ayon
+                self.rvx_add_sg_thumbnail(self._sg, self._ay_project, ayon_event["summary"]["entityId"])
+            case "entity.representation.created":
+                # we add the paths also here because in some cases like ingesting, the version is created first and then updated
+                self.add_paths(self._sg, self._ay_project, ayon_event)
             case _:
-                raise ValueError(
-                    f"Unable to process event {ayon_event['topic']}."
-                )
+                raise ValueError(f"Unable to process event {ayon_event['topic']}.")
+
+    def add_paths(self, sg_session, ay_project_hub: EntityHub, ay_event):
+        self.log.debug("Adding paths to SG Version")
+        ay_version_id = ay_event["summary"]["parentId"]
+        ay_rep_id = ay_event["summary"]["entityId"]
+
+        ay_rep = ayon_api.get_representation_by_id(ay_project_hub.project_name, ay_rep_id)
+        if not ay_rep:
+            self.log.warning(f"Unable to find AYON representation with ID: {ay_rep_id}")
+            return
+
+        ay_version = ay_project_hub.get_version_by_id(ay_version_id)
+        if not ay_version:
+            self.log.warning(f"Unable to find AYON version with ID: {ay_version_id}")
+            return
+
+        self.log.debug("Adding paths to SG Version")
+        if not ay_rep:
+            self.log.warning(f"Unable to find AYON representation with ID: {ay_rep_id}")
+            return
+
+        sg_version_id = ay_version.attribs.get(SHOTGRID_ID_ATTRIB)
+        if not sg_version_id:
+            self.log.warning(
+                f"Skipping adding paths to SG Version: {sg_version_id}, "
+                f"AYON version: {ay_version.parent.name} version: {ay_version.version} "
+                "because Shotgrid ID was not found."
+            )
+            return
+
+        local_path = ay_rep["attrib"]["path"]
+        ay_rep_name = ay_rep["name"]
+
+        sg_settings = ayon_api.get_addon_project_settings(addon_name=ayon_api.get_service_addon_name(),
+                                                          addon_version=ayon_api.get_service_addon_version(),
+                                                          variant=ayon_api.get_default_settings_variant(),
+                                                          project_name=ay_project_hub.project_name)
+
+        settings = {
+            "sg_path_to_frames": sg_settings.get("rvx_settings", {}).get("paths_versions", {}).get("sg_path_to_frame", ["exr"]),
+            "sg_path_to_movie": sg_settings.get("rvx_settings", {}).get("paths_versions", {}).get("sg_path_to_movie", ["mov*"]),
+        }
+        self.log.debug(f"Settings for paths: {settings}")
+
+        data_to_update = {}
+        for field, value in settings.items():
+            for pattern in value:
+                if fnmatch.fnmatch(ay_rep_name, pattern):
+                    data_to_update.update({field: re.sub(r"\.\d+\.", ".%04d.", local_path)})
+                    break
+        if not data_to_update:
+            self.log.warning("Skip adding paths: data_to_update empty")
+            return
+
+        sg_session.update("Version", int(sg_version_id), data_to_update)
+        self.log.debug(f"Updated sg version: {sg_version_id} with data:{data_to_update}")
+
+    def rvx_add_sg_thumbnail(self, sg_session, ay_project_hub: EntityHub, ay_version_id: str):
+        ay_entity = ay_project_hub.get_version_by_id(ay_version_id)
+        sg_id = ay_entity.attribs.get(SHOTGRID_ID_ATTRIB)
+        self.log.debug(
+            f"Try adding thumbnail to SG Version: {sg_id}, ay version: {ay_entity.parent.name} version: {ay_entity.version}"
+        )
+
+        if sg_id is None:
+            self.log.warning(f"Skip upload thumbnail: sg id was not found")
+            return
+
+        thumbnail = ayon_api.get_version_thumbnail(project_name=ay_project_hub.project_name, version_id=ay_entity.id)
+
+        if not thumbnail:
+            self.log.warning(f"[RVX] Unable to get thumbnail from version")
+            return
+
+        available_types = ("image/jpeg", "image/png")
+        if thumbnail.content_type not in available_types:
+            self.log.error(f"[RVX] Thumbnail content type is not implemented, available types: {available_types}")
+            return
+
+        extension = f".{thumbnail.content_type.split('/')[-1]}"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=extension) as tmp_file:
+            tmp_file.write(thumbnail.content)
+            tmp_file_path = tmp_file.name
+
+        try:
+            sg_session.upload_thumbnail(entity_type="Version", entity_id=sg_id, path=tmp_file_path)
+            self.log.debug(f"[RVX] Success upload thumbnail: {tmp_file_path}")
+
+        finally:
+            if os.path.exists(tmp_file_path):
+                self.log.debug(f"[RVX] Removing temporary thumbnail file: {tmp_file_path}")
+                os.remove(tmp_file_path)
 
     def sync_comments(self, activities_after_date):
         project_activities = list(ayon_api.get_activities(
