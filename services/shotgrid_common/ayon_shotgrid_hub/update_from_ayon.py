@@ -143,47 +143,6 @@ def create_sg_entity_from_ayon_event(
             exc_info=True
         )
 
-    if sg_type == "Version":
-        if hasattr(ay_entity, "thumbnail_id"):
-            rvx_add_sg_thumbnail(sg_session, sg_id, ay_entity, ayon_entity_hub)
-        else:
-            log.warning(
-                f"AYON Version: {ay_entity.parent.name} version: {ay_entity.version} does not have a thumbnail_id, "
-                "skipping thumbnail upload."
-            )
-
-
-def rvx_add_sg_thumbnail(sg_session, sg_id, ay_entity, ay_hub):
-    log.debug(
-        f"Try adding thumbnail to SG Version: {sg_id}, ay version: {ay_entity.parent.name} version: {ay_entity.version}"
-    )
-    thumbnail = ayon_api.get_version_thumbnail(project_name=ay_hub.project_name, version_id=ay_entity.id)
-
-    if not thumbnail:
-        log.warning(f"[RVX] Unable to get thumbnail from version")
-        return
-
-    available_types = ("image/jpeg", "image/png")
-    if thumbnail.content_type not in available_types:
-        log.error(
-            f"[RVX] Thumbnail content type is not implemented, available types: {available_types}"
-        )
-        return
-
-    extension = f".{thumbnail.content_type.split('/')[-1]}"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=extension) as tmp_file:
-        tmp_file.write(thumbnail.content)
-        tmp_file_path = tmp_file.name
-
-    try:
-        log.debug(f"[RVX] Uploading thumbnail: {tmp_file_path}")
-        sg_session.upload_thumbnail(entity_type="Version", entity_id=sg_id, path=tmp_file_path)
-
-    finally:
-        if os.path.exists(tmp_file_path):
-            log.debug(f"[RVX] Removing temporary thumbnail file: {tmp_file_path}")
-            os.remove(tmp_file_path)
-
 
 def _get_sg_parent_entity(sg_session, ay_entity, ayon_event):
     """Returns SG parent for currently created ay_entity
