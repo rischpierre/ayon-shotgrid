@@ -1855,6 +1855,10 @@ def create_new_sg_entity(
 
         _add_paths(ay_project_name, ay_entity, data)
 
+        # RVX: add product type to sg version
+        product = ayon_api.get_product_by_id(ay_project_name, ay_entity.product_id)
+        data["sg_version_type"] = product["productType"]
+
     # Folder creation
     else:
         sg_type = ay_entity.folder_type
