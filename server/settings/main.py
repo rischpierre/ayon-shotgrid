@@ -120,7 +120,7 @@ class AttributesMappingModel(BaseSettingsModel):
     ayon: str = SettingsField(title="AYON")
     type: str = SettingsField(
         title="Field type",
-        disabled=True,
+        disabled=False,  # if set to True, when we create a new map, the type is empty and cannot be set
     )
     sg: str = SettingsField(title="SG")
     scope: list[str] = SettingsField(
