@@ -52,6 +52,42 @@ def create_sg_entity_from_ayon_event(
         ay_entity (ayon_api.entity_hub.EntityHub.Entity): The newly
             created entity.
     """
+    # entityList
+    # entity lista can be other than versions, we want to sync only list that contains versions for the sg playlists
+    if ayon_event["summary"].get("entity_list_type") and ayon_event["summary"]["entity_type"] == "version":
+        ay_id = ayon_event["summary"]["id"]
+        project_name = ayon_entity_hub.project_entity.project_name
+        # project_name = "flowpet"
+        version_count = ayon_event["summary"].get("count", 0)
+
+        # it already contains versions
+        if version_count > 0:
+            # test_folder = ayon_api.raw_get(f"api/projects/{project_name}/folders/3a8cb54a46c411f0bae7bc24113dd6cc")
+            # test_folder = ayon_api.raw_get(f"projects")
+            # query = ayon_api.raw_get(f"projects/{project_name}/lists/{ay_id}")
+            query = ayon_api.raw_get(f"projects/{project_name}/lists/{ay_id}/entities")
+            if query.status != 200:
+                print(f"Entity list {ay_id} already exists in AYON,")
+                return
+            version_ids = query.data.get("entityIds")
+            if not version_ids:
+                log.warning(
+                    f"Entity list {ay_id} does not contain any versions, "
+                    "skipping creation of SG Playlist."
+                )
+                return
+            ay_versions = ayon_api.get_versions(project_name, version_ids)
+            sg_versions = sg_session.find("Version", [["id", "in", [v["attrib"]["shotgridId"] for v in ay_versions]]])
+            # todo check if the versions are already in the playlist
+
+            # todo get the versions from the list
+
+
+        # todo does it already exist in sg ?
+        data = {"code": ayon_event["summary"]["label"], "project": sg_project}
+        sg_session.create("Playlist", data)
+        return
+
     ay_id = ayon_event["summary"]["entityId"]
     ay_entity = ayon_entity_hub.get_or_query_entity_by_id(
         ay_id, ["folder", "task", "version"])
