@@ -54,6 +54,114 @@ from utils import get_logger
 
 log = get_logger(__file__)
 
+def _get_entity_list_by_name(project_name, label):
+    query_str = f'''
+        query {{
+          project(name: "{project_name}") {{
+            entityLists {{
+              edges {{
+                node {{
+                  id
+                  label
+                }}
+              }}
+            }}
+          }}
+        }}
+    '''
+    query = ayon_api.query_graphql(query_str)
+    if query.errors:
+        print(f"Failed to get entity list")
+        return
+    entity_lists = query.data.data["data"]["project"]["entityLists"]["edges"]
+    for entity_list in entity_lists:
+        if entity_list["node"]["label"] == label:
+            print(f"Entity list found: {entity_list['node']['id']} - {entity_list['node']['label']}")
+            return entity_list["node"]
+
+def _rvx_update_ay_entity_list_from_sg(
+        sg_event_meta,
+        sg_project,
+        sg_session,
+        ayon_entity_hub
+):
+    project_name = ayon_entity_hub.project_entity.project_name
+    sg_playlist = sg_session.find_one("Playlist", [["project", "is", sg_project], ["id", "is", sg_event_meta["entity_id"]]], ["sg_ayon_id", "type", "code", "versions"])
+    if not sg_playlist:
+        print(f"Playlist with id {sg_event_meta['entity_id']} not found in Shotgun.")
+        return
+
+    entity_list = None
+    ay_entitity_list_id = sg_playlist.get("sg_ayon_id")
+    entity_newly_created = False
+    if ay_entitity_list_id:
+        query = ayon_api.raw_get(f"projects/{project_name}/lists/{ay_entitity_list_id}")
+        if query.status == 200:
+            entity_list = query.data
+        else:
+            print(f"Entity list {ay_entitity_list_id} does not exists in AYON")
+
+    # create entity list
+    if not ay_entitity_list_id or not entity_list:
+        # in AYON entity list have unique names
+        print(f"Creating entity list for ShotGrid Playlist {sg_playlist['id']} in AYON")
+        entity_list = _get_entity_list_by_name(project_name, sg_playlist["code"])
+        if entity_list:
+            print(f"Entity list {entity_list['label']} already exists in AYON, skipping creation because label should be unique.")
+            return
+
+        data = {
+            "label": sg_playlist["code"],
+            "entity_type": "version",
+            "attrib": {
+                "shotgridId": sg_playlist["id"],
+                "shotgridType": sg_playlist["type"]
+            }
+        }
+        result = ayon_api.raw_post(f"projects/{project_name}/lists", json=data)
+        if result.status != 201:
+            print(f"Failed to create entity list: {result.status} - {result.data}")
+            return
+        entity_newly_created = True
+
+        data = {"sg_ayon_id": result.data["id"], "project": sg_project}
+        sg_playlist_ = sg_session.update("Playlist", sg_playlist["id"], data)
+        if not sg_playlist_:
+            print(f"Failed to update ShotGrid Playlist with AYON entity list ID")
+            return
+
+        entity_list = result.data
+
+    # update entity list with versions
+    if len(sg_playlist["versions"]) > 0:
+        print(f"Updating entity list {ay_entitity_list_id} with versions from ShotGrid Playlist {sg_playlist['id']}")
+
+        sg_ids = [v["id"] for v in sg_playlist["versions"]]
+        sg_versions_from_sg_playlist = sg_session.find("Version", [["project", "is", sg_project], ["id", "in", sg_ids]], ["id", "sg_ayon_id"])
+        ay_ids = [str(v["sg_ayon_id"]) for v in sg_versions_from_sg_playlist if v.get("sg_ayon_id")]
+        ay_versions = ayon_api.get_versions(project_name, ay_ids)
+
+        if entity_newly_created:
+            versions_to_add = ay_versions
+        else:
+            ids_already_in_entity_list = [item["entityId"] for item in entity_list["items"]]
+            versions_to_add = []
+            for ay_version in ay_versions:
+                if ay_version["id"] not in ids_already_in_entity_list:
+                    versions_to_add.append(ay_version)
+
+        for ay_version in versions_to_add:
+            data = {
+                "entityId": ay_version["id"],
+            }
+            result = ayon_api.raw_post(f"projects/{project_name}/lists/{entity_list['id']}/items", json=data)
+
+            if result.status != 201:
+                print(f"Failed to update entity list with versions")
+            else:
+                print(f"Added version {ay_version['id']} to entity list {entity_list['id']}")
+
+        print("Entity list updated with versions from ShotGrid Playlist.")
 
 def create_ay_entity_from_sg_event(
     sg_event: Dict,
@@ -82,8 +190,11 @@ def create_ay_entity_from_sg_event(
         ay_entity (ayon_api.entity_hub.EntityHub.Entity): The newly
             created entity.
     """
-    default_task_type = addon_settings[
-        "compatibility_settings"]["default_task_type"]
+    if sg_event["entity_type"] == "Playlist":
+        _rvx_update_ay_entity_list_from_sg(sg_event, sg_project, sg_session, ayon_entity_hub)
+        return
+
+    default_task_type = addon_settings["compatibility_settings"]["default_task_type"]
     sg_parent_field = get_sg_entity_parent_field(
         sg_session,
         sg_project,
@@ -361,6 +472,10 @@ def update_ayon_entity_from_sg_event(
         ay_entity (ayon_api.entity_hub.EntityHub.Entity): The modified entity.
 
     """
+    if sg_event["entity_type"] == "Playlist":
+        _rvx_update_ay_entity_list_from_sg(sg_event, sg_project, sg_session, ayon_entity_hub)
+        return
+
     default_task_type = addon_settings[
         "compatibility_settings"]["default_task_type"]
 
