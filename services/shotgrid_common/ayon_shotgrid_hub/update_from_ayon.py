@@ -26,8 +26,21 @@ from utils import get_logger
 
 log = get_logger(__file__)
 
-def _rvx_update_sg_playlist(ayon_event, sg_session, sg_project, ayon_entity_hub):
+def _rvx_update_sg_playlist(
+    ayon_event: Dict[str, Any],
+    sg_session: shotgun_api3.Shotgun,
+    sg_project: Dict[str, Any],
+    ayon_entity_hub: ayon_api.entity_hub.EntityHub,
+) -> None:
+    """
+    Syncs an AYON entity list of type 'version' with a ShotGrid Playlist.
 
+    Args:
+        ayon_event (Dict[str, Any]): The AYON event containing summary and entity list info.
+        sg_session (shotgun_api3.Shotgun): The ShotGrid API session.
+        sg_project (Dict[str, Any]): The ShotGrid project dictionary.
+        ayon_entity_hub (ayon_api.entity_hub.EntityHub): The AYON EntityHub instance.
+    """
     ay_entitity_list_id = ayon_event["summary"]["id"]
     project_name = ayon_entity_hub.project_entity.project_name
 
@@ -51,7 +64,8 @@ def _rvx_update_sg_playlist(ayon_event, sg_session, sg_project, ayon_entity_hub)
     # not found in sg, create it
     if not shotgrid_id or not sg_playlist:
         log.debug(
-            f"Entity list {ay_entitity_list_id} does not have a ShotGrid ID or the shotgrid playlist is not in shotgrid anymore, creating it in ShotGrid"
+            f"Entity list {ay_entitity_list_id} does not have a ShotGrid ID "
+            f"or the shotgrid playlist is not in shotgrid anymore, creating it in ShotGrid"
         )
         data = {
             "code": entity_list["label"],
@@ -277,6 +291,10 @@ def update_sg_entity_from_ayon_event(
         sg_entity (dict): The modified Shotgrid entity.
 
     """
+    if ayon_event["summary"].get("entity_list_type") and ayon_event["summary"]["entity_type"] == "version":
+        _rvx_update_sg_playlist(ayon_event, sg_session, sg_project, ayon_entity_hub)
+        return
+
     ay_id = ayon_event["summary"]["entityId"]
     ay_entity = ayon_entity_hub.get_or_query_entity_by_id(
         ay_id, ["folder", "task"])
