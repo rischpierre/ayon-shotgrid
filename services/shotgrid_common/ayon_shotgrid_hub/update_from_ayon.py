@@ -292,6 +292,7 @@ def update_sg_entity_from_ayon_event(
 
     """
     if ayon_event["summary"].get("entity_list_type") and ayon_event["summary"]["entity_type"] == "version":
+        sg_project = sg_session.find_one("Project", [["name", "is", ayon_entity_hub.project_entity.project_name]])
         _rvx_update_sg_playlist(ayon_event, sg_session, sg_project, ayon_entity_hub)
         return
 
