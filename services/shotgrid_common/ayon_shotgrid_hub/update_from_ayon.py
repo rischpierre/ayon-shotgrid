@@ -58,7 +58,7 @@ def _rvx_update_sg_playlist(
         sg_playlist = sg_session.find_one(
             "Playlist",
             [["project", "is", sg_project], ["id", "is", int(shotgrid_id)]],
-            ["versions", "project"],
+            ["versions", "project", "code"],
         )
 
     # not found in sg, create it
@@ -72,7 +72,7 @@ def _rvx_update_sg_playlist(
             "project": sg_project,
             "sg_ayon_id": ay_entitity_list_id,
         }
-        sg_playlist = sg_session.create("Playlist", data, return_fields=["versions"])
+        sg_playlist = sg_session.create("Playlist", data, return_fields=["versions", "code"])
         log.debug(f"Created Playlist in ShotGrid: {sg_playlist['id']}")
 
         data = {"attrib": {"shotgridId": str(sg_playlist["id"]), "shotgridType": "Playlist"}}
@@ -117,6 +117,16 @@ def _rvx_update_sg_playlist(
             log.debug(f"Playlist {sg_playlist['id']} already contains all versions, nothing to update")
     else:
         log.debug(f"Entity list {ay_entitity_list_id} has no versions, nothing to update in ShotGrid Playlist")
+
+    # if the entity list name changed, update the ShotGrid Playlist code
+    if sg_playlist and ayon_event["topic"] == "entity_list.changed" and ayon_event["summary"]["label"] != sg_playlist["code"]:
+        log.debug(f"Entity list {ay_entitity_list_id} name changed, updating ShotGrid Playlist code")
+        sg_session.update(
+            "Playlist",
+            sg_playlist["id"],
+            {"code": entity_list["label"], "project": sg_project},
+        )
+        log.debug(f"Updated ShotGrid Playlist {sg_playlist['id']} with new code: {entity_list['label']}")
 
 
 def create_sg_entity_from_ayon_event(
