@@ -60,6 +60,9 @@ def _rvx_update_sg_playlist(
             [["project", "is", sg_project], ["id", "is", int(shotgrid_id)]],
             ["versions", "project", "code"],
         )
+        if not sg_playlist:
+            log.error(f"ShotGrid Playlist with ID {shotgrid_id} not found in ShotGrid, creating it")
+            return
 
     # not found in sg, create it
     if not shotgrid_id or not sg_playlist:
@@ -83,43 +86,32 @@ def _rvx_update_sg_playlist(
 
         log.debug(f"Updated AYON entity list {ay_entitity_list_id} with ShotGrid ID: {sg_playlist['id']}")
 
-    version_count = len(entity_list["items"])
-
-    # already contains versions, update the versions in SG Playlist
-    if version_count > 0:
+    # update versions in the ShotGrid Playlist
+    version_count_ay = len(entity_list["items"])
+    version_count_sg = len(sg_playlist["versions"])
+    if version_count_ay != version_count_sg:
         log.debug(
-            f"Entity list {ay_entitity_list_id} has {version_count} versions, checking for updating the ShotGrid Playlist"
+            f"Entity list {entity_list['label']} has a different number of versions than the ShotGrid Playlist, Updating it"
         )
-        version_ids = [x["entityId"] for x in entity_list["items"]]
-
-        ay_versions = ayon_api.get_versions(project_name, version_ids)
-        sg_ids = [int(v["attrib"].get("shotgridId")) for v in list(ay_versions) if v["attrib"].get("shotgridId")]
-        sg_versions = sg_session.find("Version", [["project", "is", sg_project], ["id", "in", sg_ids]])
-
-        # find the versions that are not in SG and create them
-        to_update = False
-        versions_to_add = copy.copy(sg_versions)
-        version_ids_in_playlist = [v["id"] for v in sg_playlist["versions"]]
-        for sg_version in sg_versions:
-            if sg_version["id"] not in version_ids_in_playlist:
-                to_update = True
-                if sg_version not in versions_to_add:
-                    versions_to_add.append(sg_version)
-
-        if to_update:
-            log.debug(f"Updating Playlist {sg_playlist['id']} with {len(versions_to_add)} versions")
-            sg_session.update(
-                "Playlist",
-                sg_playlist["id"],
-                {"versions": sg_versions, "project": sg_project},
-            )
+        version_ids_ay = [x["entityId"] for x in entity_list["items"]]
+        ay_versions = ayon_api.get_versions(project_name, version_ids_ay)
+        matching_versions_sg_ids = [int(v["attrib"].get("shotgridId")) for v in list(ay_versions) if v["attrib"].get("shotgridId")]
+        if not matching_versions_sg_ids:
+            sg_versions = []
         else:
-            log.debug(f"Playlist {sg_playlist['id']} already contains all versions, nothing to update")
+            sg_versions = sg_session.find("Version", [["project", "is", sg_project], ["id", "in", matching_versions_sg_ids]])
+
+        log.debug(f"Updating Playlist {sg_playlist['id']} with {len(sg_versions)} versions")
+        sg_session.update(
+            "Playlist",
+            sg_playlist["id"],
+            {"versions": sg_versions, "project": sg_project},
+        )
     else:
-        log.debug(f"Entity list {ay_entitity_list_id} has no versions, nothing to update in ShotGrid Playlist")
+        log.debug(f"Sg Playlist versions count matches AYON entity list, no update needed")
 
     # if the entity list name changed, update the ShotGrid Playlist code
-    if sg_playlist and ayon_event["topic"] == "entity_list.changed" and ayon_event["summary"]["label"] != sg_playlist["code"]:
+    if ayon_event["topic"] == "entity_list.changed" and ayon_event["summary"]["label"] != sg_playlist["code"]:
         log.debug(f"Entity list {ay_entitity_list_id} name changed, updating ShotGrid Playlist code")
         sg_session.update(
             "Playlist",
