@@ -174,6 +174,26 @@ def _rvx_update_ay_entity_list_from_sg(
             else:
                 log.debug(f"Added version {ay_version['id']} to entity list {entity_list['id']}")
 
+    # udpate entity list label
+    if sg_event_meta["type"] == "attribute_change" and sg_event_meta["attribute_name"] == "code":
+        log.debug(f"Updating entity list label from ShotGrid Playlist {sg_playlist['code']}")
+        new_label = sg_event_meta["new_value"]
+        # I need to check if the entity list name is not already used
+        existing_entity_list = _get_entity_list_by_name(project_name, new_label)
+        if existing_entity_list:
+            log.error(
+                f"Entity list {entity_list['label']} already exists in AYON, "
+                f"skipping label update because labels should be unique."
+            )
+            return
+
+        result = ayon_api.raw_patch(f"projects/{project_name}/lists/{entity_list['id']}", json={"label": new_label})
+
+        if result.status != 204:
+            log.error(f"Failed to update entity list with new label")
+        else:
+            log.debug(f"Updated entity list {entity_list['label']} with new label: {new_label}")
+
         log.debug("Entity list updated with versions from ShotGrid Playlist.")
 
 def create_ay_entity_from_sg_event(
