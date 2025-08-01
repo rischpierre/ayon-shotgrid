@@ -80,6 +80,30 @@ def _get_entity_list_by_name(project_name, label):
             log.debug(f"Entity list found: {entity_list['node']['id']} - {entity_list['node']['label']}")
             return entity_list["node"]
 
+def _get_entity_list_item_from_entity_id(project_name, entity_list_id, entity_id):
+    query_str = f'''
+        query {{
+          project(name: "{project_name}") {{
+            entityList(id: "{entity_list_id}") {{
+              items {{
+                edges {{
+                  id
+                  entityId
+                }}
+              }}
+            }}
+          }}
+        }}
+    '''
+    query = ayon_api.query_graphql(query_str)
+    if query.errors:
+        print(f"Failed to get entity list")
+        return
+    nodes = query.data.data["data"]["project"]["entityList"]["items"]["edges"]
+    for node in nodes:
+        if node["entityId"] == entity_id:
+            return node["id"]
+
 def _rvx_update_ay_entity_list_from_sg(
         sg_event_meta: dict,
         sg_project: dict,
@@ -135,7 +159,6 @@ def _rvx_update_ay_entity_list_from_sg(
         if result.status != 201:
             log.error(f"Failed to create entity list: {result.status} - {result.data}")
             return
-        entity_newly_created = True
 
         data = {"sg_ayon_id": result.data["id"], "project": sg_project}
         sg_playlist_ = sg_session.update("Playlist", sg_playlist["id"], data)
@@ -145,36 +168,44 @@ def _rvx_update_ay_entity_list_from_sg(
 
         entity_list = result.data
 
-    # update entity list with versions
-    if len(sg_playlist["versions"]) > 0:
-        log.debug(f"Updating entity list {ay_entitity_list_id} with versions from ShotGrid Playlist {sg_playlist['id']}")
+    # update containing versions
+    if sg_event_meta["attribute_name"] == "versions" and sg_event_meta["type"] == "attribute_change":
+        log.debug(f"updating versions in entity list {entity_list['id']} from ShotGrid Playlist {sg_playlist['code']}")
 
-        sg_ids = [v["id"] for v in sg_playlist["versions"]]
-        sg_versions_from_sg_playlist = sg_session.find("Version", [["project", "is", sg_project], ["id", "in", sg_ids]], ["id", "sg_ayon_id"])
-        ay_ids = [str(v["sg_ayon_id"]) for v in sg_versions_from_sg_playlist if v.get("sg_ayon_id")]
-        ay_versions = ayon_api.get_versions(project_name, ay_ids)
+        for added_version in sg_event_meta["added"]:
+            log.debug(f"Adding version {added_version['id']} to entity list {entity_list['id']}")
+            sg_version = sg_session.find_one("Version", [["project", "is", sg_project], ["id", "is", added_version["id"]]], ["sg_ayon_id"])
 
-        if entity_newly_created:
-            versions_to_add = ay_versions
-        else:
-            ids_already_in_entity_list = [item["entityId"] for item in entity_list["items"]]
-            versions_to_add = []
-            for ay_version in ay_versions:
-                if ay_version["id"] not in ids_already_in_entity_list:
-                    versions_to_add.append(ay_version)
+            if not sg_version.get("sg_ayon_id"):
+                log.error(f"Version {added_version['id']} does not have a corresponding AYON ID, skipping")
+                return
 
-        for ay_version in versions_to_add:
-            data = {
-                "entityId": ay_version["id"],
-            }
+            data = {"entityId": str(sg_version["sg_ayon_id"])}
+
+            # add version to entity list
             result = ayon_api.raw_post(f"projects/{project_name}/lists/{entity_list['id']}/items", json=data)
-
             if result.status != 201:
-                log.debug(f"Failed to update entity list with versions")
+                log.debug(f"Failed to update entity list with version: {added_version['id']}")
             else:
-                log.debug(f"Added version {ay_version['id']} to entity list {entity_list['id']}")
+                log.debug(f"Added version {added_version['id']} to entity list {entity_list['id']}")
 
-    # udpate entity list label
+        for removed_version in sg_event_meta["removed"]:
+            log.debug(f"Removing version {removed_version['id']} from entity list {entity_list['id']}")
+            sg_version = sg_session.find_one("Version", [["project", "is", sg_project], ["id", "is", removed_version["id"]]], ["sg_ayon_id"])
+
+            if not sg_version.get("sg_ayon_id"):
+                log.error(f"Version {removed_version['id']} does not have a corresponding AYON ID, skipping")
+                return
+
+            # remove version from entity list
+            list_item_id = _get_entity_list_item_from_entity_id(project_name, entity_list["id"], sg_version['sg_ayon_id'])
+            result = ayon_api.raw_delete(f"projects/{project_name}/lists/{entity_list['id']}/items/{list_item_id}")
+            if result.status != 204:
+                log.debug(f"Failed to remove version {removed_version['id']} from entity list {entity_list['id']}")
+            else:
+                log.debug(f"Removed version {removed_version['id']} from entity list {entity_list['id']}")
+
+    # update entity list label
     if sg_event_meta["type"] == "attribute_change" and sg_event_meta["attribute_name"] == "code":
         log.debug(f"Updating entity list label from ShotGrid Playlist {sg_playlist['code']}")
         new_label = sg_event_meta["new_value"]
