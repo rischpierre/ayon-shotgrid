@@ -417,7 +417,9 @@ class AyonShotgridHub:
             case (
                 "entity.task.created" |
                 "entity.folder.created" |
-                "entity.version.created"
+                "entity.version.created" |
+                "entity_list.created"
+
             ):
                 create_sg_entity_from_ayon_event(
                     ayon_event,
@@ -465,6 +467,7 @@ class AyonShotgridHub:
                 | "entity.task.tags_changed"
                 | "entity.folder.tags_changed"
                 | "entity.task.assignees_changed"
+                | "entity_list.changed"
             ):
                 # TODO: for some reason the payload here is not a dict but we know
                 # we always want to update the entity
