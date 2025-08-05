@@ -169,7 +169,7 @@ def _rvx_update_ay_entity_list_from_sg(
         entity_list = result.data
 
     # update containing versions
-    if sg_event_meta["attribute_name"] == "versions" and sg_event_meta["type"] == "attribute_change":
+    if sg_event_meta["type"] == "attribute_change" and sg_event_meta["attribute_name"] == "versions":
         log.debug(f"updating versions in entity list {entity_list['id']} from ShotGrid Playlist {sg_playlist['code']}")
 
         for added_version in sg_event_meta["added"]:
