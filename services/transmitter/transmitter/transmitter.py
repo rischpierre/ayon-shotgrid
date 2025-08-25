@@ -77,6 +77,11 @@ class ShotgridTransmitter:
                     "the Addon System settings."
                 )
 
+            # SSL validation
+            if self.settings.get("shotgrid_no_ssl_validation", False):
+                shotgun_api3.NO_SSL_VALIDATION = True
+                self.log.info("SSL validation is disabled.")
+
             # Compatibility settings
             custom_attribs_map = self.settings["compatibility_settings"][
                 "custom_attribs_map"]
@@ -150,17 +155,20 @@ class ShotgridTransmitter:
             "entity.task.create",
             "entity.task.assignees_changed",
             "entity.task.attrib_changed",
+            "entity.task.label_changed",
             "entity.task.status_changed",
             "entity.task.tags_changed",
             "entity.folder.created",
             "entity.folder.deleted",
             "entity.folder.renamed",
             "entity.folder.attrib_changed",
+            "entity.folder.label_changed",
             "entity.folder.status_changed",
             "entity.folder.tags_changed",
             "entity.version.created",
             "entity.version.status_changed",
-            "reviewable.created"
+            "reviewable.created",
+            "flow.version.mediapath"
         ]
 
         last_comments_sync = datetime.min.replace(tzinfo=timezone.utc)
@@ -259,7 +267,12 @@ class ShotgridTransmitter:
                 custom_attribs_types=self.custom_attribs_types,
                 sg_enabled_entities=self.sg_enabled_entities,
             )
-            self._cached_hubs[project_name] = hub
+
+            # Do not cache the hub object
+            # if the SG project does not exist (yet?).
+            # This is to force refresh on next event.
+            if hub.sg_project is not None:
+                self._cached_hubs[project_name] = hub
 
         return hub
 
@@ -309,7 +322,7 @@ class ShotgridTransmitter:
             success = True
         except Exception:
             success = False
-            self._log.warning("Failed to sync comments.", exc_info=True)
+            self.log.warning("Failed to sync comments.", exc_info=True)
 
         finally:
             ayon_api.update_event(
