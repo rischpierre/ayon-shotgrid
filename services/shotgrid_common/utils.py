@@ -2194,6 +2194,33 @@ def create_new_sg_entity(
         default_task_type,
         custom_attribs_map=custom_attribs_map
     )
+def update_movie_paths(
+    sg_session: shotgun_api3.Shotgun,
+    ayon_entity_hub: ayon_api.entity_hub.EntityHub,
+    summary: dict
+):
+    """Uses prepare sg_* field to store sg_path_to_* to particular Version"""
+    ay_version_id = summary.pop("versionId")
+    log.info(f"Updating paths '{ay_version_id}'")
+
+    ay_version_entity = ayon_entity_hub.get_version_by_id(ay_version_id)
+    if not ay_version_entity:
+        raise ValueError(
+            "Event has a non existent version entity "
+            f"'{ay_version_id}'"
+        )
+
+    sg_version_id = ay_version_entity.attribs.get(SHOTGRID_ID_ATTRIB)
+    sg_version_type = ay_version_entity.attribs.get(SHOTGRID_TYPE_ATTRIB)
+
+    if not sg_version_id:
+        raise ValueError(f"Version '{ay_version_id} not yet synched to SG.")
+
+    sg_session.update(
+        sg_version_type,
+        sg_version_id,
+        summary
+    )
 
 def _add_paths(ay_project_name: str, ay_entity: Dict, data_to_update: Dict):
     """Adds local path to review file to `sg_path_to_*` as metadata.

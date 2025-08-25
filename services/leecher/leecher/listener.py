@@ -283,7 +283,9 @@ class ShotgridListener:
             # - project has to exists in Flow instance and AYON server
             # - sg_project in Flow must define sg_ayon_auto_sync field
             sg_projects = self.sg_session.find(
-                "Project", filters=[["sg_ayon_auto_sync", "is", True], ["sg_ayon_server_url", "is", ayon_api.get_base_url()]]
+               "Project",
+                filters=[["sg_ayon_auto_sync", "is", True], ["sg_ayon_server_url", "is", ayon_api.get_base_url()]],
+                fields=["code"]
             )
             ayon_sg_ids = self._get_syncing_projects()  # project set in AYON server
             sg_projects = [proj for proj in sg_projects if str(proj["id"]) in ayon_sg_ids]
