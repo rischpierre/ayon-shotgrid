@@ -2,11 +2,13 @@
 that provided a valid Project name and code, will perform all the necessary
 checks and provide methods to keep an AYON and Shotgrid project in sync.
 """
+import os
 import collections
 import fnmatch
-import os
 import re
 import tempfile
+
+from shotgun_api3.lib import mockgun
 
 from constants import (
     AYON_SHOTGRID_ENTITY_TYPE_MAP,
@@ -36,15 +38,16 @@ from utils import (
     create_ay_fields_in_sg_project,
     create_ay_fields_in_sg_entities,
     create_sg_entities_in_ay,
-    get_sg_project_enabled_entities,
     get_sg_project_by_name,
     get_sg_user_id,
-    upload_ay_reviewable_to_sg
+    upload_ay_reviewable_to_sg,
+    update_movie_paths,
 )
 
 import ayon_api
 from ayon_api.entity_hub import EntityHub
 
+import validate
 from utils import get_logger
 
 
@@ -91,8 +94,17 @@ class AyonShotgridHub:
     ):
         try:
             self.settings = ayon_api.get_service_addon_settings(project_name)
+
         except ayon_api.exceptions.HTTPRequestError:
             self.log.warning(f"Project {project_name} does not exist in AYON.")
+            self.settings = ayon_api.get_service_addon_settings()
+
+        except ValueError:
+            # automated tests (service not initialized)
+            if isinstance(sg_connection, mockgun.Shotgun):
+                self.settings = {}
+            else:
+                raise
 
         self._sg = sg_connection
 
@@ -129,6 +141,14 @@ class AyonShotgridHub:
             self.custom_attribs_map,
             self.custom_attribs_types
         )
+
+    @property
+    def sg_project(self):
+        return self._sg_project
+
+    @property
+    def entity_hub(self):
+        return self._ay_project
 
     @property
     def project_name(self):
@@ -236,35 +256,15 @@ class AyonShotgridHub:
 
         match source:
             case "ayon":
-                disabled_entities = []
-                ay_entities = [
-                    folder["name"]
-                    for folder in self._ay_project.project_entity.folder_types
-                    if folder["name"] in self.sg_enabled_entities
-                ]
 
-                sg_entities = [
-                    entity_name
-                    for entity_name, _ in get_sg_project_enabled_entities(
-                        self._sg,
-                        self._sg_project,
-                        self.sg_enabled_entities
-                    )
-                ]
-
-                disabled_entities = [
-                    ay_entity
-                    for ay_entity in ay_entities
-                    if ay_entity not in sg_entities
-                ]
-
-                if disabled_entities:
-                    raise ValueError(
-                        f"Unable to sync project {self.project_name} "
-                        f"<{self.project_code}> from AYON to Shotgrid, you need "
-                        "to enable the following entities in the Shotgrid Project "
-                        f"> Project Actions > Tracking Settings: {disabled_entities}"
-                    )
+                error = validate.check_project_disabled_entities(
+                    self._ay_project,
+                    self._sg_project,
+                    self.sg_enabled_entities,
+                    self._sg,
+                )
+                if error:
+                    raise ValueError(error)
 
                 match_ayon_hierarchy_in_shotgrid(
                     self._ay_project,
@@ -359,12 +359,6 @@ class AyonShotgridHub:
                     f"| {sg_event_meta['entity_type']} "
                     f"| {sg_event_meta['entity_id']}"
                 )
-                if sg_event_meta["entity_type"] == "Version":
-                    attr_name = sg_event_meta["attribute_name"]
-                    self.log.info(
-                        f"Skipping attribute change '{attr_name}' for Version"
-                    )
-                    return
                 update_ayon_entity_from_sg_event(
                     sg_event_meta,
                     self._sg_project,
@@ -407,9 +401,9 @@ class AyonShotgridHub:
             ayon_event (dict): A dictionary describing what
                 the change encompases, i.e. a new shot, new asset, etc.
         """
-        if not self._sg_project[CUST_FIELD_CODE_AUTO_SYNC]:
+        if not self._sg_project:
             self.log.info(
-                "Ignoring event, Shotgrid field 'Ayon Auto Sync' is disabled."
+                "Ignoring event, Shotgrid project does not exist."
             )
             return
 
@@ -438,11 +432,19 @@ class AyonShotgridHub:
                     self._sg,
                 )
 
-            case "entity.task.renamed" | "entity.folder.renamed":
+            case (
+                "entity.task.renamed"
+                | "entity.folder.renamed"
+                | "entity.folder.label_changed"
+                | "entity.task.label_changed"
+            ):
                 update_sg_entity_from_ayon_event(
                     ayon_event,
                     self._sg,
                     self._ay_project,
+                    self._sg_project,
+                    self.sg_enabled_entities,
+                    self.sg_project_code_field,
                     self.custom_attribs_map,
                     self.settings
                 )
@@ -458,6 +460,9 @@ class AyonShotgridHub:
                     ayon_event,
                     self._sg,
                     self._ay_project,
+                    self._sg_project,
+                    self.sg_enabled_entities,
+                    self.sg_project_code_field,
                     self.custom_attribs_map,
                     self.settings,
                 )
@@ -467,6 +472,7 @@ class AyonShotgridHub:
                 | "entity.task.tags_changed"
                 | "entity.folder.tags_changed"
                 | "entity.task.assignees_changed"
+                | "entity.version.status_changed"
                 | "entity_list.changed"
             ):
                 # TODO: for some reason the payload here is not a dict but we know
@@ -475,6 +481,9 @@ class AyonShotgridHub:
                     ayon_event,
                     self._sg,
                     self._ay_project,
+                    self._sg_project,
+                    self.sg_enabled_entities,
+                    self.sg_project_code_field,
                     self.custom_attribs_map,
                     self.settings,
                 )
@@ -485,6 +494,12 @@ class AyonShotgridHub:
                     self._ay_project,  # EntityHub
                     ay_version_id
                 )
+            case ("flow.version.mediapath"):
+                update_movie_paths(
+                    self._sg,
+                    self._ay_project,  # EntityHub
+                    ayon_event["summary"]
+                )
             case "entity.version.thumbnail_changed":
                 # we add the thumbnail here because in some cases the thumbnail is updated after the version is created in ayon
                 self.rvx_add_sg_thumbnail(self._sg, self._ay_project, ayon_event["summary"]["entityId"])
@@ -492,7 +507,9 @@ class AyonShotgridHub:
                 # we add the paths also here because in some cases like ingesting, the version is created first and then updated
                 self.add_paths(self._sg, self._ay_project, ayon_event)
             case _:
-                raise ValueError(f"Unable to process event {ayon_event['topic']}.")
+                raise ValueError(
+                    f"Unable to process event {ayon_event['topic']} (unsupported event)."
+                )
 
     def add_paths(self, sg_session, ay_project_hub: EntityHub, ay_event):
         self.log.debug("Adding paths to SG Version")
@@ -607,9 +624,10 @@ class AyonShotgridHub:
                 sg_note = self._sg.find_one(
                     "Note",
                     [["id", "is", int(orig_sg_id)]],
-                    ["id", "content", "sg_ayon_id"]
+                    ["id", "content", "sg_ayon_id", "attachments"]
                 )
 
+            activity_attachments = activity_data.get("files", [])
             if sg_note is None:
                 entity_id = activity["entityId"]
                 entity_dict = entity_dicts_by_id.get(entity_id)
@@ -619,21 +637,34 @@ class AyonShotgridHub:
                     sg_user_id_by_user_name, ayon_username)
 
                 if sg_user_id < 0:
-                    self.log.warning(
-                        f"Author {ayon_username} is not "
-                        "synchronized to SG, skipping comment"
+                    self.log.debug(
+                        f"Author {ayon_username} is not synchronized "
+                        "to SG, comment will be left unassigned."
                     )
-                    continue
+                    sg_user_id = None
 
                 self._create_sg_note(
                     self.project_name,
                     entity_dict,
                     activity,
-                    sg_user_id,
-                    sg_user_id_by_user_name
+                    sg_user_id_by_user_name,
+                    author_sg_id=sg_user_id,
                 )
             else:
                 sg_update_data = {}
+                activity_atchmt_names = []
+                for atchmt in activity_attachments:
+                    filename = atchmt["filename"]
+                    # handles filenames containing slashes which is happening when using the powerpack annotations in AYON
+                    if "/" in filename:
+                        filename = filename.split("/")[-1]
+                    activity_atchmt_names.append(filename)
+
+                for sg_atchmt in sg_note["attachments"]:
+                    if sg_atchmt["name"] not in activity_atchmt_names:
+                        self._sg.delete("Attachment", sg_atchmt["id"])
+                        self.log.info(f"Deleted attachment {sg_atchmt['name']} from SG.")
+
                 if sg_note["content"] != activity["body"]:
                     sg_update_data["content"] = activity["body"]
 
@@ -697,8 +728,8 @@ class AyonShotgridHub:
         project_name,
         entity_dict,
         activity,
-        author_sg_id,
-        sg_user_id_by_user_name
+        sg_user_id_by_user_name,
+        author_sg_id=None,
     ):
         """Create a new note in ShotGrid (SG) and update the activity data.
 
@@ -712,9 +743,9 @@ class AyonShotgridHub:
                 entity (folder, task, version) to which the note is linked.
             activity (dict): Activity data containing details about the comment,
                 including the author, content, and activity ID.
-            author_sg_id (int): The SG user ID of the author of the comment.
             sg_user_id_by_user_name (dict): A mapping of AYON usernames to
                 their corresponding SG user IDs.
+            author_sg_id (int): (Optional) The SG user ID of the author of the comment.
         """
         if not self._sg_project:
             self.log.warning(
@@ -731,9 +762,11 @@ class AyonShotgridHub:
             "note_links": note_links,
             "subject": content[:50],
             "content": content,
-            "user": {"type": "HumanUser", "id": author_sg_id},
             "addressings_to": addressings_to
         }
+
+        if author_sg_id:
+            data["user"] = {"type": "HumanUser", "id": author_sg_id}
 
         # Create the note
         result = self._sg.create("Note", data)
@@ -747,6 +780,21 @@ class AyonShotgridHub:
             activity["activityId"],
             data=activity_data,
         )
+
+        # download attachments temporarily to upload to SG
+        tmp_dir = tempfile.mkdtemp()
+        for atchmt in activity_data["files"]:
+            self.log.debug(f"{atchmt = }")
+            tmp_file = os.path.join(tmp_dir, atchmt["filename"])
+            ayon_api.download_file(
+                endpoint=f"projects/{project_name}/files/{atchmt['id']}",
+                filepath=tmp_file,
+            )
+            self.log.debug(f"Downloaded AYON attachment {atchmt['filename']} to {tmp_file}.")
+            self._sg.upload("Note", note_id, tmp_file)
+            self.log.info(f"Uploaded AYON attachment {atchmt['filename']} to SG.")
+            os.remove(tmp_file)
+
 
     def _get_addressings_to(self, content, sg_user_id_by_user_name):
         """ Extract and generate the list of ShotGrid (SG) `addressings_to`

@@ -22,10 +22,13 @@ from utils import (
 from constants import (
     SG_EVENT_TYPES,
     SG_EVENT_QUERY_FIELDS,
+    SHOTGRID_ID_ATTRIB,
 )
 
 import ayon_api
 import shotgun_api3
+
+import validate
 
 # TODO: remove hash in future since it is only used as backward compatibility
 LAST_EVENT_QUERY = """query LastShotgridEvent($eventTopic: String!) {
@@ -113,7 +116,13 @@ class ShotgridListener:
                 "Unable to get Addon settings from the server.")
             raise e
 
+        # SSL validation
+        if self.settings.get("shotgrid_no_ssl_validation", False):
+            shotgun_api3.NO_SSL_VALIDATION = True
+            self.log.info("SSL validation is disabled.")
+
         try:
+            validate.validate_sg_url(self.sg_url)
             self.sg_session = shotgun_api3.Shotgun(
                 self.sg_url,
                 script_name=self.sg_script_name,
@@ -124,6 +133,11 @@ class ShotgridListener:
         except Exception as e:
             self.log.error("Unable to connect to Shotgrid Instance:")
             raise e
+
+        self.sg_current_api_user = self.sg_session.find_one(
+            "ApiUser",
+            [["firstname", "is", self.sg_script_name]]
+        )
 
         signal.signal(signal.SIGINT, self._signal_teardown_handler)
         signal.signal(signal.SIGTERM, self._signal_teardown_handler)
@@ -225,9 +239,27 @@ class ShotgridListener:
                 fields=["id", "project"],
                 order=[{"column": "id", "direction": "desc"}],
             )
-            last_event_id = last_event["id"]
+            if last_event:
+                last_event_id = last_event["id"]
 
         return last_event_id
+
+
+    @staticmethod
+    def _get_syncing_projects():
+        """Get shotgrid project IDs defined from current AYON projects.
+        """
+        all_ay_projects = ayon_api.get_projects()
+        syncing_sg_ids = []
+
+        for ay_project in all_ay_projects:
+            syncing_id = ay_project["attrib"].get(SHOTGRID_ID_ATTRIB)
+            if not syncing_id:
+                continue
+            syncing_sg_ids.append(syncing_id)
+
+        return syncing_sg_ids
+
 
     def start_listening(self):
         """Main loop querying the Shotgrid database for new events
@@ -246,11 +278,16 @@ class ShotgridListener:
             # RVX: each flow project can be linked to a different AYON server
             # so we can run the production services and test services at the same time
             # they will not interfere with each other
+
+            # Ensure we only fetch the event from the syncing projects.
+            # - project has to exists in Flow instance and AYON server
+            # - sg_project in Flow must define sg_ayon_auto_sync field
             sg_projects = self.sg_session.find(
-                "Project",
-                filters=[["sg_ayon_auto_sync", "is", True], ["sg_ayon_server_url", "is", ayon_api.get_base_url()]],
-                fields=["code"]
+                "Project", filters=[["sg_ayon_auto_sync", "is", True], ["sg_ayon_server_url", "is", ayon_api.get_base_url()]]
             )
+            ayon_sg_ids = self._get_syncing_projects()  # project set in AYON server
+            sg_projects = [proj for proj in sg_projects if str(proj["id"]) in ayon_sg_ids]
+
             for p in sg_projects:
                 self.log.debug(f"Listening project: {p['code']}")
 
@@ -340,19 +377,23 @@ class ShotgridListener:
                 self.log.error(traceback.format_exc())
 
     def _is_api_user_event(self, event: dict[str, Any]) -> bool:
-        """Check if the event was caused by an API user.
+        """Check if the event was caused by our API user.
 
         Args:
             event (dict): The Shotgrid Event data.
 
         Returns:
-            bool: True if the event was caused by an API user.
+            bool: True if the event was caused by our API user.
         """
-        # TODO: we have to create specific api user filtering
+        # Ignore events that are coming from ourselves.
+        # Other ApiUser generated events are OK.
         if (
-            event.get("meta", {}).get("sudo_actual_user", {}).get("type")
-            == "ApiUser"
+            event.get("user", {}).get("type") == "ApiUser"
+            and event.get("user", {}).get("id") == self.sg_current_api_user["id"]
         ):
+            self.log.debug(
+                "Ignore event from the AYON<->SG service ApiUser. "
+            )
             return True
 
     def send_shotgrid_event_to_ayon(

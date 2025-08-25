@@ -130,6 +130,7 @@ SG_COMMON_ENTITY_FIELDS = [
     "content",
     "entity",
     "step",
+    "step.Step.code",
     "task_assignees",
     CUST_FIELD_CODE_ID,
     CUST_FIELD_CODE_SYNC,
@@ -170,3 +171,11 @@ class FOLDER_REPARENTING_TYPE:
 SHOTGRID_COMMENTS_TOPIC = "shotgrid.sync.comments"
 COMMENTS_SYNC_INTERVAL = 15  # secs
 COMMENTS_SYNC_TIMEOUT = 60 * 2  # secs
+COMMENTS_PARENTING_ORDER = (
+    "version",
+    "shot",
+    "asset",
+    "sequence",
+    "episode",
+    "project"
+)

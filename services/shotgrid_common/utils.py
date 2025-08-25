@@ -1,11 +1,13 @@
+import os
 import copy
 import fnmatch
-import os
+import datetime
 import json
+import mimetypes
 import hashlib
 import logging
 import collections
-import re
+import math
 import tempfile
 from typing import Dict, Optional, Union, Any, List
 
@@ -19,7 +21,8 @@ from constants import (
     SG_PROJECT_ATTRS,
     SHOTGRID_ID_ATTRIB,
     SHOTGRID_TYPE_ATTRIB,
-    AYON_SHOTGRID_ENTITY_TYPE_MAP
+    AYON_SHOTGRID_ENTITY_TYPE_MAP,
+    COMMENTS_PARENTING_ORDER
 )
 
 from ayon_api.entity_hub import (
@@ -133,7 +136,7 @@ def _sg_to_ay_dict(
             )
             task_type = default_task_type
         else:
-            task_type = sg_entity["step"]["name"]
+            task_type = sg_entity["step.Step.code"]
 
         label = sg_entity["content"]
 
@@ -403,13 +406,20 @@ def create_sg_entities_in_ay(
     project_entity.folder_types = new_folder_types
 
     # Add ShotGrid Statuses to AYON Project Entity
-    ay_status_codes = [s.short_name.lower() for s in list(project_entity.statuses)]
+    ay_statuses = {
+        status.short_name.lower(): status.name.lower()
+        for status in list(project_entity.statuses)
+    }
+    ay_status_codes = list(ay_statuses.keys())
+    ay_status_names = list(ay_statuses.values())
     for sg_entity_type in sg_enabled_entities:
         if sg_entity_type == "Project":
             # Skipping statuses from SG project as they are irrelevant in AYON
             continue
         for status_code, status_name in get_sg_statuses(sg_session, sg_entity_type).items():
             if status_code.lower() not in ay_status_codes:
+                if status_name.lower() in ay_status_names:
+                    status_name += " (from SG)"
                 project_entity.statuses.create(status_name, short_name=status_code)
                 ay_status_codes.append(status_code)
 
@@ -630,19 +640,21 @@ def _get_parenting_transfer_type(addon_settings):
             "root_relocate" - keep SG hierachy, put in additional AYON folder
             "type_grouping" - separate SG objects into AYON folders
     """
-    folder_parenting = (addon_settings["compatibility_settings"]
-                                      ["folder_parenting"])
+    compatibility_settings = addon_settings.get("compatibility_settings", {})
+    folder_parenting = compatibility_settings.get("folder_parenting", {})
 
     folder_parenting_options = ("root_relocate", "type_grouping")
 
 
     enabled_transfer_type = None
     for transfer_type in folder_parenting_options:
-        transfer_type_info = folder_parenting[transfer_type]
-        if transfer_type_info["enabled"]:
+        transfer_type_info = folder_parenting.get(transfer_type, {})
+        if transfer_type_info.get("enabled", False):
             if enabled_transfer_type:
-                raise RuntimeError("Both types cannot be enabled. Please "
-                                   "disable one.")
+                raise RuntimeError(
+                    "Both types cannot be enabled. Please disable one."
+                )
+
             enabled_transfer_type = transfer_type
 
     return enabled_transfer_type
@@ -765,8 +777,8 @@ def get_sg_entities(
         )
 
     """
-    default_task_type = addon_settings[
-        "compatibility_settings"]["default_task_type"]
+    compatibility_settings = addon_settings.get("compatibility_settings", {})
+    default_task_type = compatibility_settings.get("default_task_type")
 
     query_fields = list(SG_COMMON_ENTITY_FIELDS)
 
@@ -815,7 +827,16 @@ def get_sg_entities(
                 and sg_entity[parent_field]
                 and entity_name != "Asset"
             ):
-                parent_id = sg_entity[parent_field]["id"]
+
+                sg_parent = sg_entity[parent_field]
+
+                # Parenting in Project tracking settings can
+                # point to a non-entity entry (e.g. AYON Sync status).
+                # Set parent id only if defined parent is a valid entity.
+                if isinstance(sg_parent, dict) and sg_parent.get("id"):
+                    parent_id = sg_parent["id"]
+                    parent_type = sg_parent["type"]
+                    parent_id = f'{parent_type}_{parent_id}'
 
             # Reparent the current SG Asset under an AssetCategory ?
             elif (
@@ -859,7 +880,10 @@ def get_sg_entities(
                 default_task_type
             )
 
-            sg_id = sg_ay_dict["attribs"][SHOTGRID_ID_ATTRIB]
+            sg_id = (
+                f'{sg_ay_dict["attribs"][SHOTGRID_TYPE_ATTRIB]}_'
+                f'{sg_ay_dict["attribs"][SHOTGRID_ID_ATTRIB]}'
+            )
             sg_ay_dicts[sg_id] = sg_ay_dict
             sg_ay_dicts_parents[parent_id].add(sg_id)
 
@@ -1106,7 +1130,7 @@ def get_sg_project_enabled_entities(
     sg_project = sg_session.find_one(
         "Project",
         filters=[["id", "is", sg_project["id"]]],
-        fields=["tracking_settings"]
+        fields=["tracking_settings", "name", "code"]
     )
 
     if not sg_project:
@@ -1136,10 +1160,12 @@ def get_sg_project_enabled_entities(
 
         if not is_entity_enabled:
             log.warning(
-                "%s is enabled in AYON settings but hidden in Flow "
-                "tracking settings. It'll be ignored, please check "
+                "%s is enabled in AYON settings for project "
+                "but hidden in Flow tracking settings for project %r. "
+                "It'll be ignored, please check "
                 "your configuration.",
-                sg_entity_type
+                sg_entity_type,
+                sg_project.get("name") or sg_project.get("code"),
             )
 
         else:
@@ -1291,6 +1317,26 @@ def get_sg_custom_attributes_data(
             )
 
         if exists:
+
+            try:
+                value_as_date = datetime.datetime.fromisoformat(str(attrib_value))
+
+            except (ValueError, TypeError):
+                value_as_date = None
+
+            # AYON attribute value converts as date,
+            # confirm targeted SG field is also of type date.
+            if value_as_date:
+                schema_field = sg_session.schema_field_read(
+                    sg_entity_type,
+                    field_name=sg_attrib
+                )
+                data_type = schema_field[sg_attrib]["data_type"]["value"]
+                if data_type == "date":
+                    # AYON returns its date as isoformat, but FLOW API expects its date
+                    # formatted as YYY-MM-DD
+                    attrib_value = value_as_date.strftime("%Y-%m-%d")
+
             data_to_update[sg_attrib] = attrib_value
 
     return data_to_update
@@ -1304,6 +1350,16 @@ def update_ay_entity_custom_attributes(
     ay_project: ProjectEntity = None,
 ):
     """Update AYON entity custom attributes from ShotGrid dictionary"""
+
+    # Check renaming through label
+    if (
+        sg_ay_dict["type"].lower() != "version"
+        and sg_ay_dict["label"]
+        and (ay_entity.label or ay_entity.get_name()) != sg_ay_dict["label"]
+    ):
+        ay_entity.label = sg_ay_dict["label"]
+
+    # Loop over custom attributes and detect changes.
     for ay_attrib, _ in custom_attribs_map.items():
         if values_to_update and ay_attrib not in values_to_update:
             continue
@@ -1323,7 +1379,7 @@ def update_ay_entity_custom_attributes(
                 for status in ay_project.statuses
             }
             new_status = status_mapping.get(attrib_value)
-            if ay_entity.entity_type in new_status.scope:
+            if new_status and ay_entity.entity_type in new_status.scope:
                 ay_entity.status = new_status.name
             else:
                 logging.warning(
@@ -1339,6 +1395,45 @@ def update_ay_entity_custom_attributes(
                     " ayon-python-api version."
                 )
         else:
+
+            # SG API returns date values as string.
+            # Attempt to detect date field values.
+            try:
+                value_as_date = datetime.datetime.strptime(
+                    str(attrib_value),
+                    "%Y-%m-%d",
+                )
+
+            except (ValueError, TypeError):
+                value_as_date = None
+
+            # Field value matches a valid date,
+            if value_as_date:
+                all_attrib_schemas = ayon_api.get_attributes_schema()
+                attrib_schemas = [
+                    attr for attr in all_attrib_schemas["attributes"]
+                    if attr["name"] == ay_attrib
+                ]
+                # confirm target AYON attribute is of type datetime.
+                if not (
+                    attrib_schemas
+                    and attrib_schemas[0]["data"]["type"] == "datetime"
+                ):
+                    continue
+
+                # Check is a different date
+                current_set_date = ay_entity.attribs.get(ay_attrib)
+                value_as_utc = value_as_date.replace(
+                    tzinfo=datetime.timezone.utc).date()
+                if (
+                    current_set_date
+                    and datetime.datetime.fromisoformat(current_set_date).date()
+                    == value_as_utc
+                ):
+                    continue
+
+                attrib_value = value_as_date
+
             ay_entity.attribs.set(ay_attrib, attrib_value)
 
 
@@ -1364,6 +1459,25 @@ def create_new_ayon_entity(
     Returns:
         FolderEntity|TaskEntity: Added task entity.
     """
+
+    # Flow API return date as string, need to convert
+    # them back as datetime in order to set to AYON.
+    all_attrib_schemas = ayon_api.get_attributes_schema()
+    for ay_attrib, attrib_value in sg_ay_dict["attribs"].items():
+        attrib_schemas = [
+            attr for attr in all_attrib_schemas["attributes"]
+            if attr["name"] == ay_attrib
+        ]
+        if (
+            attrib_schemas
+            and attrib_schemas[0]["data"]["type"] == "datetime"
+        ):
+            value_as_date = datetime.datetime.strptime(
+                attrib_value,
+                "%Y-%m-%d",
+            )
+            sg_ay_dict["attribs"][ay_attrib] = value_as_date
+
     if sg_ay_dict["type"].lower() == "task":
         if parent_entity.entity_type == "project":
             log.warning("Cannot create task directly under project")
@@ -1381,7 +1495,11 @@ def create_new_ayon_entity(
     elif sg_ay_dict["type"].lower() == "version":
         # SG doesn't have values for product_name and version (int)
         # we might create some assumption how to parsem out in the future
-        log.warning("Cannot create new versions yet.")
+        log.warning(
+            "Version creation from Flow is not implemented because "
+            "Flow entity is much less strict than AYON product with reviewable "
+            "(e.g. product name and integer are not mandatory in Flow)."
+        )
         return
     elif sg_ay_dict["type"].lower() == "comment":
         handle_comment(sg_ay_dict, sg_session, entity_hub)
@@ -1555,10 +1673,8 @@ def handle_comment(sg_ay_dict, sg_session, entity_hub):
         return
 
     ayon_user_name = _get_ayon_user_name(sg_note["user"])
-    if not ayon_user_name:
-        return
 
-    ay_parent_entity = _get_parent_entity(entity_hub, sg_note, sg_session)
+    ay_parent_entity = _get_sg_note_parent_entity(entity_hub, sg_note, sg_session)
     if not ay_parent_entity:
         log.warning(f"Cannot find parent for comment '{sg_note_id}'")
         return
@@ -1574,20 +1690,22 @@ def handle_comment(sg_ay_dict, sg_session, entity_hub):
 
     if not ayon_comment:
         ay_activity_id = _add_comment(
+            sg_session,
             project_name,
             ay_parent_entity["id"],
             ay_parent_entity["entity_type"],
             ayon_user_name,
             content,
-            sg_note_id
+            sg_note,
         )
     else:
         ay_activity_id = _update_comment(
+            sg_session,
             project_name,
             ay_parent_entity,
             ay_parent_entity["entity_type"],
             ayon_comment,
-            content,
+            sg_note,
         )
     #updates SG with AYON comment id
     sg_session.update(
@@ -1600,30 +1718,72 @@ def handle_comment(sg_ay_dict, sg_session, entity_hub):
 
 
 def _update_comment(
+    sg_session,
     project_name,
     ay_parent_entity,
     ay_parent_entity_type,
     ayon_comment,
-    content
+    sg_note
 ):
     ay_activity_id = ayon_comment["activityId"]
+    prev_content = ayon_comment["body"]
 
-    updated_origin = copy.deepcopy(ayon_comment["activityData"]["origin"])
-    updated_origin["id"] = ay_parent_entity["id"]
-    updated_origin["name"] = ay_parent_entity["name"]
-    updated_origin["type"] = ay_parent_entity_type
-    updated_origin["subtype"] = ay_parent_entity["folder_type"]
+    # Compare comment origin (parent)
+    prev_origin_id = ayon_comment["activityData"]["origin"]["id"]
+    new_origin_id = ay_parent_entity.id
+    new_origin = None
+    if prev_origin_id != new_origin_id:
+        new_origin = {
+            "id": ay_parent_entity.id,
+            "type": ay_parent_entity_type,
+        }
+        try:
+            new_origin["name"] = ay_parent_entity["name"]  # Version defines no name
+            new_origin["subtype"] = ay_parent_entity["folder_type"]  # Version defines no folder type
+        except KeyError:
+            pass
+    if (sg_note["content"] != prev_content or new_origin):
+        if new_origin:
+            # TODO this statement seem to have no effect.
+            # It seems that re-parenting a comment has not to be implemented in API
+            log.warning(
+                "Cannot re-parent comment from %r to new folder %r "
+                "due to AYON api limitation.",
+                ayon_comment["activityData"]["origin"],
+                new_origin
+            )
+            # ayon_comment["activityData"]["origin"] = new_origin
 
-    if (content != ayon_comment["body"]
-            or updated_origin != ayon_comment["activityData"]["origin"]):
-        # TODO this doesn't seem to work, it seems not to be implemented in API
-        ayon_comment["activityData"]["origin"] = updated_origin
-        ayon_api.update_activity(
-            project_name,
-            ay_activity_id,
-            body=content,
-            data=ayon_comment["activityData"]
-        )
+    # check for new or modified attachments#
+    file_ids = []
+    if sg_note.get("attachments"):
+        sg_atchmts = sg_note["attachments"].copy()
+        ay_atchmts = ayon_comment["activityData"].get("files", []).copy()
+        sg_atchmt_names = [atchmt["name"] for atchmt in sg_atchmts]
+
+        for ay_atchmt in ay_atchmts:
+            ay_atchmt_name = ay_atchmt["filename"]
+            if ay_atchmt_name in sg_atchmt_names:
+                file_ids.append(ay_atchmt["id"])
+                del sg_atchmts[sg_atchmt_names.index(ay_atchmt_name)]
+            else: # delete ayon attachment? or should i just keep it on the ayon server?
+                # ayon_api.delete_file( # that's not available :`(
+                #     endpoint=f"projects/{project_name}/files/{ay_atchmt['id']}"
+                # )
+                pass
+
+        for sg_atchmt in sg_atchmts:
+            # we can assume only new attachments here bc we popped the already existing ones
+            if atch_id := _handle_attachment(sg_session, sg_atchmt, project_name):
+                file_ids.append(atch_id)
+
+    ayon_api.update_activity(   #! gotta check if this causes notes to be updated everytime
+        project_name,
+        ay_activity_id,
+        body=sg_note["content"],
+        data=ayon_comment["activityData"],
+        file_ids=file_ids,
+    )
     return ay_activity_id
 
 
@@ -1638,17 +1798,18 @@ def _get_sg_note(sg_note_id, sg_session):
             "sg_ayon_id",
             "user",
             "note_links",
-            "addressings_to"
+            "addressings_to",
+            "attachments"
         ]
     )
     return sg_note, sg_note_id
 
 
-def _get_parent_entity(entity_hub, sg_note, sg_session):
+def _get_sg_note_parent_entity(entity_hub, sg_note, sg_session):
     """Transforms SG links to AYON hierarchy."""
-    ay_entity = None
+    ay_parent_entities = []
 
-    for link in sg_note["note_links"]:
+    for link in reversed(sg_note["note_links"]):
         sg_id = link["id"]
         sg_entity = sg_session.find_one(
             link["type"],
@@ -1680,8 +1841,40 @@ def _get_parent_entity(entity_hub, sg_note, sg_session):
         if not ay_entity:
             log.warning(f"Couldn't find {a_entity_id} of {ay_entity_type}")
             continue
-        break  # AYON comment couldn't be pointed to multiple entities
-    return ay_entity
+
+        ay_parent_entities.append(ay_entity)
+
+    if not ay_parent_entities:
+        return None
+
+    elif len(ay_parent_entities) == 1:
+        return ay_parent_entities[0]
+
+    # Flow note can be linked to multiple entities.
+    # AYON comment are only parented to one folder (and not a task).
+    # Figure out the most relevant parent from multiple links
+    def _order_by_parent_relevance(parent):
+        parent_type =(
+            parent.folder_type
+            if hasattr(parent, "folder_type")
+            else parent.entity_type
+        )
+
+        try:
+            return COMMENTS_PARENTING_ORDER.index(parent_type)
+
+        except ValueError:
+            log.warning(
+                "Unhandled comment parent type: %r.",
+                parent_type
+            )
+            return math.inf
+
+    ay_parent_entities = sorted(
+        ay_parent_entities,
+        key=_order_by_parent_relevance
+    )
+    return ay_parent_entities[0]
 
 
 def _get_content_with_notifications(sg_note):
@@ -1703,23 +1896,62 @@ def _get_content_with_notifications(sg_note):
     return content
 
 
+def _handle_attachment(sg_session, attachment, project_name):
+    # download SG attachment local temprarily
+    tmp_dir = tempfile.mkdtemp() # these will stay but nevermind
+    tmp_file = os.path.join(tmp_dir, attachment["name"])
+    local_path = sg_session.download_attachment(
+        attachment, file_path=tmp_file
+    )
+    if not local_path or not os.path.exists(local_path):
+        log.debug(f"Failed to download SG attachment: {attachment}")
+        return
+    mime_type, _ = mimetypes.guess_type(local_path)
+
+    # upload to AYON
+    headers = {
+        "Content-Type": mime_type,
+        "x-file-name": os.path.basename(local_path),
+    }
+    resp = ayon_api.upload_file(
+        endpoint=f"projects/{project_name}/files",
+        filepath=local_path,
+        request_type=ayon_api.RequestTypes.post,
+        headers=headers
+    )
+    if resp.status_code != 201:
+        log.warning(f"Failed to upload attachment: {resp.content}")
+        log.warning(f"{resp.text}")
+        return
+    os.remove(local_path) # remove temp file
+    return resp.json()["id"]
+
+
 def _add_comment(
+    sg_session,
     project_name,
     ayon_entity_id,
     ayon_entity_type,
     ayon_username,
     text,
-    sg_note_id
+    sg_note,
 ):
     con = ayon_api.get_server_api_connection()
     with con.as_username(ayon_username):
+        attachment_ids = []
+        if sg_note_atchmts := sg_note.get("attachments"):
+            for atch in sg_note_atchmts:
+                if atch_id := _handle_attachment(sg_session, atch, project_name):
+                    attachment_ids.append(atch_id)
+
         activity_id = ayon_api.create_activity(
             project_name,
             ayon_entity_id,
             ayon_entity_type,
             "comment",
             body=text,
-            data={"sg_note_id": sg_note_id}
+            data={"sg_note_id": sg_note["id"]},
+            file_ids=attachment_ids,
         )
         log.info(f"Created note {activity_id}")
 
@@ -1789,6 +2021,7 @@ def create_new_sg_entity(
         task_step = sg_session.find_one(
             "Step",
             filters=step_query_filters,
+            fields=["code", "name"],
         )
         if not task_step:
             raise ValueError(
@@ -1797,7 +2030,7 @@ def create_new_sg_entity(
             )
 
         sg_type = "Task"
-        data["content"] = ay_entity.label
+        data["content"] = ay_entity.name
         data["entity"] = sg_parent_entity
         data["step"] = task_step
 
@@ -1835,8 +2068,8 @@ def create_new_sg_entity(
         if not ayon_asset:
             raise ValueError(f"Not found '{folder_id}'")
 
-        ay_username = ay_entity.data["author"]
-        sg_user_id = get_sg_user_id(ay_username)
+        ay_username = ay_entity.data.get("author")
+        sg_user_id = get_sg_user_id(ay_username) if ay_username else -1
         if sg_user_id < 0:
             log.warning(
                 f"{ay_username} is not synchronized, "
@@ -1845,6 +2078,48 @@ def create_new_sg_entity(
             data["description"] = f"Created in AYON by '{ay_username}'"
         else:
             data["user"] = {'type': 'HumanUser', 'id': sg_user_id}
+
+        # sync associated task
+        if ay_entity.task_id:
+            task_data = ayon_api.get_task_by_id(
+                ay_project_name,
+                ay_entity.task_id
+            )
+            sg_task = task_data["attrib"].get(SHOTGRID_ID_ATTRIB)
+            if sg_task:
+                data["sg_task"] = {"type": "Task", "id": int(sg_task)}
+
+        # sync comment for description
+        data["description"] = ay_entity.attribs.get("comment")
+
+        # sync productType as version type
+        product_data =  ayon_api.get_product_by_id(
+            ay_project_name,
+            ay_entity.product_id
+        )
+        sg_version_field = sg_session.schema_field_read(
+            "Version", "sg_version_type")["sg_version_type"]
+        sg_valid_values = (
+            sg_version_field["properties"]["valid_values"]["value"]
+        )
+
+        if product_data["productType"] in sg_valid_values:
+            data["sg_version_type"] = product_data["productType"]
+
+        # sync first/last frames
+        frame_start = ay_entity.attribs.get("frameStart") or 0
+        frame_end = ay_entity.attribs.get("frameEnd") or 0
+        handle_start = ay_entity.attribs.get("handleStart") or 0
+        handle_end = ay_entity.attribs.get("handleEnd") or 0
+
+        frame_in = frame_start - handle_start
+        frame_out = frame_end + handle_end
+
+        data["sg_first_frame"]  = frame_in
+        data["sg_last_frame"] = frame_out
+
+        data["frame_count"] = frame_out - frame_in + 1
+        data["frame_range"] = '-'.join([str(frame_in), str(frame_out)])
 
         product_name = ay_entity.parent.name
         version_str = str(ay_entity.version).zfill(3)
@@ -1874,6 +2149,25 @@ def create_new_sg_entity(
             data[sg_parent_field] = sg_parent_entity
         data["code"] = ay_entity.name
 
+    # Set status
+    if ay_entity.status:
+        entity = ay_entity
+        project_entity = None
+        while entity.parent:
+            entity = entity.parent
+            if entity.entity_type == "project":
+                project_entity = entity
+                break
+
+        if project_entity:
+            ay_statuses = {
+                status.name: status.short_name
+                for status in project_entity.statuses
+            }
+            ay_status = ay_statuses.get(ay_entity.status)
+            if ay_status and ay_status in get_sg_statuses(sg_session, sg_type):
+                data["sg_status_list"] = ay_status
+
     # Fill up data with any extra attributes from AYON we want to sync to SG
     data |= get_sg_custom_attributes_data(
         sg_session,
@@ -1889,8 +2183,8 @@ def create_new_sg_entity(
             f"Unable to create SG entity {sg_type} with data: {data}")
         raise e
 
-    default_task_type = addon_settings[
-        "compatibility_settings"]["default_task_type"]
+    compatibility_settings = addon_settings.get("compatibility_settings", {})
+    default_task_type = compatibility_settings.get("default_task_type")
 
     return get_sg_entity_as_ay_dict(
         sg_session,
