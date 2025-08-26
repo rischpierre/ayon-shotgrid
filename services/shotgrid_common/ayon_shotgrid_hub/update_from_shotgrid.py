@@ -40,6 +40,7 @@ from utils import (
     get_reparenting_from_settings,
     update_ay_entity_custom_attributes,
     handle_comment,
+    handle_reply,
 )
 from constants import (
     CUST_FIELD_CODE_ID,  # ShotGrid Field for the AYON ID.
@@ -550,15 +551,25 @@ def update_ayon_entity_from_sg_event(
 
     default_task_type = addon_settings[
         "compatibility_settings"]["default_task_type"]
-
-    sg_ay_dict = get_sg_entity_as_ay_dict(
-        sg_session,
-        sg_event["entity_type"],
-        sg_event["entity_id"],
-        project_code_field,
-        default_task_type,
-        custom_attribs_map=custom_attribs_map
-    )
+    if sg_event.get("type") == "attribute_change" and sg_event.get('attribute_name') == 'replies':
+        sg_reply_id = sg_event["added"][0]["id"]
+        sg_ay_dict = get_sg_entity_as_ay_dict(
+            sg_session,
+            "Reply",
+            sg_reply_id,
+            project_code_field,
+            default_task_type,
+            custom_attribs_map=custom_attribs_map
+        )
+    else:
+        sg_ay_dict = get_sg_entity_as_ay_dict(
+            sg_session,
+            sg_event["entity_type"],
+            sg_event["entity_id"],
+            project_code_field,
+            default_task_type,
+            custom_attribs_map=custom_attribs_map
+        )
 
     if sg_event["entity_type"] == "Asset":
         rvx_validate_sg_asset(sg_ay_dict, sg_session)
@@ -569,9 +580,11 @@ def update_ayon_entity_from_sg_event(
             "no longer exists in ShotGrid, aborting..."
         )
         return
-
     if sg_ay_dict["type"].lower() == "comment":
-        handle_comment(sg_ay_dict, sg_session, ayon_entity_hub)
+        if sg_ay_dict["attribs"].get("shotgridType") == "Reply":
+            handle_reply(sg_ay_dict, sg_session, ayon_entity_hub)
+        else:
+            handle_comment(sg_ay_dict, sg_session, ayon_entity_hub)
         return
 
     # if the entity does not have an AYON ID, try to create it

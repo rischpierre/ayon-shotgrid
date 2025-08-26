@@ -36,7 +36,6 @@ from ayon_api import get_attributes_for_type
 
 import shotgun_api3
 
-
 _loggers = {}
 
 
@@ -156,6 +155,11 @@ def _sg_to_ay_dict(
         name = slugify_string(sg_entity["code"], min_length=0)
         label = sg_entity["code"]
     elif sg_entity["type"] == "Note":
+        ay_entity_type = "comment"
+        content = sg_entity["content"] or ""
+        name = slugify_string(content, min_length=0)
+        label = content
+    elif sg_entity["type"] == "Reply":
         ay_entity_type = "comment"
         content = sg_entity["content"] or ""
         name = slugify_string(content, min_length=0)
@@ -1662,6 +1666,62 @@ def get_sg_user_id(ayon_username: str) -> [int]:
         sg_user_id = ayon_user["data"]["sg_user_id"]
     return sg_user_id
 
+def handle_reply(sg_ay_dict, sg_session, entity_hub):
+    """Transforms content and links from SG to matching AYON structures."""
+    sg_reply_id = sg_ay_dict["attribs"][SHOTGRID_ID_ATTRIB]
+    sg_reply, sg_reply_id = _get_sg_reply(sg_reply_id, sg_session)
+
+    if not sg_reply:
+        log.warning(f"Couldn't find reply '{sg_reply_id}'")
+        return
+
+    ayon_user_name = _get_ayon_user_name(sg_reply["user"])
+    sg_note, sg_note_id = _get_sg_note(sg_reply["entity"]["id"], sg_session)
+    if not sg_note:
+        log.warning(f"Couldn't find note '{sg_note}'")
+        return
+
+    ay_parent_entity = _get_sg_note_parent_entity(entity_hub, sg_note, sg_session)
+    if not ay_parent_entity:
+        log.warning(f"Cannot find parent for comment '{sg_reply_id}'")
+        return
+
+    content = _get_reply_content_with_notifications(sg_note, sg_reply)
+
+    project_name = entity_hub.project_name
+
+    sg_ayon_id = sg_ay_dict["data"].get(CUST_FIELD_CODE_ID)
+    ayon_comment = None
+    if sg_ayon_id:
+        ayon_comment = ayon_api.get_activity_by_id(project_name, sg_ayon_id)
+
+    if not ayon_comment:
+        ay_activity_id = _add_comment(
+            sg_session,
+            project_name,
+            ay_parent_entity["id"],
+            ay_parent_entity["entity_type"],
+            ayon_user_name,
+            content,
+            sg_reply,
+        )
+    else:
+        ay_activity_id = _update_comment(
+            sg_session,
+            project_name,
+            ay_parent_entity,
+            ay_parent_entity["entity_type"],
+            ayon_comment,
+            sg_reply,
+        )
+    #updates SG with AYON comment id
+    sg_session.update(
+        sg_ay_dict["attribs"].get(SHOTGRID_TYPE_ATTRIB, ""),
+        sg_ay_dict["attribs"].get(SHOTGRID_ID_ATTRIB, ""),
+        {
+            CUST_FIELD_CODE_ID: ay_activity_id
+        }
+    )
 
 def handle_comment(sg_ay_dict, sg_session, entity_hub):
     """Transforms content and links from SG to matching AYON structures."""
@@ -1706,6 +1766,7 @@ def handle_comment(sg_ay_dict, sg_session, entity_hub):
             ay_parent_entity["entity_type"],
             ayon_comment,
             sg_note,
+            content,
         )
     #updates SG with AYON comment id
     sg_session.update(
@@ -1723,7 +1784,8 @@ def _update_comment(
     ay_parent_entity,
     ay_parent_entity_type,
     ayon_comment,
-    sg_note
+    sg_note,
+    content
 ):
     ay_activity_id = ayon_comment["activityId"]
     prev_content = ayon_comment["body"]
@@ -1780,7 +1842,7 @@ def _update_comment(
     ayon_api.update_activity(   #! gotta check if this causes notes to be updated everytime
         project_name,
         ay_activity_id,
-        body=sg_note["content"],
+        body=content,
         data=ayon_comment["activityData"],
         file_ids=file_ids,
     )
@@ -1804,6 +1866,21 @@ def _get_sg_note(sg_note_id, sg_session):
     )
     return sg_note, sg_note_id
 
+
+def _get_sg_reply(sg_note_id, sg_session):
+    """Gets detail information about SG note wih SG id."""
+    sg_note = sg_session.find_one(
+        "Reply",
+        [["id", "is", int(sg_note_id)]],
+        fields=[
+            "id",
+            "content",
+            "sg_ayon_id",
+            "user",
+            "entity",
+        ]
+    )
+    return sg_note, sg_note_id
 
 def _get_sg_note_parent_entity(entity_hub, sg_note, sg_session):
     """Transforms SG links to AYON hierarchy."""
@@ -1876,10 +1953,14 @@ def _get_sg_note_parent_entity(entity_hub, sg_note, sg_session):
     )
     return ay_parent_entities[0]
 
+def _get_reply_content_with_notifications(sg_note, sg_reply):
+    content = ">" + sg_note["content"].replace("\n", "  \n>") + "\n\n"
+    content += sg_reply["content"].replace("\n", "  \n")
+    return content
 
 def _get_content_with_notifications(sg_note):
     """Translates SG 'addressings_to' to AYON @ mentions."""
-    content = sg_note["content"]
+    content = sg_note["content"].replace("\n", "  \n")
     for sg_user in sg_note["addressings_to"]:
         if sg_user["type"] != "HumanUser":
             log.warning(f"Cannot create notes for non humans "
@@ -1892,7 +1973,7 @@ def _get_content_with_notifications(sg_note):
             continue
 
         user_notification_str = f"[{sg_name}](user:{ayon_user_name})"
-        content = f"{user_notification_str} {content}"
+        content = f"{user_notification_str}  \n {content}"
     return content
 
 
