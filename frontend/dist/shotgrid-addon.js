@@ -50,6 +50,7 @@ const populateTable = async () => {
       if (sg_project.name == project.ayonId) {
           already_exists = true
           project.shotgridId = sg_project.shotgridId
+          project.sg_ayon_auto_sync = sg_project.sg_ayon_auto_sync
       }
     })
     if (!already_exists) {
@@ -67,6 +68,13 @@ const populateTable = async () => {
   ProjectsTableBody.appendChild(ProjectsTableHeader);
 
   allProjects.forEach((project) => {
+
+    // undefined == project does not exist in AYON
+    // false == project inactive in AYON
+    // true == project active in AYON
+    if (project.active == false) {
+      return ;
+    }
     var tableRow = document.createElement('tr')
 
     var nameCell = document.createElement('td')
@@ -88,7 +96,7 @@ const populateTable = async () => {
     var syncCell = document.createElement('td')
 
     var sgSyncButton = document.createElement('button')
-    sgSyncButton.innerText = `Shotgrid -> AYON`
+    sgSyncButton.innerText = `Flow ► AYON`
     sgSyncButton.disabled = true;
 
     if (project.shotgridId && project.code) {
@@ -106,7 +114,7 @@ const populateTable = async () => {
     syncCell.appendChild(sgSyncButton)
 
     var ayonSyncButton = document.createElement('button')
-    ayonSyncButton.innerText = `AYON -> Shotgrid`
+    ayonSyncButton.innerText = `AYON ► Flow`
     ayonSyncButton.disabled = project.ayonId ? false : true;
     ayonSyncButton.setAttribute("data-ayon-name", project.name);
     ayonSyncButton.setAttribute("data-ayon-code", project.code);
@@ -116,6 +124,26 @@ const populateTable = async () => {
     syncCell.appendChild(ayonSyncButton)
 
     tableRow.appendChild(syncCell)
+
+    var autoSyncCell = document.createElement('td')
+    autoSyncCell.innerText = ""
+    if (ayonCell.innerText == "Yes" && sgCell.innerText == "Yes")
+    {
+        if (project.shotgridPush && project.sg_ayon_auto_sync) {
+          autoSyncCell.innerText = "Syncing both ways AYON <-> Flow";
+        }
+        else{
+          if (project.shotgridPush) {
+            autoSyncCell.innerText = "Syncing only from AYON to Flow";
+          }
+          else {
+            if (project.sg_ayon_auto_sync) {
+              autoSyncCell.innerText = "Syncing only from Flow to AYON";
+            }
+          }
+        }
+    }
+    tableRow.appendChild(autoSyncCell)
 
     ProjectsTableBody.appendChild(tableRow)
   });
@@ -128,54 +156,63 @@ const syncUsers = async () => {
   ayonUsers = await getAyonUsers();
   sgUsers = await getShotgridUsers();
 
-  sgUsers.forEach((sg_user) => {
-    let already_exists = false
+  let new_users = []
 
-    // in SG the user name can be `user` or `user@mail.com`
-    const sg_user_name = sg_user.login.split('@')[0];
-    ayonUsers.forEach((user) => {
-      if (sg_user_name === user.name) {
-          already_exists = true
-      }
-    })
-    if (already_exists) {
-      console.log("User: " + sg_user_name + " already exists in AYON, updating sg_user_id")
-      updateUserInAyon(sg_user.id ,sg_user_name)
+  for (const sg_user of sgUsers) {
+    const ayonUser = await getAyonUserFromShotgridId(sg_user.id)
+    if (typeof ayonUser === "string" && ayonUser.trim() !== "") {
+      console.log("sg_user already exists.")
     }
     else {
-      console.log("Create User in AYON: " + sg_user_name)
-      createNewUserInAyon(
-          sg_user.id ,sg_user_name, sg_user.email, sg_user.name)
+        // make sure no @ and validate login string
+        let ay_fixed_login = validateLogin(sg_user.login);
+        let login_already_exists = false;
+
+        // RVX: in SG the user name can be `user` or `user@mail.com`
+        const sg_user_name = sg_user.login.split('@')[0];
+
+        ayonUsers.forEach((user) => {
+          if (ay_fixed_login == user.name) {
+              login_already_exists = true
+          }
+        })
+
+        // User login exists in AYON but no associated sg_user_id.
+        if (login_already_exists){
+          updateUserInAyon(sg_user.id, sg_user_name)
+        }
+
+        // User login does not exist in AYON.
+        else {
+          createNewUserInAyon(
+            sg_user.id, sg_user.login, sg_user.email, sg_user_name)
+        }
+
+      new_users.push(sg_user.name)
     }
-  })
-}
+  }
 
-const updateUserInAyon = async (sg_id, sg_login) => {
-    /* Update the AYON user with the Shotgrid user id. */
   call_result_paragraph = document.getElementById("call-result");
-
-  // make sure no @ and . or - is in login string
-  let fixed_login = validateLogin(sg_login);
-
-  ay_user = await ayonAPI
-      .get("/api/users/" + fixed_login)
-      .then((result) => result.data)
-      .catch((error) => {
-        console.log("Unable to get user in AYON!")
-        console.log(error)
-        call_result_paragraph.innerHTML = `Unable to get user in AYON! ${error}`
-      });
-  ay_user["data"]["sg_user_id"] = sg_id
-
-  response = await ayonAPI
-    .patch("/api/users/" + fixed_login, ay_user)
-    .then((result) => result)
-    .catch((error) => {
-      console.log("Unable to patch user in AYON!")
-      console.log(error)
-      call_result_paragraph.innerHTML = `Unable to patch user in AYON! ${error}`
-    });
+  if (new_users.length !== 0) {
+    call_result_paragraph.innerHTML = `Added new users: ` + new_users.join(" ")
+  }
+  else{
+    call_result_paragraph.innerHTML = `All users are already synced.`
+  }
 }
+
+
+const getAyonUserFromShotgridId = async (sg_user_id) => {
+  /* Query the AYON user matching provided Shotgrid Id. */
+  ayon_user = await axios({
+    url: `/api/addons/${addonName}/${addonVersion}/get_ayon_name_by_sg_id/${sg_user_id}`,
+    headers: {"Authorization": `Bearer ${accessToken}`},
+    method: 'get',
+  }).then((result) => result.data);
+
+  return ayon_user
+}
+
 
 const getShotgridUsers = async () => {
   /* Query Shotgrid for all active users. */
@@ -295,12 +332,32 @@ function validateLogin(login) {
   return new_login;
 }
 
-const createNewUserInAyon = async (id, login, email, name) => {
-  /* Spawn an AYON Event of topic "shotgrid.event" to synchcronize a project
-  from Shotgrid into AYON. */
+const updateUserInAyon = async (id, login) => {
+  /* Update an existing AYON user to set its sg_user_id. */
   call_result_paragraph = document.getElementById("call-result");
 
-  // make sure no @ and . or - is in login string
+  // make sure no @ and validate login string
+  let fixed_login = validateLogin(login);
+
+  response = await ayonAPI
+    .patch("/api/users/" + fixed_login, {
+      "data": {
+        "sg_user_id": id
+      },
+    })
+    .then((result) => result)
+    .catch((error) => {
+      console.log("Unable to update user in AYON!")
+      console.log(error)
+      call_result_paragraph.innerHTML = `Unable to update user in AYON! ${error}`
+    });
+}
+
+const createNewUserInAyon = async (id, login, email, name) => {
+  /* Create a new AYON user.*/
+  call_result_paragraph = document.getElementById("call-result");
+
+  // make sure no @ and validate login string
   let fixed_login = validateLogin(login);
 
   response = await ayonAPI
@@ -366,6 +423,7 @@ const getShotgridProjects = async () => {
       "code": project.attributes[`${addonSettings.shotgrid_project_code_field}`],
       "shotgridId": project.id,
       "ayonId": project.attributes.sg_ayon_id,
+      "sg_ayon_auto_sync": project.attributes.sg_ayon_auto_sync,
     })
     });
   }
@@ -386,6 +444,7 @@ const getAyonProjects = async () => {
               node {
                 attrib {
                   shotgridId
+                  shotgridPush
                 }
                 active
                 code
@@ -406,7 +465,9 @@ const getAyonProjects = async () => {
         "name": project.node.name,
         "code": project.node.code,
         "shotgridId": project.node.attrib.shotgridId,
+        "shotgridPush": project.node.attrib.shotgridPush,
         "ayonId": project.node.name,
+        "active": project.node.active,
       })
     })
   }

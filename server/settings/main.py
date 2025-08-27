@@ -1,3 +1,6 @@
+from pydantic import validator
+
+from ayon_server.exceptions import BadRequestException
 from ayon_server.entities.core.attrib import attribute_library
 from ayon_server.settings import BaseSettingsModel, SettingsField
 from ayon_server.settings.enum import (
@@ -20,6 +23,7 @@ def default_shotgrid_entities():
         "Task",
         "Version",
         "Note",
+        "Reply",
         "Playlist",
     ]
 
@@ -34,7 +38,8 @@ def default_shotgrid_enabled_entities():
         "Asset",
         "Task",
         "Version",
-        "Note"
+        "Note",
+        "Reply",
     ]
 
 
@@ -71,6 +76,12 @@ def get_default_folder_attributes():
             "scope": default_shotgrid_enabled_entities()
         }
 
+        # Project.startDate is usually not editable in Flow
+        if attr_name == "startDate":
+            reduce_scope = default_shotgrid_enabled_entities()
+            reduce_scope.remove("Project")
+            attr_map["scope"] = reduce_scope
+
         if attr_map not in attributes:
             attributes.append(attr_map)
 
@@ -88,7 +99,6 @@ class ShotgridServiceSettings(BaseSettingsModel):
     polling_frequency: int = SettingsField(
         default=10,
         title="How often (in seconds) to process ShotGrid related events.",
-        validate_default=False,
     )
 
     script_key: str = SettingsField(
@@ -268,6 +278,25 @@ class ShotgridCompatibilitySettings(BaseSettingsModel):
         ),
     )
 
+    @validator("custom_attribs_map")
+    def ensure_requests(cls, value):
+        """ Ensure custom attribs map does not contain duplicated SG fields.
+        """
+        all_sg_fields = set()
+        all_ayon_attributes = set()
+        for entry in value:
+            if entry.sg and entry.sg in all_sg_fields:
+                raise BadRequestException(f"Duplicate mapped SG field: {entry.sg}")
+            if entry.ayon and entry.ayon in all_ayon_attributes:
+                raise BadRequestException(f"Duplicate mapped AYON attribute: {entry.ayon}")
+
+            if entry.sg:
+                all_sg_fields.add(entry.sg)
+            if entry.ayon:
+                all_ayon_attributes.add(entry.ayon)
+
+        return value
+
     folder_parenting: FolderReparentingModel = SettingsField(
         title="Folder re-parenting",
         default_factory=FolderReparentingModel,
@@ -275,61 +304,43 @@ class ShotgridCompatibilitySettings(BaseSettingsModel):
     )
 
 
-class ClientLoginDetailsModel(BaseSettingsModel):
+class MoviePathProfile(BaseSettingsModel):
+    """Profile to select representation to use in Version.sg_path_to_movie"""
     _layout = "expanded"
-
-    client_sg_script_key: str = SettingsField(
-        default="",
-        placeholder="Create and Paste a script api key here",
-        title="Client related ShotGrid's Script api key",
-        description=(
-            "AYON Secret used for Client related user operations "
-            "Secret should lead to ShotGrid's Script api key. "
-            "See more at: https://developer.shotgridsoftware.com/python-api/"
-            "authentication.html#setting-up-shotgrid"
-        ),
+    host_names: list[str] = SettingsField(
+        default_factory=list, title="Host names"
     )
-    client_sg_script_name: str = SettingsField(
-        default="",
-        placeholder="Create and Paste a script name here",
-        title="Client related ShotGrid's Script Name",
-        description=(
-            "AYON Secret used for Client related user operations "
-            "Secret should lead to ShotGrid's Script Name. "
-            "See more at: https://developer.shotgridsoftware.com/python-api/"
-            "authentication.html#setting-up-shotgrid"
-        ),
+    product_types: list[str] = SettingsField(
+        default_factory=list,
+        title="Product types"
+    )
+    task_types: list[str] = SettingsField(
+        default_factory=list,
+        title="Task types",
+        enum_resolver=task_types_enum
+    )
+    task_names: list[str] = SettingsField(
+        default_factory=list,
+        title="Task names")
+    repre_names: list[str] = SettingsField(
+        default_factory=list,
+        title="Selected representation names",
+        description="Representation names used for Version.sg_path_to_movie"
     )
 
 
-client_login_types_enum = [
-    {"value": "env", "label": "Via Environment Variables"},
-    {"value": "tray_pass", "label": "Via Tray App with password"},
-    {"value": "tray_api_key", "label": "Via Tray App with shared api key"},
-]
-
-
-class ClientLoginModel(BaseSettingsModel):
-    _layout = "expanded"
-
-    type: str = SettingsField(
-        "env",
-        title="Client login type",
-        description="Switch between client login types",
-        enum_resolver=lambda: client_login_types_enum,
-        conditionalEnum=True
+class IntegrateMoviePathModel(BaseSettingsModel):
+    profiles: list[MoviePathProfile] =  SettingsField(
+        default_factory=list,
+        title="Profiles for selected representations for movie path"
     )
 
-    tray_api_key: ClientLoginDetailsModel = SettingsField(
-        default_factory=ClientLoginDetailsModel,
-        title="Tray App",
-        scope=["studio"],
-    )
 
-    env: ClientLoginDetailsModel = SettingsField(
-        default_factory=ClientLoginDetailsModel,
-        title="Environment Variables",
-        scope=["studio"],
+class ShotgridPublishPlugins(BaseSettingsModel):
+    IntegrateMoviePath: IntegrateMoviePathModel = SettingsField(
+        default_factory=IntegrateMoviePathModel,
+        title="Synchronize movie path information to Flow(SG)",
+        scope=["studio", "project"],
     )
 
 
@@ -347,11 +358,11 @@ class ShotgridSettings(BaseSettingsModel):
         example="https://my-site.shotgrid.autodesk.com",
         scope=["studio"]
     )
-    client_login: ClientLoginModel = SettingsField(
-        default_factory=ClientLoginModel,
-        title="Client login settings",
-        scope=["studio"],
-        section="---",
+
+    shotgrid_no_ssl_validation: bool = SettingsField(
+        False,
+        title="No SSL validation",
+        description="Turns off hostname matching validation for SSL certificates.",
     )
     shotgrid_project_code_field: str = SettingsField(
         default="code",
@@ -404,6 +415,9 @@ class ShotgridSettings(BaseSettingsModel):
         default_factory=ShotgridServiceSettings,
         title="Service settings",
         scope=["studio"],
+    )
+    publish: ShotgridPublishPlugins = SettingsField(
+        default_factory=ShotgridPublishPlugins, title="Publish plugins"
     )
     rvx_settings: RVXSettings = SettingsField(
         default_factory=RVXSettings,
