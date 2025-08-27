@@ -764,6 +764,9 @@ class AyonShotgridHub:
             "content": content,
             "addressings_to": addressings_to
         }
+        comment_type = activity["activityData"].get("comment_type")
+        if comment_type:
+            data["sg_note_type"] = comment_type
 
         if author_sg_id:
             data["user"] = {"type": "HumanUser", "id": author_sg_id}
