@@ -1704,6 +1704,7 @@ def handle_reply(sg_ay_dict, sg_session, entity_hub):
             ayon_user_name,
             content,
             sg_reply,
+            comment_type=sg_note["sg_note_type"]
         )
     else:
         ay_activity_id = _update_comment(
@@ -1713,6 +1714,7 @@ def handle_reply(sg_ay_dict, sg_session, entity_hub):
             ay_parent_entity["entity_type"],
             ayon_comment,
             sg_reply,
+            content,
         )
     #updates SG with AYON comment id
     sg_session.update(
@@ -1757,6 +1759,7 @@ def handle_comment(sg_ay_dict, sg_session, entity_hub):
             ayon_user_name,
             content,
             sg_note,
+            comment_type=sg_note["sg_note_type"],
         )
     else:
         ay_activity_id = _update_comment(
@@ -1861,7 +1864,8 @@ def _get_sg_note(sg_note_id, sg_session):
             "user",
             "note_links",
             "addressings_to",
-            "attachments"
+            "attachments",
+            "sg_note_type",
         ]
     )
     return sg_note, sg_note_id
@@ -2016,6 +2020,7 @@ def _add_comment(
     ayon_username,
     text,
     sg_note,
+    comment_type=None
 ):
     con = ayon_api.get_server_api_connection()
     with con.as_username(ayon_username):
@@ -2025,13 +2030,16 @@ def _add_comment(
                 if atch_id := _handle_attachment(sg_session, atch, project_name):
                     attachment_ids.append(atch_id)
 
+        data = {"sg_note_id": sg_note["id"]}
+        if comment_type:
+            data["comment_type"] = comment_type
         activity_id = ayon_api.create_activity(
             project_name,
             ayon_entity_id,
             ayon_entity_type,
             "comment",
             body=text,
-            data={"sg_note_id": sg_note["id"]},
+            data=data,
             file_ids=attachment_ids,
         )
         log.info(f"Created note {activity_id}")
