@@ -23,6 +23,7 @@ def default_shotgrid_entities():
         "Task",
         "Version",
         "Note",
+        "Reply",
         "Playlist",
     ]
 
@@ -37,7 +38,8 @@ def default_shotgrid_enabled_entities():
         "Asset",
         "Task",
         "Version",
-        "Note"
+        "Note",
+        "Reply",
     ]
 
 

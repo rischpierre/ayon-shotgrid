@@ -360,8 +360,12 @@ class ShotgridListener:
                             # those events as they are not useful for us
                             # we are interested only in changes in entities
                             # not in creation events
-                            ignore_event = event.get("meta", {}).get(
-                                "in_create")
+                            meta = event.get("meta", {})
+                            if meta.get("in_create"):
+                                if meta.get("entity_type") == "Reply" and meta.get("attribute_name") == "content":
+                                    ignore_event = False
+                                else:
+                                    ignore_event = True
 
                     elif event["event_type"] in supported_event_types:
                         # events related to changes in entities we track

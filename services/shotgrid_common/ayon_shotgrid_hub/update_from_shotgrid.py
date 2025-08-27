@@ -40,6 +40,7 @@ from utils import (
     get_reparenting_from_settings,
     update_ay_entity_custom_attributes,
     handle_comment,
+    handle_reply,
 )
 from constants import (
     CUST_FIELD_CODE_ID,  # ShotGrid Field for the AYON ID.
@@ -569,9 +570,11 @@ def update_ayon_entity_from_sg_event(
             "no longer exists in ShotGrid, aborting..."
         )
         return
-
     if sg_ay_dict["type"].lower() == "comment":
-        handle_comment(sg_ay_dict, sg_session, ayon_entity_hub)
+        if sg_ay_dict["attribs"].get("shotgridType") == "Reply":
+            handle_reply(sg_ay_dict, sg_session, ayon_entity_hub)
+        else:
+            handle_comment(sg_ay_dict, sg_session, ayon_entity_hub)
         return
 
     # if the entity does not have an AYON ID, try to create it
