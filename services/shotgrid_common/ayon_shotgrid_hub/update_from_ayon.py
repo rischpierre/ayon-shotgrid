@@ -58,13 +58,14 @@ def _rvx_update_sg_playlist(
         sg_playlist = sg_session.find_one(
             "Playlist",
             [["project", "is", sg_project], ["id", "is", int(shotgrid_id)]],
-            ["versions", "project", "code"],
+            ["versions", "project", "code", "tag_list", "locked"],
         )
         if not sg_playlist:
             log.error(f"ShotGrid Playlist with ID {shotgrid_id} not found in ShotGrid, creating it")
             return
 
     # not found in sg, create it
+    active_in_ay = entity_list["active"]
     if not shotgrid_id or not sg_playlist:
         log.debug(
             f"Entity list {ay_entitity_list_id} does not have a ShotGrid ID "
@@ -74,6 +75,8 @@ def _rvx_update_sg_playlist(
             "code": entity_list["label"],
             "project": sg_project,
             "sg_ayon_id": ay_entitity_list_id,
+            "tag_list": entity_list["tags"],
+            "locked": active_in_ay,
         }
         sg_playlist = sg_session.create("Playlist", data, return_fields=["versions", "code"])
         log.debug(f"Created Playlist in ShotGrid: {sg_playlist['id']}")
@@ -110,15 +113,32 @@ def _rvx_update_sg_playlist(
     else:
         log.debug(f"Sg Playlist versions count matches AYON entity list, no update needed")
 
-    # if the entity list name changed, update the ShotGrid Playlist code
-    if ayon_event["topic"] == "entity_list.changed" and ayon_event["summary"]["label"] != sg_playlist["code"]:
-        log.debug(f"Entity list {ay_entitity_list_id} name changed, updating ShotGrid Playlist code")
-        sg_session.update(
-            "Playlist",
-            sg_playlist["id"],
-            {"code": entity_list["label"], "project": sg_project},
-        )
-        log.debug(f"Updated ShotGrid Playlist {sg_playlist['id']} with new code: {entity_list['label']}")
+    # sync attributes
+    if ayon_event["topic"] == "entity_list.changed":
+
+        active_in_ay = entity_list["active"]
+        active_in_sg = not sg_playlist["locked"]
+
+        data = {}
+        if entity_list["label"] != sg_playlist["code"]:
+            data["code"] = entity_list["label"]
+
+        if active_in_ay != active_in_sg:
+            data["locked"] = not active_in_ay
+
+        if active_in_ay and entity_list["tags"] != sg_playlist["tag_list"]:
+            data["tag_list"] = entity_list["tags"]
+
+        if not active_in_ay and entity_list["tags"] != sg_playlist["tag_list"]:
+            log.warning("Entity list is inactive, changes in tags coming from ayon cannot be set because"
+                        "in shotgrid the api blocks modifications on locked playlist")
+
+        if not data:
+            log.debug(f"Entity list {ay_entitity_list_id} attribute(s) unchanged, no update needed")
+            return
+
+        log.debug(f"Entity list {ay_entitity_list_id} attribute(s) changed, updating ShotGrid Playlist with data : {data}")
+        sg_session.update("Playlist", sg_playlist["id"], data)
 
 
 def create_sg_entity_from_ayon_event(

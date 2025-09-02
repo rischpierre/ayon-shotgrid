@@ -124,7 +124,9 @@ def _rvx_update_ay_entity_list_from_sg(
         None
     """
     project_name = ayon_entity_hub.project_entity.project_name
-    sg_playlist = sg_session.find_one("Playlist", [["project", "is", sg_project], ["id", "is", sg_event_meta["entity_id"]]], ["sg_ayon_id", "type", "code", "versions"])
+    sg_playlist = sg_session.find_one("Playlist",
+                                      [["project", "is", sg_project], ["id", "is", sg_event_meta["entity_id"]]],
+                                      ["sg_ayon_id", "type", "code", "versions", "tag_list", "locked"])
     if not sg_playlist:
         log.error(f"Playlist with id {sg_event_meta['entity_id']} not found in Shotgun.")
         return
@@ -154,8 +156,11 @@ def _rvx_update_ay_entity_list_from_sg(
             "attrib": {
                 "shotgridId": sg_playlist["id"],
                 "shotgridType": sg_playlist["type"]
-            }
+            },
+            "tags": sg_playlist["tag_list"],
+            "active": not sg_playlist["locked"],
         }
+
         result = ayon_api.raw_post(f"projects/{project_name}/lists", json=data)
         if result.status != 201:
             log.error(f"Failed to create entity list: {result.status} - {result.data}")
@@ -207,24 +212,40 @@ def _rvx_update_ay_entity_list_from_sg(
                 log.debug(f"Removed version {removed_version['id']} from entity list {entity_list['id']}")
 
     # update entity list label
-    if sg_event_meta["type"] == "attribute_change" and sg_event_meta["attribute_name"] == "code":
-        log.debug(f"Updating entity list label from ShotGrid Playlist {sg_playlist['code']}")
-        new_label = sg_event_meta["new_value"]
-        # I need to check if the entity list name is not already used
-        existing_entity_list = _get_entity_list_by_name(project_name, new_label)
-        if existing_entity_list:
-            log.error(
-                f"Entity list {entity_list['label']} already exists in AYON, "
-                f"skipping label update because labels should be unique."
-            )
-            return
+    attributes_to_sync_map = {
+        # FLOW : AYON
+        "code": "label",
+        "tag_list": "tags",
+        "locked": "active",
+    }
+    if sg_event_meta["type"] == "attribute_change" and sg_event_meta["attribute_name"] in attributes_to_sync_map.keys():
 
-        result = ayon_api.raw_patch(f"projects/{project_name}/lists/{entity_list['id']}", json={"label": new_label})
+        sg_attribute_to_update = sg_event_meta["attribute_name"]
+        new_value = sg_event_meta.get("new_value")
+
+        if sg_attribute_to_update == "code":
+            log.debug(f"Updating entity list label from ShotGrid Playlist {sg_playlist['code']}")
+
+            # I need to check if the entity list name is not already used
+            existing_entity_list = _get_entity_list_by_name(project_name, new_value)
+            if existing_entity_list:
+                log.error(
+                    f"Entity list {entity_list['label']} already exists in AYON, "
+                    f"skipping label update because labels should be unique."
+                )
+                return
+
+        # locked is the opposite of active in AYON
+        new_value = not new_value if sg_attribute_to_update == "locked" else new_value
+
+        data = {attributes_to_sync_map[sg_attribute_to_update]: new_value}
+        result = ayon_api.raw_patch(f"projects/{project_name}/lists/{entity_list['id']}", json=data)
 
         if result.status != 204:
             log.error(f"Failed to update entity list with new label")
         else:
-            log.debug(f"Updated entity list {entity_list['label']} with new label: {new_label}")
+            log.debug(f"Updated entity list attribute: {attributes_to_sync_map[sg_attribute_to_update]} "
+                      f"with new value: {new_value}")
 
         log.debug("Entity list updated with versions from ShotGrid Playlist.")
 
