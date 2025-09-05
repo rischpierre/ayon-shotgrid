@@ -394,9 +394,18 @@ def update_sg_entity_from_ayon_event(
         if ay_entity["entity_type"] == "task":
             sg_field_name = "content"
 
+        data_to_update = {
+            CUST_FIELD_CODE_ID: ay_entity["id"]
+        }
+        name = None
+        try:
+            name = ay_entity["name"]
+            data_to_update[sg_field_name] = name
+        except NotImplementedError:
+            pass  # Version does not have a name.
+
         # Change the name of the variant asset: in SG: pedestrian_A, in AY: A
-        name = ay_entity["name"]
-        if sg_entity_type == "Asset":
+        if name and sg_entity_type == "Asset":
             sg_asset = sg_session.find_one(
                 "Asset",
                 filters=[["id", "is", int(sg_id)]],
@@ -406,15 +415,8 @@ def update_sg_entity_from_ayon_event(
                 name = name.split("_")[-1]  # pedestrian_A -> A
                 log.debug(f"Updating AYON Asset name: {sg_asset['code']}, new name: {name}")
 
-        data_to_update = {
-            sg_field_name: name,
-            CUST_FIELD_CODE_ID: ay_entity["id"]
-        }
+            data_to_update[sg_field_name] = name
 
-        try:
-            data_to_update[sg_field_name] = ay_entity["name"]
-        except NotImplementedError:
-            pass  # Version does not have a name.
 
         # Add any possible new values to update
         new_attribs = ayon_event["payload"].get("newValue")
