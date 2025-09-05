@@ -17,20 +17,23 @@ def rvx_update_asset(ay_entity, sg_ay_dict, sg, ay_entity_hub):
         log.debug(f"Updating AYON Asset folder type: {sg_asset['sg_ayon_folder_type']}")
         ay_entity.set_folder_type(ay_folder_type)
 
-    # Variant asset: it needs to be reparented and renamed
-    if ay_folder_type == "VariantAsset":
-        parent_id = sg_asset["parents"][0]["id"]
+    parents = sg_asset.get("parents", [])
+    parent_id = parents[0]["id"] if parents else None
+
+    # Variant and sub assets: they need to be reparented and renamed if they have a parent
+    if ay_folder_type in ("VariantAsset", "SubAsset") and parent_id is not None:
         log.debug(f"Updating AYON Asset parent: {parent_id}")
         sg_parent = sg.find_one("Asset", [["id", "is", parent_id]], ["sg_ayon_id", "code"])
         ay_parent = ay_entity_hub.get_or_query_entity_by_id(sg_parent["sg_ayon_id"], ["folder"])
-
-        new_name = ay_entity.name.split("_")[-1]
         ay_entity.set_parent(ay_parent)
-        ay_entity.set_label(new_name)
-        ay_entity.set_name(new_name)
+
+        if ay_folder_type == "VariantAsset":
+            new_name = ay_entity.name.split("_")[-1]
+            ay_entity.set_label(new_name)
+            ay_entity.set_name(new_name)
 
     # if an asset is switched from variant to sub asset we need to reparent
-    elif ay_folder_type in ("SubAsset", "ShowAsset"):
+    elif ay_folder_type in ("SubAsset", "ShowAsset") and parent_id is None:
         sg_asset_type = sg_asset["sg_asset_type"]
         ay_asset_category = ayon_api.get_folder_by_name(ay_entity_hub.project_name, sg_asset_type.lower())
         if ay_entity.parent.name != sg_asset_type:
@@ -85,9 +88,11 @@ def rvx_validate_sg_asset(sg_ay_dict, sg):
             )
 
     else:  # SubAsset, ShowAsset
-        if sg_asset["parents"]:
-            raise ValueError(f"SubAsset: {sg_asset['code']} should not have parents in shotgrid")
+        if ay_folder_type == "ShowAsset":
+            if sg_asset["parents"]:
+                raise ValueError(f"ShowAsset: {sg_asset['code']} should not have parents in shotgrid")
 
+        # if has children assets
         if sg_asset["assets"]:
             children = sg.find(
                 "Asset", [["id", "in", [a["id"] for a in sg_asset["assets"]]]], ["code", "sg_asset_type"]
