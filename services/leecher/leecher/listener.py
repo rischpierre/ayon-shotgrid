@@ -364,6 +364,9 @@ class ShotgridListener:
                             if meta.get("in_create"):
                                 if meta.get("entity_type") == "Reply" and meta.get("attribute_name") == "content":
                                     ignore_event = False
+                                # if a playlist is created by right clicking on a version, the event is in_create
+                                elif meta.get("entity_type") == "Playlist" and meta.get("attribute_name") == "versions":
+                                    ignore_event = False
                                 else:
                                     ignore_event = True
 
