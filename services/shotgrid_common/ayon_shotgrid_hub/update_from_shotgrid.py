@@ -218,10 +218,13 @@ def _rvx_update_ay_entity_list_from_sg(
         "tag_list": "tags",
         "locked": "active",
     }
-    if sg_event_meta["type"] == "attribute_change" and sg_event_meta["attribute_name"] in attributes_to_sync_map.keys():
+    sg_attribute_to_update = sg_event_meta.get("attribute_name")
+    if sg_event_meta["type"] == "attribute_change" and sg_attribute_to_update in attributes_to_sync_map.keys():
 
-        sg_attribute_to_update = sg_event_meta["attribute_name"]
         new_value = sg_event_meta.get("new_value")
+        if not new_value:
+            log.warning(f"Attribute {sg_attribute_to_update} has no new value, skipping.")
+            return
 
         if sg_attribute_to_update == "code":
             log.debug(f"Updating entity list label from ShotGrid Playlist {sg_playlist['code']}")

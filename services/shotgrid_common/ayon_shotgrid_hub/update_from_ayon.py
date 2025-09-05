@@ -65,7 +65,6 @@ def _rvx_update_sg_playlist(
             return
 
     # not found in sg, create it
-    active_in_ay = entity_list["active"]
     if not shotgrid_id or not sg_playlist:
         log.debug(
             f"Entity list {ay_entitity_list_id} does not have a ShotGrid ID "
@@ -76,7 +75,7 @@ def _rvx_update_sg_playlist(
             "project": sg_project,
             "sg_ayon_id": ay_entitity_list_id,
             "tag_list": entity_list["tags"],
-            "locked": active_in_ay,
+            "locked": entity_list["active"],
         }
         sg_playlist = sg_session.create("Playlist", data, return_fields=["versions", "code"])
         log.debug(f"Created Playlist in ShotGrid: {sg_playlist['id']}")
@@ -118,20 +117,27 @@ def _rvx_update_sg_playlist(
 
         active_in_ay = entity_list["active"]
         active_in_sg = not sg_playlist["locked"]
+        label_to_update = entity_list["label"] != sg_playlist["code"]
+        tags_to_update = entity_list["tags"] != sg_playlist["tag_list"]
 
         data = {}
-        if entity_list["label"] != sg_playlist["code"]:
-            data["code"] = entity_list["label"]
+        if label_to_update:
+            if active_in_ay:
+                data["code"] = entity_list["label"]
+            else:
+                log.warning("Entity list is inactive, changes in label coming from ayon cannot be set because"
+                        "in shotgrid the api blocks modifications on locked playlist")
 
+        if tags_to_update:
+            if active_in_ay:
+                data["tag_list"] = entity_list["tags"]
+            else:
+                log.warning("Entity list is inactive, changes in tags coming from ayon cannot be set because"
+                        "in shotgrid the api blocks modifications on locked playlist")
+
+        # only locked attribute can be set wheter locked or not
         if active_in_ay != active_in_sg:
             data["locked"] = not active_in_ay
-
-        if active_in_ay and entity_list["tags"] != sg_playlist["tag_list"]:
-            data["tag_list"] = entity_list["tags"]
-
-        if not active_in_ay and entity_list["tags"] != sg_playlist["tag_list"]:
-            log.warning("Entity list is inactive, changes in tags coming from ayon cannot be set because"
-                        "in shotgrid the api blocks modifications on locked playlist")
 
         if not data:
             log.debug(f"Entity list {ay_entitity_list_id} attribute(s) unchanged, no update needed")
