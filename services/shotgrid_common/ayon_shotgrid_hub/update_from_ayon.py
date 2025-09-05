@@ -120,31 +120,32 @@ def _rvx_update_sg_playlist(
         label_to_update = entity_list["label"] != sg_playlist["code"]
         tags_to_update = entity_list["tags"] != sg_playlist["tag_list"]
 
+        # we need to unloack and lock the playlist in SG because it blocks the udpate if already locked
+        # or if the locked: True attribute is passed to the udpate
+        if not active_in_sg:
+            log.debug(f"Entity list {ay_entitity_list_id} is active in AYON but not in ShotGrid, "
+                      f"unlocking it in ShotGrid before setting more attributes")
+            sg_session.update("Playlist", sg_playlist["id"], {"locked": False})
+
         data = {}
         if label_to_update:
-            if active_in_ay:
-                data["code"] = entity_list["label"]
-            else:
-                log.warning("Entity list is inactive, changes in label coming from ayon cannot be set because"
-                        "in shotgrid the api blocks modifications on locked playlist")
+            data["code"] = entity_list["label"]
 
         if tags_to_update:
-            if active_in_ay:
-                data["tag_list"] = entity_list["tags"]
-            else:
-                log.warning("Entity list is inactive, changes in tags coming from ayon cannot be set because"
-                        "in shotgrid the api blocks modifications on locked playlist")
-
-        # only locked attribute can be set wheter locked or not
-        if active_in_ay != active_in_sg:
-            data["locked"] = not active_in_ay
+            data["tag_list"] = entity_list["tags"]
 
         if not data:
             log.debug(f"Entity list {ay_entitity_list_id} attribute(s) unchanged, no update needed")
             return
 
-        log.debug(f"Entity list {ay_entitity_list_id} attribute(s) changed, updating ShotGrid Playlist with data : {data}")
+        log.debug(f"Entity list {ay_entitity_list_id} attribute(s) changed, "
+                  f"updating ShotGrid Playlist with data : {data}")
         sg_session.update("Playlist", sg_playlist["id"], data)
+
+        if not active_in_ay:
+            log.debug(f"locking playlist in sg")
+            sg_session.update("Playlist", sg_playlist["id"], {"locked": True})
+
 
 
 def create_sg_entity_from_ayon_event(
