@@ -58,7 +58,7 @@ def _rvx_update_sg_playlist(
         sg_playlist = sg_session.find_one(
             "Playlist",
             [["project", "is", sg_project], ["id", "is", int(shotgrid_id)]],
-            ["versions", "project", "code", "tag_list", "locked"],
+            ["versions", "project", "code", "tag_list", "locked", "sg_type"],
         )
         if not sg_playlist:
             log.error(f"ShotGrid Playlist with ID {shotgrid_id} not found in ShotGrid, creating it")
@@ -75,7 +75,8 @@ def _rvx_update_sg_playlist(
             "project": sg_project,
             "sg_ayon_id": ay_entitity_list_id,
             "tag_list": entity_list["tags"],
-            "locked": entity_list["active"],
+            "locked": not entity_list["active"],
+            "sg_type": entity_list["data"].get("sg_type"),
         }
         sg_playlist = sg_session.create("Playlist", data, return_fields=["versions", "code"])
         log.debug(f"Created Playlist in ShotGrid: {sg_playlist['id']}")
@@ -119,6 +120,7 @@ def _rvx_update_sg_playlist(
         active_in_sg = not sg_playlist["locked"]
         label_to_update = entity_list["label"] != sg_playlist["code"]
         tags_to_update = entity_list["tags"] != sg_playlist["tag_list"]
+        type_to_update = entity_list["data"].get("sg_type") != sg_playlist["sg_type"]
 
         # we need to unloack and lock the playlist in SG because it blocks the udpate if already locked
         # or if the locked: True attribute is passed to the udpate
@@ -133,6 +135,9 @@ def _rvx_update_sg_playlist(
 
         if tags_to_update:
             data["tag_list"] = entity_list["tags"]
+
+        if type_to_update:
+            data["sg_type"] = entity_list["data"].get("sg_type")
 
         if not data:
             log.debug(f"Entity list {ay_entitity_list_id} attribute(s) unchanged, no update needed")
