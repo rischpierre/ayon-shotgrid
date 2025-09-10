@@ -126,14 +126,13 @@ def _rvx_update_ay_entity_list_from_sg(
     project_name = ayon_entity_hub.project_entity.project_name
     sg_playlist = sg_session.find_one("Playlist",
                                       [["project", "is", sg_project], ["id", "is", sg_event_meta["entity_id"]]],
-                                      ["sg_ayon_id", "type", "code", "versions", "tag_list", "locked"])
+                                      ["sg_ayon_id", "type", "code", "versions", "tag_list", "locked", "sg_type"])
     if not sg_playlist:
         log.error(f"Playlist with id {sg_event_meta['entity_id']} not found in Shotgun.")
         return
 
     entity_list = None
     ay_entitity_list_id = sg_playlist.get("sg_ayon_id")
-    entity_newly_created = False
     if ay_entitity_list_id:
         query = ayon_api.raw_get(f"projects/{project_name}/lists/{ay_entitity_list_id}")
         if query.status == 200:
@@ -159,6 +158,9 @@ def _rvx_update_ay_entity_list_from_sg(
             },
             "tags": sg_playlist["tag_list"],
             "active": not sg_playlist["locked"],
+            "data": {
+                "sg_type": sg_playlist["sg_type"],
+            },
         }
 
         result = ayon_api.raw_post(f"projects/{project_name}/lists", json=data)
@@ -217,6 +219,7 @@ def _rvx_update_ay_entity_list_from_sg(
         "code": "label",
         "tag_list": "tags",
         "locked": "active",
+        "sg_type": "sg_type",
     }
     sg_attribute_to_update = sg_event_meta.get("attribute_name")
     if sg_event_meta["type"] == "attribute_change" and sg_attribute_to_update in attributes_to_sync_map.keys():
@@ -238,10 +241,15 @@ def _rvx_update_ay_entity_list_from_sg(
                 )
                 return
 
+        if sg_attribute_to_update == "sg_type":
+            data = entity_list["data"]
+            data["sg_type"] = new_value
+        else:
+            data = {attributes_to_sync_map[sg_attribute_to_update]: new_value}
+
         # locked is the opposite of active in AYON
         new_value = not new_value if sg_attribute_to_update == "locked" else new_value
 
-        data = {attributes_to_sync_map[sg_attribute_to_update]: new_value}
         result = ayon_api.raw_patch(f"projects/{project_name}/lists/{entity_list['id']}", json=data)
 
         if result.status != 204:
