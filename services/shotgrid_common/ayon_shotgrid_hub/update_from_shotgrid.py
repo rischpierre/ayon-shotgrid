@@ -225,7 +225,7 @@ def _rvx_update_ay_entity_list_from_sg(
     if sg_event_meta["type"] == "attribute_change" and sg_attribute_to_update in attributes_to_sync_map.keys():
 
         new_value = sg_event_meta.get("new_value")
-        if not new_value:
+        if new_value is None:
             log.warning(f"Attribute {sg_attribute_to_update} has no new value, skipping.")
             return
 
@@ -242,8 +242,8 @@ def _rvx_update_ay_entity_list_from_sg(
                 return
 
         if sg_attribute_to_update == "sg_type":
-            data = entity_list["data"]
-            data["sg_type"] = new_value
+            data = {"data": entity_list["data"]}
+            data["data"]["sg_type"] = new_value
         else:
             data = {attributes_to_sync_map[sg_attribute_to_update]: new_value}
 
