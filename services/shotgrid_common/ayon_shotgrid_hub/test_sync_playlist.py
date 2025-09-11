@@ -2,9 +2,9 @@ import logging
 import os
 import time
 from uuid import uuid4
-import pytest
 
 import ayon_api
+import pytest
 from shotgun_api3 import Shotgun
 
 logging.basicConfig(level=logging.DEBUG)
@@ -27,11 +27,13 @@ assert TOKEN, "AYON_API_KEY environment variable is not set"
 sg_session = Shotgun(SHOTGUN_URL, script_name=SCRIPT_NAME, api_key=SCRIPT_KEY, http_proxy=HTTP_PROXY)
 project_name = "Zero_Flow"
 
+
 # IMPORTANT: the services must be running before running this test suite
 
 @pytest.fixture
 def playlist_name():
     return f"playlist-{uuid4().hex[:8]}"
+
 
 def clean_playlists(sg_playlist, ay_playlist, project_name: str):
     try:
@@ -42,6 +44,7 @@ def clean_playlists(sg_playlist, ay_playlist, project_name: str):
         ayon_api.delete_entity_list(project_name, ay_playlist["id"])
     except Exception as e:
         print(f"AYON list cleanup failed: {e}")
+
 
 def test_sg_script_emits_events():
     # make sure the script api item emits events, if not, the ayon entities will not be created
@@ -99,7 +102,6 @@ def test_create_playlist_from_sg(playlist_name: str):
         print(e)
     finally:
         clean_playlists(sg_playlist, ay_playlist, project_name)
-        pass
 
     assert ay_playlist is not None, "Playlist not found"
     assert ay_playlist["label"] == playlist_name, "code does not match"
@@ -131,7 +133,8 @@ def test_create_playlist_from_ay(playlist_name: str):
 
         # adding versions to the playlist
         for version in list(ayon_api.get_versions(project_name))[:2]:
-            result = ayon_api.raw_post(f"projects/{project_name}/lists/{ay_playlist['id']}/items", json={"entity_id": version["id"]})
+            result = ayon_api.raw_post(f"projects/{project_name}/lists/{ay_playlist['id']}/items",
+                                       json={"entity_id": version["id"]})
             if result.status_code != 201:
                 raise Exception(f"Unable to add version to playlist {result.text}")
 
@@ -157,5 +160,3 @@ def test_create_playlist_from_ay(playlist_name: str):
     assert sg_playlist["sg_type"] == "Dailies", f"sg_type does not match {sg_playlist['sg_type']}"
     assert len(sg_playlist["versions"]) == 2, "not the same number of versions"
     assert not sg_playlist["locked"], "locked does not match"
-
-
