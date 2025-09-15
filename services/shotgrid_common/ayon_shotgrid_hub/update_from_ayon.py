@@ -260,16 +260,32 @@ def create_sg_entity_from_ayon_event(
         sg_type = sg_entity["attribs"]["shotgridType"]
         log.info(f"Created Shotgrid entity: {sg_id} of {sg_type}")
 
-        ay_entity.attribs.set(
-            SHOTGRID_ID_ATTRIB,
-            sg_id
-        )
-        ay_entity.attribs.set(
-            SHOTGRID_TYPE_ATTRIB,
-            sg_type
-        )
-        ayon_entity_hub.commit_changes()
-        return ay_entity
+        # RVX: update the sg id with the ayon api instead of the entity hub.
+        # because we have recusion limit issues whern doing the commit changes for some reason
+        # todo try to remove this once the entity lists are supported on the sync
+        project_name = ayon_entity_hub.project_entity.project_name
+
+        attribs = dict(ay_entity.attribs)
+        attribs[SHOTGRID_ID_ATTRIB] = sg_id
+        attribs[SHOTGRID_TYPE_ATTRIB] = sg_type
+
+        if ay_entity.entity_type == "task":
+            ayon_api.update_task(project_name, ay_entity["id"], attrib=attribs)
+        elif ay_entity.entity_type == "version":
+            ayon_api.update_version(project_name, ay_entity["id"], attrib=attribs)
+        else:
+            ayon_api.update_folder(project_name, ay_entity["id"], attrib=attribs)
+
+        # ay_entity.attribs.set(
+        #     SHOTGRID_ID_ATTRIB,
+        #     sg_id
+        # )
+        # ay_entity.attribs.set(
+        #     SHOTGRID_TYPE_ATTRIB,
+        #     sg_type
+        # )
+        # ayon_entity_hub.commit_changes()
+        # return ay_entity
 
     except Exception:
         log.error(
