@@ -229,6 +229,9 @@ def _rvx_update_ay_entity_list_from_sg(
             log.warning(f"Attribute {sg_attribute_to_update} has no new value, skipping.")
             return
 
+        # locked is the opposite of active in AYON
+        new_value = not new_value if sg_attribute_to_update == "locked" else new_value
+
         if sg_attribute_to_update == "code":
             log.debug(f"Updating entity list label from ShotGrid Playlist {sg_playlist['code']}")
 
@@ -246,9 +249,6 @@ def _rvx_update_ay_entity_list_from_sg(
             data["data"]["sg_type"] = new_value
         else:
             data = {attributes_to_sync_map[sg_attribute_to_update]: new_value}
-
-        # locked is the opposite of active in AYON
-        new_value = not new_value if sg_attribute_to_update == "locked" else new_value
 
         result = ayon_api.raw_patch(f"projects/{project_name}/lists/{entity_list['id']}", json=data)
 
