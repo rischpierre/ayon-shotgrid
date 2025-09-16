@@ -105,11 +105,16 @@ def _rvx_update_sg_playlist(
             sg_versions = sg_session.find("Version", [["project", "is", sg_project], ["id", "in", matching_versions_sg_ids]])
 
         log.debug(f"Updating Playlist {sg_playlist['id']} with {len(sg_versions)} versions")
+        locked = sg_playlist["locked"]
         sg_session.update(
             "Playlist",
             sg_playlist["id"],
-            {"versions": sg_versions, "project": sg_project},
+            # locked should be the first item in the dict to avoid CRUD error modifying a locked list
+            {"locked": False, "versions": sg_versions, "project": sg_project, },
         )
+        if locked:
+            log.debug(f"Re-locking playlist in sg")
+            sg_session.update("Playlist", sg_playlist["id"], {"locked": True})
     else:
         log.debug(f"Sg Playlist versions count matches AYON entity list, no update needed")
 
@@ -117,19 +122,13 @@ def _rvx_update_sg_playlist(
     if ayon_event["topic"] == "entity_list.changed":
 
         active_in_ay = entity_list["active"]
-        active_in_sg = not sg_playlist["locked"]
         label_to_update = entity_list["label"] != sg_playlist["code"]
         tags_to_update = entity_list["tags"] != sg_playlist["tag_list"]
         type_to_update = entity_list["data"].get("sg_type") != sg_playlist["sg_type"]
 
-        # we need to unloack and lock the playlist in SG because it blocks the udpate if already locked
-        # or if the locked: True attribute is passed to the udpate
-        if not active_in_sg:
-            log.debug(f"Entity list {ay_entitity_list_id} is active in AYON but not in ShotGrid, "
-                      f"unlocking it in ShotGrid before setting more attributes")
-            sg_session.update("Playlist", sg_playlist["id"], {"locked": False})
-
-        data = {}
+        # we need to unlock and lock the playlist in SG because it blocks the update if already locked
+        # locked should be the first item in the dict to avoid CRUD error modifying a locked list
+        data = {"locked": False}
         if label_to_update:
             data["code"] = entity_list["label"]
 
@@ -139,7 +138,7 @@ def _rvx_update_sg_playlist(
         if type_to_update:
             data["sg_type"] = entity_list["data"].get("sg_type")
 
-        if not data:
+        if len(data.keys()) == 1:
             log.debug(f"Entity list {ay_entitity_list_id} attribute(s) unchanged, no update needed")
             return
 
@@ -148,7 +147,7 @@ def _rvx_update_sg_playlist(
         sg_session.update("Playlist", sg_playlist["id"], data)
 
         if not active_in_ay:
-            log.debug(f"locking playlist in sg")
+            log.debug(f"Re-locking playlist in sg")
             sg_session.update("Playlist", sg_playlist["id"], {"locked": True})
 
 
