@@ -2292,22 +2292,22 @@ def update_movie_paths(
     ay_version_id = summary.pop("versionId")
     log.info(f"Updating paths '{ay_version_id}'")
 
-    ay_version_entity = ayon_entity_hub.get_version_by_id(ay_version_id)
-    if not ay_version_entity:
+    ay_version = ayon_api.get_version_by_id(project_name=ayon_entity_hub.project_entity.project_name, version_id=ay_version_id)
+    if not ay_version:
         raise ValueError(
             "Event has a non existent version entity "
             f"'{ay_version_id}'"
         )
 
-    sg_version_id = ay_version_entity.attribs.get(SHOTGRID_ID_ATTRIB)
-    sg_version_type = ay_version_entity.attribs.get(SHOTGRID_TYPE_ATTRIB)
+    sg_version_id = ay_version["attrib"].get(SHOTGRID_ID_ATTRIB)
+    sg_version_type = ay_version["attrib"].get(SHOTGRID_TYPE_ATTRIB)
 
     if not sg_version_id:
         raise ValueError(f"Version '{ay_version_id} not yet synched to SG.")
 
     sg_session.update(
         sg_version_type,
-        sg_version_id,
+        int(sg_version_id),
         summary
     )
 
@@ -2370,15 +2370,15 @@ def upload_ay_reviewable_to_sg(
     log.info(f"Uploading reviewable for '{ay_version_id}'")
     ay_project_name = ayon_entity_hub.project_name
 
-    ay_version_entity = ayon_entity_hub.get_version_by_id(ay_version_id)
+    ay_version_entity = ayon_api.get_version_by_id(project_name=ay_project_name, version_id=ay_version_id)
     if not ay_version_entity:
         raise ValueError(
             "Event has a non existent version entity "
             f"'{ay_version_id}'"
         )
 
-    sg_version_id = ay_version_entity.attribs.get(SHOTGRID_ID_ATTRIB)
-    sg_version_type = ay_version_entity.attribs.get(SHOTGRID_TYPE_ATTRIB)
+    sg_version_id = ay_version_entity["attrib"].get(SHOTGRID_ID_ATTRIB)
+    sg_version_type = ay_version_entity["attrib"].get(SHOTGRID_TYPE_ATTRIB)
 
     if not sg_version_id:
         raise ValueError(f"Version '{ay_version_id} not yet synched to SG.")
