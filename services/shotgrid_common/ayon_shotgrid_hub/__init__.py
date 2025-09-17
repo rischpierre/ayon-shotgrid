@@ -521,7 +521,7 @@ class AyonShotgridHub:
             self.log.warning(f"Unable to find AYON representation with ID: {ay_rep_id}")
             return
 
-        ay_version = ay_project_hub.get_version_by_id(ay_version_id)
+        ay_version = ayon_api.get_version_by_id(project_name=ay_project_hub.project_name, version_id=ay_version_id)
         if not ay_version:
             self.log.warning(f"Unable to find AYON version with ID: {ay_version_id}")
             return
@@ -531,11 +531,11 @@ class AyonShotgridHub:
             self.log.warning(f"Unable to find AYON representation with ID: {ay_rep_id}")
             return
 
-        sg_version_id = ay_version.attribs.get(SHOTGRID_ID_ATTRIB)
+        sg_version_id = ay_version["attrib"].get(SHOTGRID_ID_ATTRIB)
         if not sg_version_id:
             self.log.warning(
                 f"Skipping adding paths to SG Version: {sg_version_id}, "
-                f"AYON version: {ay_version.parent.name} version: {ay_version.version} "
+                f"AYON version: {ay_version['name']} version: {ay_version['version']} "
                 "because Shotgrid ID was not found."
             )
             return
@@ -568,17 +568,17 @@ class AyonShotgridHub:
         self.log.debug(f"Updated sg version: {sg_version_id} with data:{data_to_update}")
 
     def rvx_add_sg_thumbnail(self, sg_session, ay_project_hub: EntityHub, ay_version_id: str):
-        ay_entity = ay_project_hub.get_version_by_id(ay_version_id)
-        sg_id = ay_entity.attribs.get(SHOTGRID_ID_ATTRIB)
+        ay_version = ayon_api.get_version_by_id(project_name=ay_project_hub.project_name, version_id=ay_version_id)
+        sg_id = ay_version["attrib"].get(SHOTGRID_ID_ATTRIB)
         self.log.debug(
-            f"Try adding thumbnail to SG Version: {sg_id}, ay version: {ay_entity.parent.name} version: {ay_entity.version}"
+            f"Try adding thumbnail to SG Version: {sg_id}, ay version: {ay_version['name']} version: {ay_version['version']}"
         )
 
         if sg_id is None:
             self.log.warning(f"Skip upload thumbnail: sg id was not found")
             return
 
-        thumbnail = ayon_api.get_version_thumbnail(project_name=ay_project_hub.project_name, version_id=ay_entity.id)
+        thumbnail = ayon_api.get_version_thumbnail(project_name=ay_project_hub.project_name, version_id=ay_version_id)
 
         if not thumbnail:
             self.log.warning(f"[RVX] Unable to get thumbnail from version")
