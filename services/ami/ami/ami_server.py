@@ -162,10 +162,12 @@ def _render_html_page(title: str, success: bool, message: str, lines: list[str],
 def get_sg_session():
     ayon_api_key = os.environ.get("AYON_API_KEY")
     ayon_server_url = os.environ.get("AYON_SERVER_URL")
-    sg_url = os.environ.get("SHOTGUN_URL")
-    proxy_url = os.environ.get("HTTP_PROXY")
-    if not ayon_api_key or not ayon_server_url or not sg_url or not proxy_url:
+    sg_url = os.environ.get("SG_URL")
+    proxy_url = os.environ.get("HTTP_PROXY").replace("http://", "")
+    if not ayon_api_key or not ayon_server_url:
         raise Exception("AYON_API_KEY and AYON_SERVER_URL are required")
+    if not sg_url or not proxy_url:
+        raise Exception("SHOTGUN URL and proxy URL are required")
 
     ayon_api.init_service(token=ayon_api_key, server_url=ayon_server_url)
     script_name = ayon_api.get_secret("flow_script_name")["value"]
@@ -279,11 +281,15 @@ class AmiRequestHandler(BaseHTTPRequestHandler):
             logger.debug("AMI payload received (unprintable)")
 
         result = self._execute_ami(data)
+        if result == -2:
+            # Response already sent (parameters form)
+            return
         if result == 0:
             content = self._build_html_for_result(data or {}, success=True)
             self._send_html(HTTPStatus.OK, content)
         else:
             self._send_html_or_json_error(path, HTTPStatus.INTERNAL_SERVER_ERROR, "Internal server error")
+
 
     def _execute_ami(self, data):
         logger.debug(data)
@@ -292,28 +298,115 @@ class AmiRequestHandler(BaseHTTPRequestHandler):
         try:
             module = importlib.import_module(f"ami.{action}")
 
-            params_fn = getattr(module, "parameters", None)
-            if callable(params_fn):
-                # todo parameters
-                _ = params_fn()
-
             # Find the first class defined in the module that has a callable main()
-            cls_with_main = None
+            ami_class = None
             for name, obj in module.__dict__.items():
                 if isinstance(obj, type) and hasattr(obj, "main") and callable(getattr(obj, "main")):
-                    cls_with_main = obj
+                    ami_class = obj
                     break
 
-            if not cls_with_main:
+            if not ami_class:
                 raise Exception("No class with main() found in ami.%s", action)
 
             sg = get_sg_session()
-            instance = cls_with_main(sg, data)
+            instance = ami_class(sg, data)
+
+            params_fn = getattr(instance, "parameters", None)
+            parameters = None
+            if callable(params_fn):
+                parameters = params_fn()
+
+            # If parameters exist and the form wasn't submitted yet, render the form
+            if parameters and not data.get("__form_submitted"):
+                self._send_html_with_parameters(action, parameters, data)
+                return -2  # signal: response sent
+
+            # If parameters exist and this is a submission, hydrate them from form data
+            if parameters and data.get("__form_submitted"):
+                for p in parameters:
+                    # Use parameter name as the form field key
+                    field_key = str(p.name)
+                    if field_key in data:
+                        p.set(data.get(field_key))
+
             return instance.main()
 
         except Exception as e:
             logger.error(e)
             return 1
+
+    def _send_html_with_parameters(self, action: str, parameters: list, original: Dict[str, Any]) -> None:
+            # Build a simple form to edit parameters and submit back
+            def esc(s: str) -> str:
+                return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+            inputs_html = []
+            for p in parameters:
+                label = esc(str(p.name))
+                # Determine current value to show (default if no setter was called yet)
+                try:
+                    current_val = p.value()
+                except Exception:
+                    current_val = getattr(p, "default", "")
+                if isinstance(current_val, bool):
+                    checked = " checked" if current_val else ""
+                    inputs_html.append(
+                        f'<label style="display:block;margin:8px 0;"><span style="display:inline-block;width:180px;">{label}</span>'
+                        f'<input type="checkbox" name="{esc(str(p.name))}" value="true"{checked}></label>'
+                    )
+                else:
+                    inputs_html.append(
+                        f'<label style="display:block;margin:8px 0;"><span style="display:inline-block;width:180px;">{label}</span>'
+                        f'<input type="text" name="{esc(str(p.name))}" value="{esc(str(current_val))}" '
+                        f'style="min-width:320px;padding:6px;border-radius:6px;border:1px solid #555;background:#0b1220;color:#e5e7eb;"></label>'
+                    )
+
+            # Keep original context as hidden inputs so we can call main() afterwards
+            hidden_inputs = []
+            keep_keys = original.keys()
+            for k in keep_keys:
+                if k == "__form_submitted":
+                    continue
+                v = original.get(k)
+                if v is None:
+                    continue
+                hidden_inputs.append(f'<input type="hidden" name="{esc(str(k))}" value="{esc(str(v))}">')
+            hidden_inputs.append('<input type="hidden" name="__form_submitted" value="1">')
+            hidden_inputs.append(f'<input type="hidden" name="action" value="{esc(str(action))}">')
+
+            form_html = f"""
+    <!doctype html>
+    <html lang="en">
+    <head>
+    <meta charset="utf-8">
+    <title>Parameters</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    </head>
+    <body style="margin:0;padding:24px;background:#0f172a;color:#e5e7eb;font:15px/1.5 -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial;">
+      <div style="max-width:860px;margin:0 auto;">
+        <div style="background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));border:1px solid rgba(255,255,255,0.1);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,0.35);overflow:hidden;">
+          <div style="padding:18px 20px;border-bottom:1px solid rgba(255,255,255,0.08);background:linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0));">
+            <h1 style="font-size:18px;margin:0;">Adjust Parameters</h1>
+          </div>
+          <div style="padding:18px 20px;">
+            <form method="post" action="/ami">
+              {''.join(hidden_inputs)}
+              {''.join(inputs_html)}
+              <div style="margin-top:16px;">
+                <button type="submit" style="background:#16a34a;color:white;border:none;border-radius:8px;padding:10px 16px;font-weight:600;cursor:pointer;">
+                  Send
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+    """.strip()
+
+            html_bytes = form_html.encode("utf-8")
+            self._send_html(HTTPStatus.OK, html_bytes)
 
     def _send_html_or_json_error(self, path: str, status: HTTPStatus, message: str,
                                  echo: Optional[Dict[str, Any]] = None) -> None:
