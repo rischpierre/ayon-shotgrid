@@ -1,5 +1,4 @@
 from datetime import datetime
-
 from services.ami.ami import ami_base
 from services.ami.ami.ami_parameters import StringParameter
 
@@ -7,9 +6,30 @@ from services.ami.ami.ami_parameters import StringParameter
 class AMICreateDeliveryPlaylist(ami_base.AmiBase):
     def __init__(self, sg_session, data):
         super().__init__(sg_session, data)
-        today_str = datetime.now().strftime("%Y%m%d")
-        name = f"{today_str}_delivery_playlist"
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        base_name = f"delivery_{today_str}"
+        version = self._get_next_available_version(base_name)
+        name = f"{base_name}_{version:02d}"
+
         self.playlist_param = StringParameter("Playlist Name", default=name)
+
+    def _get_next_available_version(self, base_name: str):
+        playlists = self.sg_session.find(
+            "Playlist",
+            [["project.Project.id", "is", self.project_id], ["code", "contains", f"{base_name}"]],
+            ["code"]
+        )
+        max_ = 0
+        for i in playlists:
+            digits = i.split("_")[-1]
+            try:
+                value = int(digits)
+                if value > max_:
+                    max_ = value
+            except ValueError:
+                continue
+        return max_ + 1
+
 
     def parameters(self):
         return [self.playlist_param]
