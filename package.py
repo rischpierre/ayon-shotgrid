@@ -10,6 +10,8 @@ services = {
         "image": f"docker.eu.rvx.is/rvx/ayon-shotgrid-processor:{version}"},
     "ShotgridTransmitter": {
         "image": f"docker.eu.rvx.is/rvx/ayon-shotgrid-transmitter:{version}"},
+    "ShotgridAmi": {
+        "image": f"docker.eu.rvx.is/rvx/ayon-shotgrid-ami:{version}"},
 }
 ayon_required_addons = {
     "core": ">=0.3.0",

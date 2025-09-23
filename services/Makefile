@@ -13,12 +13,13 @@ default:
 	@echo "  leecher - Fetch Shotgrid Events into AYON."
 	@echo "  processor - Process 'shotgrid.event's in AYON."
 	@echo "  transmitter - Push AYON events to Shotgrid."
+	@echo "  ami - Handle action menu items from shotgrid"
 	@echo ""
 	@echo "Targets:"
 	@echo "  build        Build docker image."
-	@echo "  build-all    Build docker image for 'leecher', 'procesor' and 'transmitter'."
+	@echo "  build-all    Build docker image for 'leecher', 'procesor', 'transmitter' and 'ami'."
 	@echo "  dist         Push docker image to DockerHub."
-	@echo "  dist-all     Push docker image for 'leecher', 'procesor' and 'transmitter'."
+	@echo "  dist-all     Push docker image for 'leecher', 'procesor', 'transmitter' and 'ami'."
 	@echo "  clean        Remove local images."
 	@echo "  clean-build  Remove local images and build without docker cache."
 	@echo "  dev          Run a service locally"
@@ -31,6 +32,7 @@ build-all:
 	docker build -t docker-internal.eu.rvx.is/rvx/ayon-shotgrid-leecher:$(ADDON_VERSION) -f ./leecher/Dockerfile .
 	docker build -t docker-internal.eu.rvx.is/rvx/ayon-shotgrid-processor:$(ADDON_VERSION) -f ./processor/Dockerfile .
 	docker build -t docker-internal.eu.rvx.is/rvx/ayon-shotgrid-transmitter:$(ADDON_VERSION) -f ./transmitter/Dockerfile .
+	docker build -t docker-internal.eu.rvx.is/rvx/ayon-shotgrid-ami:$(ADDON_VERSION) -f ./ami/Dockerfile .
 
 dist:
 	docker push $(IMAGE)
@@ -39,6 +41,7 @@ dist-all:
 	docker push docker-internal.eu.rvx.is/rvx/ayon-shotgrid-leecher:$(ADDON_VERSION)
 	docker push docker-internal.eu.rvx.is/rvx/ayon-shotgrid-processor:$(ADDON_VERSION)
 	docker push docker-internal.eu.rvx.is/rvx/ayon-shotgrid-transmitter:$(ADDON_VERSION)
+	docker push docker-internal.eu.rvx.is/rvx/ayon-shotgrid-ami:$(ADDON_VERSION)
 
 clean:
 	if docker images "$(IMAGE)"; then \
@@ -52,6 +55,7 @@ clean-build-all:
 	docker build --no-cache -t docker-internal.eu.rvx.is/rvx/ayon-shotgrid-leecher:$(ADDON_VERSION) -f ./leecher/Dockerfile .
 	docker build --no-cache -t docker-internal.eu.rvx.is/rvx/ayon-shotgrid-processor:$(ADDON_VERSION) -f ./processor/Dockerfile .
 	docker build --no-cache -t docker-internal.eu.rvx.is/rvx/ayon-shotgrid-transmitter:$(ADDON_VERSION) -f ./transmitter/Dockerfile .
+	docker build --no-cache -t docker-internal.eu.rvx.is/rvx/ayon-shotgrid-ami:$(ADDON_VERSION) -f ./ami/Dockerfile .
 
 
 dev:
