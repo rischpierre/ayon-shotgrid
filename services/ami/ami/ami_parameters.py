@@ -1,28 +1,38 @@
+from typing import Any
+
+
 class BoolParameter:
-    def __init__(self, name, default=False):
-        self.name = name
-        self.default = bool(default)
-        self._value = bool(default)
+    """Boolean parameter for AMI forms."""
 
-    def set(self, value_str):
-        # Accept common truthy strings
-        if isinstance(value_str, str):
-            self._value = value_str.lower() in ("1", "true", "yes", "on")
+    def __init__(self, name: str, default: bool = False) -> None:
+        self.name: str = name
+        self.default: bool = bool(default)
+        self._value: bool = bool(default)
+
+    def set(self, value: Any) -> None:
+        """Set the parameter value from a raw input (string or any truthy type)."""
+        if isinstance(value, str):
+            self._value = value.lower() in ("1", "true", "yes", "on")
         else:
-            self._value = bool(value_str)
+            self._value = bool(value)
 
-    def value(self):
+    def value(self) -> bool:
+        """Return the current boolean value."""
         return self._value
 
 
 class StringParameter:
-    def __init__(self, name, default=""):
-        self.name = name
-        self.default = default
-        self._value = default
+    """String parameter for AMI forms."""
 
-    def set(self, value_str):
-        self._value = "" if value_str is None else str(value_str)
+    def __init__(self, name: str, default: str = "") -> None:
+        self.name: str = name
+        self.default: str = default
+        self._value: str = default
 
-    def value(self):
+    def set(self, value: Any) -> None:
+        """Set the parameter value from a raw input, coercing to string."""
+        self._value = "" if value is None else str(value)
+
+    def value(self) -> str:
+        """Return the current string value."""
         return self._value

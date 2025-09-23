@@ -14,7 +14,6 @@ from urllib.parse import parse_qs, urlparse
 import ayon_api
 from shotgun_api3 import Shotgun
 
-
 logger = logging.getLogger("ami-server")
 
 SIGNAL_RESPONSE_SENT = -2
@@ -25,7 +24,6 @@ def _load_template(name: str) -> str:
     path = os.path.join(TEMPLATES_DIR, name)
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
-
 
 
 def _content_length(handler: BaseHTTPRequestHandler) -> int:

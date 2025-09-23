@@ -1,10 +1,18 @@
 from datetime import datetime
+from typing import Any, Dict, List
+
 from services.ami.ami import ami_base
 from services.ami.ami.ami_parameters import StringParameter
 
 
 class AMICreateDeliveryPlaylist(ami_base.AmiBase):
-    def __init__(self, sg_session, data):
+    """Create a delivery playlist for selected versions.
+
+    The default playlist name is generated as 'delivery_YYYY-MM-DD_##' where
+    the numeric suffix increments to the next available version for the day.
+    """
+
+    def __init__(self, sg_session: Any, data: Dict[str, Any]) -> None:
         super().__init__(sg_session, data)
         today_str = datetime.now().strftime("%Y-%m-%d")
         base_name = f"delivery_{today_str}"
@@ -13,7 +21,8 @@ class AMICreateDeliveryPlaylist(ami_base.AmiBase):
 
         self.playlist_param = StringParameter("Playlist Name", default=name)
 
-    def _get_next_available_version(self, base_name: str):
+    def _get_next_available_version(self, base_name: str) -> int:
+        """Find the next numeric suffix for a playlist code containing base_name."""
         playlists = self.sg_session.find(
             "Playlist",
             [["project.Project.id", "is", self.project_id], ["code", "contains", f"{base_name}"]],
@@ -30,12 +39,13 @@ class AMICreateDeliveryPlaylist(ami_base.AmiBase):
                 continue
         return max_ + 1
 
-
-    def parameters(self):
+    def parameters(self) -> List[StringParameter]:
+        """Expose the configurable parameters for this action."""
         return [self.playlist_param]
 
-    def main(self):
-        versions_ids = [int(x) for x in self.selected_ids.split(",")]
+    def main(self) -> int:
+        """Create a playlist containing the selected versions."""
+        versions_ids = [int(x) for x in self.selected_ids.split(",")]  # type: ignore[union-attr]
         if not versions_ids:
             raise Exception("Found no selected versions")
 
@@ -50,7 +60,7 @@ class AMICreateDeliveryPlaylist(ami_base.AmiBase):
             "code": self.playlist_param.value(),
             "versions": versions,
         }
-        result  = self.sg_session.create("Playlist", data)
+        result = self.sg_session.create("Playlist", data)
         if result:
             return 0
         else:
