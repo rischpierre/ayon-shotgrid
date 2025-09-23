@@ -20,8 +20,8 @@ class AMICreateDeliveryPlaylist(ami_base.AmiBase):
             ["code"]
         )
         max_ = 0
-        for i in playlists:
-            digits = i.split("_")[-1]
+        for p in playlists:
+            digits = p["code"].split("_")[-1]
             try:
                 value = int(digits)
                 if value > max_:

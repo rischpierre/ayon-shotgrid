@@ -1,4 +1,3 @@
-import argparse
 import importlib
 import json
 import logging
@@ -8,17 +7,17 @@ import sys
 import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from string import Template
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 
 import ayon_api
 from shotgun_api3 import Shotgun
-from string import Template
-
-logger = logging.getLogger("proto-ami-server")
 
 
-# Templates directory and loader
+logger = logging.getLogger("ami-server")
+
+SIGNAL_RESPONSE_SENT = -2
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
 
 
@@ -27,9 +26,6 @@ def _load_template(name: str) -> str:
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
-
-def json_dumps(data: Dict[str, Any]) -> bytes:
-    return json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
 
 
 def _content_length(handler: BaseHTTPRequestHandler) -> int:
@@ -70,19 +66,7 @@ def read_form_body(handler: BaseHTTPRequestHandler, max_bytes: int = 2 * 1024 * 
         return None, f"Invalid form data: {exc}"
 
 
-def _wants_html(handler: BaseHTTPRequestHandler) -> bool:
-    accept = (handler.headers.get("Accept") or "").lower()
-    agent = (handler.headers.get("User-Agent") or "").lower()
-    if "text/html" in accept:
-        return True
-    # Heuristic: browsers typically identify themselves this way
-    if "mozilla" in agent or "safari" in agent or "chrome" in agent or "edge" in agent:
-        return True
-    return False
-
-
 def _render_html_page(title: str, success: bool, message: str, lines: list[str], echo: Dict[str, Any]) -> bytes:
-    # Render via external HTML template
     badge_color = "#16a34a" if success else "#dc2626"
     border_color = "#22c55e" if success else "#f87171"
     badge_label = "Success" if success else "Error"
@@ -151,7 +135,7 @@ class AmiRequestHandler(BaseHTTPRequestHandler):
         path = parsed.path.rstrip("/") or "/"
         if path == "/health":
             payload = {"status": "ok"}
-            body = json_dumps(payload)
+            body = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self._apply_cors()
             self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -173,7 +157,7 @@ class AmiRequestHandler(BaseHTTPRequestHandler):
             self._send_html(HTTPStatus.OK, content)
             return
 
-        body = json_dumps({"error": "Not found"})
+        body = json.dumps({"error": "Not found"}, ensure_ascii=False, indent=2).encode("utf-8")
         self.send_response(HTTPStatus.NOT_FOUND)
         self._apply_cors()
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -185,22 +169,12 @@ class AmiRequestHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
 
-        if path not in ("/ami", "/action", "/"):
+        if path not in ("/ami", "/"):
             drain_request_body(self)
-            self._send_html_or_json_error(path, HTTPStatus.NOT_FOUND, "Unknown endpoint")
+            self._send_html_error(path, HTTPStatus.NOT_FOUND, "Unknown endpoint")
             return
 
-        secret = getattr(self.server, "webhook_secret", None)
-        if secret:
-            sig = self.headers.get("X-SG-Signature") or self.headers.get("X-Hub-Signature")
-            if not self._verify_signature(sig, secret):
-                drain_request_body(self)
-                self._send_html_or_json_error(path, HTTPStatus.UNAUTHORIZED, "Invalid signature")
-                return
-
         ctype = (self.headers.get("Content-Type") or "").lower()
-        data: Optional[Dict[str, Any]] = None
-        err: Optional[str] = None
 
         if "application/json" in ctype:
             raise RuntimeError("JSON is not supported yet")
@@ -209,7 +183,7 @@ class AmiRequestHandler(BaseHTTPRequestHandler):
 
         if err is not None:
             drain_request_body(self)
-            self._send_html_or_json_error(path, HTTPStatus.BAD_REQUEST, err, echo=data or {})
+            self._send_html_error(path, HTTPStatus.BAD_REQUEST, err, echo=data or {})
             return
 
         # Merge query params into the payload so ?action=... is available for POST too
@@ -228,15 +202,14 @@ class AmiRequestHandler(BaseHTTPRequestHandler):
             logger.debug("AMI payload received (unprintable)")
 
         result = self._execute_ami(data)
-        if result == -2:
-            # Response already sent (parameters form)
+        if result == SIGNAL_RESPONSE_SENT:
             return
+
         if result == 0:
             content = self._build_html_for_result(data or {}, success=True)
             self._send_html(HTTPStatus.OK, content)
         else:
-            self._send_html_or_json_error(path, HTTPStatus.INTERNAL_SERVER_ERROR, "Internal server error")
-
+            self._send_html_error(path, HTTPStatus.INTERNAL_SERVER_ERROR, "Internal server error")
 
     def _execute_ami(self, data):
         logger.debug(data)
@@ -274,12 +247,11 @@ class AmiRequestHandler(BaseHTTPRequestHandler):
             # If parameters exist and the form wasn't submitted yet, render the form
             if parameters and not data.get("__form_submitted"):
                 self._send_html_with_parameters(action, parameters, data)
-                return -2  # signal: response sent
+                return SIGNAL_RESPONSE_SENT  # signal: response sent
 
             # If parameters exist and this is a submission, hydrate them from form data
             if parameters and data.get("__form_submitted"):
                 for p in parameters:
-                    # Use parameter name as the form field key
                     field_key = str(p.name)
                     if field_key in data:
                         p.set(data.get(field_key))
@@ -287,67 +259,67 @@ class AmiRequestHandler(BaseHTTPRequestHandler):
             return instance.main()
 
         except Exception as e:
-            logger.error(e)
+            logger.exception(e)
             return 1
 
     def _send_html_with_parameters(self, action: str, parameters: list, original: Dict[str, Any]) -> None:
-            # Build a simple form to edit parameters and submit back
-            def esc(s: str) -> str:
-                return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+        # Build a simple form to edit parameters and submit back
+        def esc(s: str) -> str:
+            return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
-            inputs_html = []
-            for p in parameters:
-                label = esc(str(p.name))
-                # Determine current value to show (default if no setter was called yet)
-                try:
-                    current_val = p.value()
-                except Exception:
-                    current_val = getattr(p, "default", "")
-                if isinstance(current_val, bool):
-                    checked = " checked" if current_val else ""
-                    inputs_html.append(
-                        f'<label style="display:block;margin:8px 0;"><span style="display:inline-block;width:180px;">{label}</span>'
-                        f'<input type="checkbox" name="{esc(str(p.name))}" value="true"{checked}></label>'
-                    )
-                else:
-                    inputs_html.append(
-                        f'<label style="display:block;margin:8px 0;"><span style="display:inline-block;width:180px;">{label}</span>'
-                        f'<input type="text" name="{esc(str(p.name))}" value="{esc(str(current_val))}" '
-                        f'style="min-width:320px;padding:6px;border-radius:6px;border:1px solid #555;background:#0b1220;color:#e5e7eb;"></label>'
-                    )
+        inputs_html = []
+        for p in parameters:
+            label = esc(str(p.name))
+            # Determine current value to show (default if no setter was called yet)
+            try:
+                current_val = p.value()
+            except Exception:
+                current_val = getattr(p, "default", "")
+            if isinstance(current_val, bool):
+                checked = " checked" if current_val else ""
+                inputs_html.append(
+                    f'<label style="display:block;margin:8px 0;"><span style="display:inline-block;width:180px;">{label}</span>'
+                    f'<input type="checkbox" name="{esc(str(p.name))}" value="true"{checked}></label>'
+                )
+            else:
+                inputs_html.append(
+                    f'<label style="display:block;margin:8px 0;"><span style="display:inline-block;width:180px;">{label}</span>'
+                    f'<input type="text" name="{esc(str(p.name))}" value="{esc(str(current_val))}" '
+                    f'style="min-width:320px;padding:6px;border-radius:6px;border:1px solid #555;background:#0b1220;color:#e5e7eb;"></label>'
+                )
 
-            # Keep original context as hidden inputs so we can call main() afterwards
-            hidden_inputs = []
-            keep_keys = original.keys()
-            for k in keep_keys:
-                if k in ("__form_submitted", "action"):
-                    continue
-                v = original.get(k)
-                if v is None:
-                    continue
-                hidden_inputs.append(f'<input type="hidden" name="{esc(str(k))}" value="{esc(str(v))}">')
-            hidden_inputs.append('<input type="hidden" name="__form_submitted" value="1">')
-            hidden_inputs.append(f'<input type="hidden" name="action" value="{esc(str(action))}">')
+        # Keep original context as hidden inputs so we can call main() afterwards
+        hidden_inputs = []
+        keep_keys = original.keys()
+        for k in keep_keys:
+            if k in ("__form_submitted", "action"):
+                continue
+            v = original.get(k)
+            if v is None:
+                continue
+            hidden_inputs.append(f'<input type="hidden" name="{esc(str(k))}" value="{esc(str(v))}">')
+        hidden_inputs.append('<input type="hidden" name="__form_submitted" value="1">')
+        hidden_inputs.append(f'<input type="hidden" name="action" value="{esc(str(action))}">')
 
-            # Render using external template
-            template_text = _load_template("parameters.html")
-            html = Template(template_text).safe_substitute(
-                {
-                    "title": "Parameters",
-                    "heading": "Adjust Parameters",
-                    "action_url": "/ami",
-                    "hidden_inputs": "".join(hidden_inputs),
-                    "inputs_html": "".join(inputs_html),
-                    "submit_label": "Send",
-                }
-            )
+        # Render using external template
+        template_text = _load_template("parameters.html")
+        html = Template(template_text).safe_substitute(
+            {
+                "title": "Parameters",
+                "heading": "Adjust Parameters",
+                "action_url": "/ami",
+                "hidden_inputs": "".join(hidden_inputs),
+                "inputs_html": "".join(inputs_html),
+                "submit_label": "Send",
+            }
+        )
 
-            self._send_html(HTTPStatus.OK, html.encode("utf-8"))
+        self._send_html(HTTPStatus.OK, html.encode("utf-8"))
 
-    def _send_html_or_json_error(self, path: str, status: HTTPStatus, message: str,
-                                 echo: Optional[Dict[str, Any]] = None) -> None:
-        # For AMI endpoints, send HTML by default; otherwise JSON
-        if path in ("/", "/ami", "/action") or _wants_html(self):
+    def _send_html_error(self, path: str, status: HTTPStatus, message: str,
+                         echo: Optional[Dict[str, Any]] = None) -> None:
+
+        if path in ("/", "/ami"):
             html = _render_html_page(
                 title=f"{int(status)} {status.phrase}",
                 success=False,
@@ -356,8 +328,6 @@ class AmiRequestHandler(BaseHTTPRequestHandler):
                 echo=echo or {},
             )
             self._send_html(status, html)
-        else:
-            self._send_error_json(status, message)
 
     def _send_html(self, status: HTTPStatus, html_bytes: bytes) -> None:
         self.send_response(status)
@@ -367,108 +337,54 @@ class AmiRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(html_bytes)
 
-    def _send_error_json(self, status: HTTPStatus, message: str) -> None:
-        payload = {"error": message, "status": int(status)}
-        body = json_dumps(payload)
-        self.send_response(status)
-        self._apply_cors()
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def _verify_signature(self, signature_header: Optional[str], secret: str) -> bool:
-        if not signature_header:
-            return True
-        try:
-            algo, _, digest = signature_header.partition("=")
-            return bool(algo and digest)
-        except Exception:
-            return False
-
-    def _build_prototype_response_fields(self, data: Dict[str, Any]) -> Dict[str, Optional[str]]:
-        action_name = data.get("action_name") or data.get("action") or data.get("title") or "unknown_action"
+    @staticmethod
+    def _build_html_for_result(data: Dict[str, Any], success: bool) -> bytes:
+        action_name = data.get("action") or "unknown_action"
         if isinstance(action_name, list):
             action_name = action_name[0] if action_name else "unknown_action"
-        user_login = data.get("user_login") or (data.get("user") or {}).get("name")
-        user_id = data.get("user_id") or (data.get("user") or {}).get("id")
-        entity_type = data.get("entity_type") or (data.get("entity") or {}).get("type")
-        entity_id = data.get("entity_id") or (data.get("entity") or {}).get("id")
-        project_name = data.get("project_name") or (data.get("project") or {}).get("name")
-        project_id = data.get("project_id") or (data.get("project") or {}).get("id")
-        return {
-            "action_name": action_name,
-            "user": user_login or str(user_id) if (user_login or user_id) else None,
-            "entity": f"{entity_type}/{entity_id}" if (entity_type or entity_id) else None,
-            "project": project_name or str(project_id) if (project_name or project_id) else None,
-        }
 
-    def _build_html_for_result(self, data: Dict[str, Any], success: bool) -> bytes:
-        fields = self._build_prototype_response_fields(data)
         lines = [
-            f"Action: {fields['action_name']}",
-            f"User: {fields['user'] or 'unknown'}",
-            f"Entity: {fields['entity'] or '<none>'}",
-            f"Project: {fields['project'] or '<none>'}",
+            f"Action: {action_name}",
+            f"User: {data.get('user_id', 'unknown')}",
+            f"Entity ids: {data.get('selected_ids', '')}",
+            f"Project: {data.get('project_name', '')}",
         ]
         title = "Action Submitted" if success else "Action Failed"
         message = "Action received and processed." if success else "There was a problem processing your request."
         return _render_html_page(title=title, success=success, message=message, lines=lines, echo=data)
 
 
-def setup_logging(verbosity: int) -> None:
-    level = logging.WARNING
-    if verbosity == 1:
-        level = logging.INFO
-    elif verbosity >= 2:
-        level = logging.DEBUG
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s %(levelname)s %(name)s - %(message)s",
-    )
-
-
-def run_server(host: str, port: int, secret: Optional[str]) -> ThreadingHTTPServer:
+def run_server(host: str, port: str) -> ThreadingHTTPServer:
     class AmiHTTPServer(ThreadingHTTPServer):
         daemon_threads = True
-        webhook_secret = secret
 
-    server = AmiHTTPServer((host, port), AmiRequestHandler)
-    logger.info("Starting AMI server on http://%s:%d", host, port)
-    if secret:
-        logger.info("Webhook secret configured")
+    server = AmiHTTPServer((host, int(port)), AmiRequestHandler)
+    logger.info(f"Starting AMI server on http://{host}:{port}")
     return server
 
 
-def service_main(argv: Optional[list[str]] = None) -> int:
-    print("Running AMI server")
-    parser = argparse.ArgumentParser(description="Prototype ShotGrid AMI server")
-    parser.add_argument("--host", default=os.environ.get("AMI_HOST", "0.0.0.0"), help="Bind host (default: 0.0.0.0)")
-    parser.add_argument("--port", type=int, default=int(os.environ.get("AMI_PORT", "45139")),
-                        help="Bind port (default: 45139)")
-    parser.add_argument("--secret", default=os.environ.get("SHOTGRID_WEBHOOK_SECRET"),
-                        help="Optional shared secret for verifying signatures")
-    parser.add_argument("-v", "--verbose", action="count", default=2, help="Increase verbosity (-v, -vv)")
+def service_main() -> int:
+    logger.info("Running AMI server")
+    host = os.environ.get("AMI_SERVER_HOST")
+    port = os.environ.get("AMI_SERVER_PORT")
+    assert host and port, "AMI_SERVER_HOST and AMI_SERVER_PORT must be set"
 
-    args = parser.parse_args(argv)
-    setup_logging(args.verbose)
+    server = run_server(host, port)
 
-    server = run_server(args.host, args.port, args.secret)
-
-    def handle_sig(signum, frame):
-        logger.info("Signal %s received, shutting down...", signum)
+    def handle_sig(signum, _):
+        logger.info(f"Signal {signum} received, shutting down...")
         threading.Thread(target=server.shutdown, daemon=True).start()
 
     for sig in (signal.SIGINT, signal.SIGTERM):
         try:
             signal.signal(sig, handle_sig)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to set signal handler for {sig}: {e}")
 
     try:
         server.serve_forever(poll_interval=0.5)
-    except KeyboardInterrupt:
-        logger.info("Keyboard interrupt, shutting down...")
+    except Exception:
+        logger.info("Interrupted, shutting down...")
     finally:
         server.server_close()
         logger.info("Server stopped.")

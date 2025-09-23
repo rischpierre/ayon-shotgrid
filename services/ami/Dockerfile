@@ -9,6 +9,8 @@ ENV no_proxy=localhost,127.0.0.0/8,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8,.loca
 ENV NO_PROXY=localhost,127.0.0.0/8,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8,.local,.eu.rvx.is
 ENV LOGLEVEL=DEBUG
 ENV SHOTGUN_URL="https://apavatn.shotgrid.autodesk.com"
+ENV AMI_SERVER_HOST="0.0.0.0"
+ENV AMI_SERVER_PORT="45139"
 
 # Install python/pip
 RUN apk add --update --no-cache git curl build-base libffi-dev
