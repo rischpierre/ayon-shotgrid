@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>$title</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #0f172a;        /* slate-900 */
+    --panel: #0b1220;     /* darker panel */
+    --text: #e5e7eb;      /* gray-200 */
+    --muted: #9ca3af;     /* gray-400 */
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0; padding: 24px;
+    background: radial-gradient(1200px 800px at 20% -10%, #1e293b 20%, var(--bg) 70%);
+    color: var(--text); font: 15px/1.5 -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  }
+  .wrap {
+    max-width: 860px; margin: 0 auto;
+  }
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    overflow: hidden;
+  }
+  .header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 18px 20px; border-bottom: 1px solid rgba(255,255,255,0.08);
+    background: linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0));
+  }
+  .badge {
+    display: inline-block; padding: 6px 10px; font-weight: 600;
+    color: white; background: $badge_color; border-radius: 999px;
+    border: 1px solid $border_color; letter-spacing: 0.25px;
+  }
+  h1 { font-size: 18px; margin: 0; }
+  .content { padding: 18px 20px 8px 20px; }
+  .message { color: var(--text); margin: 0 0 10px 0; }
+  .details { color: var(--muted); margin: 0 0 6px 16px; }
+  pre {
+    background: var(--panel);
+    color: #d1d5db;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 14px; overflow: auto;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .footer {
+    padding: 10px 20px 16px 20px; color: var(--muted); font-size: 12px;
+  }
+  a, a:visited { color: #93c5fd; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="header">
+        <span class="badge">$badge_label</span>
+        <h1>$title</h1>
+      </div>
+      <div class="content">
+        <p class="message">$message</p>
+        <ul class="details">
+          $items_html
+        </ul>
+        <pre>$safe_pre</pre>
+      </div>
+      <div class="footer">
+        $footer_text
+      </div>
+    </div>
+  </div>
+</body>
+</html>

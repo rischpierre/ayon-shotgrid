@@ -13,8 +13,19 @@ from urllib.parse import parse_qs, urlparse
 
 import ayon_api
 from shotgun_api3 import Shotgun
+from string import Template
 
 logger = logging.getLogger("proto-ami-server")
+
+
+# Templates directory and loader
+TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
+
+
+def _load_template(name: str) -> str:
+    path = os.path.join(TEMPLATES_DIR, name)
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read()
 
 
 def json_dumps(data: Dict[str, Any]) -> bytes:
@@ -38,8 +49,6 @@ def drain_request_body(handler: BaseHTTPRequestHandler, max_bytes: int = 2 * 102
     except Exception:
         pass
 
-
-# b'user_id=121&user_login=pierrer@rvx.is&title=undefined&entity_type=Playlist&server_hostname=apavatn.shotgrid.autodesk.com&referrer_path=/detail/HumanUser/121&page_id=5703&session_uuid=9449dbc6-945d-11f0-ae27-0a58a9feac02&project_name=Flow_Pet_Project&project_id=122&target_column=code&ids=248&selected_ids=248&cols=code,locked,description,tags,updated_at,updated_by&view=Playlists&column_display_names=Playlist Name,Locked,Description,Tags,Date Updated,Updated by&sort_column=updated_at&sort_direction=desc&grouping_column=updated_at&grouping_method=week&grouping_direction=desc'
 
 def read_form_body(handler: BaseHTTPRequestHandler, max_bytes: int = 2 * 1024 * 1024) -> Tuple[
     Optional[Dict[str, Any]], Optional[str]]:
@@ -73,89 +82,27 @@ def _wants_html(handler: BaseHTTPRequestHandler) -> bool:
 
 
 def _render_html_page(title: str, success: bool, message: str, lines: list[str], echo: Dict[str, Any]) -> bytes:
-    # keep it inline, simple, and readable
+    # Render via external HTML template
     badge_color = "#16a34a" if success else "#dc2626"
     border_color = "#22c55e" if success else "#f87171"
+    badge_label = "Success" if success else "Error"
+    footer_text = "ShotGrid AMI Prototype • All good." if success else "ShotGrid AMI Prototype • Please review and retry."
     safe_pre = json.dumps(echo, ensure_ascii=False, indent=2)
     items_html = "".join(f"<li>{line}</li>" for line in lines)
-    html = f"""<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>{title}</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-  :root {{
-    --bg: #0f172a;        /* slate-900 */
-    --panel: #0b1220;     /* darker panel */
-    --text: #e5e7eb;      /* gray-200 */
-    --muted: #9ca3af;     /* gray-400 */
-  }}
-  html, body {{ height: 100%; }}
-  body {{
-    margin: 0; padding: 24px;
-    background: radial-gradient(1200px 800px at 20% -10%, #1e293b 20%, var(--bg) 70%);
-    color: var(--text); font: 15px/1.5 -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-  }}
-  .wrap {{
-    max-width: 860px; margin: 0 auto;
-  }}
-  .card {{
-    background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-    overflow: hidden;
-  }}
-  .header {{
-    display: flex; align-items: center; gap: 12px;
-    padding: 18px 20px; border-bottom: 1px solid rgba(255,255,255,0.08);
-    background: linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0));
-  }}
-  .badge {{
-    display: inline-block; padding: 6px 10px; font-weight: 600;
-    color: white; background: {badge_color}; border-radius: 999px;
-    border: 1px solid {border_color}; letter-spacing: 0.25px;
-  }}
-  h1 {{ font-size: 18px; margin: 0; }}
-  .content {{ padding: 18px 20px 8px 20px; }}
-  .message {{ color: var(--text); margin: 0 0 10px 0; }}
-  .details {{ color: var(--muted); margin: 0 0 6px 16px; }}
-  pre {{
-    background: var(--panel);
-    color: #d1d5db;
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 10px;
-    padding: 14px; overflow: auto;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
-  }}
-  .footer {{
-    padding: 10px 20px 16px 20px; color: var(--muted); font-size: 12px;
-  }}
-  a, a:visited {{ color: #93c5fd; text-decoration: none; }}
-  a:hover {{ text-decoration: underline; }}
-</style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="card">
-      <div class="header">
-        <span class="badge">{'Success' if success else 'Error'}</span>
-        <h1>{title}</h1>
-      </div>
-      <div class="content">
-        <p class="message">{message}</p>
-        <ul class="details">
-          {items_html}
-        </ul>
-        <pre>{safe_pre}</pre>
-      </div>
-      <div class="footer">
-        ShotGrid AMI Prototype • {('All good.' if success else 'Please review and retry.')}
-      </div>
-    </div>
-  </div>
-</body>
-</html>"""
+
+    template_text = _load_template("page.html")
+    html = Template(template_text).safe_substitute(
+        {
+            "title": title,
+            "badge_color": badge_color,
+            "border_color": border_color,
+            "badge_label": badge_label,
+            "message": message,
+            "items_html": items_html,
+            "safe_pre": safe_pre,
+            "footer_text": footer_text,
+        }
+    )
     return html.encode("utf-8")
 
 
@@ -294,6 +241,14 @@ class AmiRequestHandler(BaseHTTPRequestHandler):
     def _execute_ami(self, data):
         logger.debug(data)
         action = data.get("action")
+        # Normalize action: ShotGrid may submit duplicate 'action' fields leading to a list
+        if isinstance(action, list):
+            if not action:
+                raise Exception("No action specified")
+            logger.debug("Multiple action values received %s; using first '%s'", action, action[0])
+            action = action[0]
+        if not isinstance(action, str) or not action.strip():
+            raise Exception("Invalid action value")
 
         try:
             module = importlib.import_module(f"ami.{action}")
@@ -365,7 +320,7 @@ class AmiRequestHandler(BaseHTTPRequestHandler):
             hidden_inputs = []
             keep_keys = original.keys()
             for k in keep_keys:
-                if k == "__form_submitted":
+                if k in ("__form_submitted", "action"):
                     continue
                 v = original.get(k)
                 if v is None:
@@ -374,39 +329,20 @@ class AmiRequestHandler(BaseHTTPRequestHandler):
             hidden_inputs.append('<input type="hidden" name="__form_submitted" value="1">')
             hidden_inputs.append(f'<input type="hidden" name="action" value="{esc(str(action))}">')
 
-            form_html = f"""
-    <!doctype html>
-    <html lang="en">
-    <head>
-    <meta charset="utf-8">
-    <title>Parameters</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    </head>
-    <body style="margin:0;padding:24px;background:#0f172a;color:#e5e7eb;font:15px/1.5 -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial;">
-      <div style="max-width:860px;margin:0 auto;">
-        <div style="background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));border:1px solid rgba(255,255,255,0.1);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,0.35);overflow:hidden;">
-          <div style="padding:18px 20px;border-bottom:1px solid rgba(255,255,255,0.08);background:linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0));">
-            <h1 style="font-size:18px;margin:0;">Adjust Parameters</h1>
-          </div>
-          <div style="padding:18px 20px;">
-            <form method="post" action="/ami">
-              {''.join(hidden_inputs)}
-              {''.join(inputs_html)}
-              <div style="margin-top:16px;">
-                <button type="submit" style="background:#16a34a;color:white;border:none;border-radius:8px;padding:10px 16px;font-weight:600;cursor:pointer;">
-                  Send
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </body>
-    </html>
-    """.strip()
+            # Render using external template
+            template_text = _load_template("parameters.html")
+            html = Template(template_text).safe_substitute(
+                {
+                    "title": "Parameters",
+                    "heading": "Adjust Parameters",
+                    "action_url": "/ami",
+                    "hidden_inputs": "".join(hidden_inputs),
+                    "inputs_html": "".join(inputs_html),
+                    "submit_label": "Send",
+                }
+            )
 
-            html_bytes = form_html.encode("utf-8")
-            self._send_html(HTTPStatus.OK, html_bytes)
+            self._send_html(HTTPStatus.OK, html.encode("utf-8"))
 
     def _send_html_or_json_error(self, path: str, status: HTTPStatus, message: str,
                                  echo: Optional[Dict[str, Any]] = None) -> None:
@@ -452,6 +388,8 @@ class AmiRequestHandler(BaseHTTPRequestHandler):
 
     def _build_prototype_response_fields(self, data: Dict[str, Any]) -> Dict[str, Optional[str]]:
         action_name = data.get("action_name") or data.get("action") or data.get("title") or "unknown_action"
+        if isinstance(action_name, list):
+            action_name = action_name[0] if action_name else "unknown_action"
         user_login = data.get("user_login") or (data.get("user") or {}).get("name")
         user_id = data.get("user_id") or (data.get("user") or {}).get("id")
         entity_type = data.get("entity_type") or (data.get("entity") or {}).get("type")

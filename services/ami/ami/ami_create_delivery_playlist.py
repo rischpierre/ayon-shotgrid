@@ -8,7 +8,7 @@ class AMICreateDeliveryPlaylist(ami_base.AmiBase):
     def __init__(self, sg_session, data):
         super().__init__(sg_session, data)
         today_str = datetime.now().strftime("%Y%m%d")
-        name = f"{today_str}_delivery_playlist",
+        name = f"{today_str}_delivery_playlist"
         self.playlist_param = StringParameter("Playlist Name", default=name)
 
     def parameters(self):
