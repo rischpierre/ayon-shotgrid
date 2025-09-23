@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "shotgrid-transmitter"
+version = "0.6.10+rvx.8"
+description = "Shotgrid Integration for AYON"
+authors = ["Oscar Domingo <oscar.domingo@ynput.com>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.10,<4.0"
+arrow = "*"
+ayon-python-api = "^1.0.0"
+shotgun-api3 = "*"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
