@@ -1,8 +1,8 @@
 from datetime import datetime
 from typing import Any, Dict, List
 
-from services.ami.ami import ami_base
-from services.ami.ami.ami_parameters import StringParameter
+from ami import ami_base
+from ami.ami_parameters import StringParameter
 
 
 class AMICreateDeliveryPlaylist(ami_base.AmiBase):
@@ -59,6 +59,7 @@ class AMICreateDeliveryPlaylist(ami_base.AmiBase):
             "project": {"id": self.project_id, "type": "Project"},
             "code": self.playlist_param.value(),
             "versions": versions,
+            "sg_type": "Delivery",
         }
         result = self.sg_session.create("Playlist", data)
         if result:

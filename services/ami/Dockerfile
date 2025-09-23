@@ -8,7 +8,7 @@ ENV https_proxy=http://proxy-srv.eu.rvx.is:3128
 ENV no_proxy=localhost,127.0.0.0/8,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8,.local,.eu.rvx.is
 ENV NO_PROXY=localhost,127.0.0.0/8,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8,.local,.eu.rvx.is
 ENV LOGLEVEL=DEBUG
-ENV SHOTGUN_URL="https://apavatn.shotgrid.autodesk.com"
+ENV SG_URL="https://apavatn.shotgrid.autodesk.com"
 ENV AMI_SERVER_HOST="0.0.0.0"
 ENV AMI_SERVER_PORT="45139"
 
@@ -38,6 +38,7 @@ RUN addgroup -S ayonuser && adduser -SH ayonuser -G ayonuser
 RUN chown ayonuser:ayonuser -R /service
 RUN chmod 777 -R /service
 
+COPY shotgrid_common /service
 COPY ami/ami /service/ami
 
 # Tell docker that all future commands should run as the appuser user

@@ -1,6 +1,5 @@
 import importlib
 import json
-import logging
 import os
 import signal
 import sys
@@ -14,7 +13,9 @@ from urllib.parse import parse_qs, urlparse
 import ayon_api
 from shotgun_api3 import Shotgun
 
-logger = logging.getLogger("ami-server")
+from utils import get_logger
+logger = get_logger(__file__)
+
 
 SIGNAL_RESPONSE_SENT = -2
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
@@ -93,10 +94,12 @@ def get_sg_session():
     ayon_server_url = os.environ.get("AYON_SERVER_URL")
     sg_url = os.environ.get("SG_URL")
     proxy_url = os.environ.get("HTTP_PROXY").replace("http://", "")
+
     if not ayon_api_key or not ayon_server_url:
         raise Exception("AYON_API_KEY and AYON_SERVER_URL are required")
+
     if not sg_url or not proxy_url:
-        raise Exception("SHOTGUN URL and proxy URL are required")
+        raise Exception("SG_URL and HTTP_PROXY env vars are required")
 
     ayon_api.init_service(token=ayon_api_key, server_url=ayon_server_url)
     script_name = ayon_api.get_secret("flow_script_name")["value"]
