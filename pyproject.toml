@@ -2,7 +2,7 @@
 
 [project]
 name = "ayon-shotgrid"
-version = "0.6.10-rvx.8"
+version = "0.6.10+rvx.10"
 description = "Shotgrid addon for Ayon.\n"
 readme = "README.md"
 requires-python = ">=3.11"

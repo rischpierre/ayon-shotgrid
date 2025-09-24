@@ -1,3 +1,3 @@
 # -*- coding: utf-8 -*-
 """Package declaring shotgrid addon version."""
-__version__ = "0.6.10-rvx.3"
+__version__ = "0.6.10-rvx.10"
