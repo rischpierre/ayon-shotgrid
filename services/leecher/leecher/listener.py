@@ -341,6 +341,8 @@ class ShotgridListener:
                     if not event:
                         continue
 
+                    meta = event.get("meta", {})
+
                     ignore_event = True
                     last_event_id = event["id"]
 
@@ -353,27 +355,30 @@ class ShotgridListener:
                     ):
                         # events related to custom attributes changes
                         # check if event was caused by api user
-                        ignore_event = self._is_api_user_event(event)
+                        is_api_user = self._is_api_user_event(event)
 
-                        if not ignore_event:
+                        # RVX: we enable the creation of playlists via scripts (AMI create playlist)
+                        if is_api_user and meta.get("entity_type") == "Playlist":
+                            ignore_event = False
+                        else:
                             # check meta if in_create is True and ignore
                             # those events as they are not useful for us
                             # we are interested only in changes in entities
                             # not in creation events
-                            meta = event.get("meta", {})
                             if meta.get("in_create"):
                                 if meta.get("entity_type") == "Reply" and meta.get("attribute_name") == "content":
                                     ignore_event = False
                                 # if a playlist is created by right clicking on a version, the event is in_create
                                 elif meta.get("entity_type") == "Playlist" and meta.get("attribute_name") == "versions":
                                     ignore_event = False
-                                else:
-                                    ignore_event = True
 
                     elif event["event_type"] in supported_event_types:
                         # events related to changes in entities we track
                         # check if event was caused by api user
-                        ignore_event = self._is_api_user_event(event)
+                        is_api_user = self._is_api_user_event(event)
+                        # RVX: we enable the creation of playlists via scripts (AMI create playlist)
+                        if is_api_user and meta.get("entity_type") == "Playlist":
+                            ignore_event = False
 
                     if ignore_event:
                         self.log.info(f"Ignoring event: {event['id']}")
