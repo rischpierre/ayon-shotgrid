@@ -817,6 +817,10 @@ def get_sg_entities(
     for enabled_entity in project_enabled_entities:
         entity_name, parent_field = enabled_entity
 
+        # Reply entity don't have a project field
+        if entity_name == "Reply":
+            continue
+
         sg_entities = sg_session.find(
             entity_name,
             filters=[["project", "is", sg_project]],
@@ -1215,6 +1219,8 @@ def get_sg_statuses(
     if sg_entity_type:
         if sg_entity_type == "Project":
             status_field = "sg_status"
+        elif sg_entity_type in ("Playlist", "Reply"):
+            return {}
         else:
             status_field = "sg_status_list"
         entity_status = sg_session.schema_field_read(sg_entity_type, status_field)
