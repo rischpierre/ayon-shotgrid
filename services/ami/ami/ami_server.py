@@ -102,8 +102,8 @@ def get_sg_session():
         raise Exception("SG_URL and HTTP_PROXY env vars are required")
 
     ayon_api.init_service(token=ayon_api_key, server_url=ayon_server_url)
-    script_name = ayon_api.get_secret("flow_script_name")["value"]
-    script_key = ayon_api.get_secret("flow_script_key")["value"]
+    script_name = ayon_api.get_secret("flow_ami_service_name")["value"]
+    script_key = ayon_api.get_secret("flow_ami_service_key")["value"]
 
     if not script_name or not script_key:
         raise Exception("Script name or key is not set")

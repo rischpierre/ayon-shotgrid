@@ -355,13 +355,9 @@ class ShotgridListener:
                     ):
                         # events related to custom attributes changes
                         # check if event was caused by api user
-                        is_api_user = self._is_api_user_event(event)
+                        is_current_api_user = self._is_current_api_user_event(event)
 
-                        # RVX: we enable the creation of playlists via scripts (AMI create playlist)
-                        if is_api_user:
-                            if meta.get("entity_type") == "Playlist":
-                                ignore_event = False
-                            else:
+                        if is_current_api_user:
                                 ignore_event = True
                         else:
                             # check meta if in_create is True and ignore
@@ -382,13 +378,8 @@ class ShotgridListener:
                     elif event["event_type"] in supported_event_types:
                         # events related to changes in entities we track
                         # check if event was caused by api user
-                        is_api_user = self._is_api_user_event(event)
-                        # RVX: we enable the creation of playlists via scripts (AMI create playlist)
-                        if is_api_user:
-                            if meta.get("entity_type") == "Playlist":
-                                ignore_event = False
-                            else:
-                                ignore_event = True
+                        if self._is_current_api_user_event(event):
+                            ignore_event = True
                         else:
                             ignore_event = False
 
@@ -402,7 +393,7 @@ class ShotgridListener:
             except Exception:
                 self.log.error(traceback.format_exc())
 
-    def _is_api_user_event(self, event: dict[str, Any]) -> bool:
+    def _is_current_api_user_event(self, event: dict[str, Any]) -> bool:
         """Check if the event was caused by our API user.
 
         Args:
