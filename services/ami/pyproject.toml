@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "shotgrid-ami"
-version = "0.6.10+rvx.13"
+version = "0.6.10+rvx.14"
 description = "Service that handles the shotgun action menu items"
 authors = ["Oscar Domingo <oscar.domingo@ynput.com>"]
 package-mode = false
