@@ -357,7 +357,6 @@ class ShotgridListener:
                         # check if event was caused by api user
                         is_current_api_user = self._is_current_api_user_event(event)
 
-                        # RVX: we enable the creation of playlists via scripts (AMI create playlist)
                         if is_current_api_user:
                                 ignore_event = True
                         else:
@@ -379,10 +378,7 @@ class ShotgridListener:
                     elif event["event_type"] in supported_event_types:
                         # events related to changes in entities we track
                         # check if event was caused by api user
-                        is_current_api_user = self._is_current_api_user_event(event)
-                        # RVX: we enable the creation of playlists via scripts (AMI create playlist)
-
-                        if is_current_api_user:
+                        if self._is_current_api_user_event(event):
                             ignore_event = True
                         else:
                             ignore_event = False
