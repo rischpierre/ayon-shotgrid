@@ -60,6 +60,35 @@ def rvx_update_asset(ay_entity, sg_ay_dict, sg, ay_entity_hub):
     ay_entity_hub.commit_changes()
 
 
+def rvx_validate_sg_shot(sg_ay_dict, sg):
+    id_ = sg_ay_dict["attribs"]["shotgridId"]
+    sg_shot = sg.find_one(
+        "Shot", [["id", "is", id_]], ["code", "sg_sequence"]
+    )
+    if not sg_shot:
+        raise ValueError(f"Skipping sync: unable to find shot: {id_} in ShotGrid.")
+
+    if not sg_shot["sg_sequence"]:
+        raise ValueError(f"Skipping sync: unable to find sequence for: {sg_shot['code']} in ShotGrid.")
+
+    sg_sequence = sg.find_one("Sequence", [["id", "is", sg_shot["sg_sequence"]["id"]]], ["code", "episode"])
+
+    if not sg_sequence["episode"]:
+        raise ValueError(f"Skipping sync: unable to find an episode on the shot's ({sg_shot['code']}) sequence ({sg_sequence['code']}) in ShotGrid.")
+
+
+def rvx_validate_sg_sequence(sg_ay_dict, sg):
+    id_ = sg_ay_dict["attribs"]["shotgridId"]
+    sg_sequence = sg.find_one(
+        "Sequence", [["id", "is", id_]], ["code", "episode"]
+    )
+    if not sg_sequence:
+        raise ValueError(f"Skipping sync: unable to find sequence: {id_} in ShotGrid.")
+
+    if not sg_sequence["episode"]:
+        raise ValueError(f"Skipping sync: unable to find episode for: {sg_sequence['code']} in ShotGrid.")
+
+
 def rvx_validate_sg_asset(sg_ay_dict, sg):
     id_ = sg_ay_dict["attribs"]["shotgridId"]
     sg_asset = sg.find_one(
