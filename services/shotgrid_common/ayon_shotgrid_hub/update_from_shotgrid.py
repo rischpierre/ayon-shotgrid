@@ -32,7 +32,9 @@ from ayon_api import slugify_string
 
 from typing import Dict, List, Optional, Any
 
-from ayon_shotgrid_hub.rvx_update_from_shotgrid import rvx_update_asset, rvx_validate_sg_asset
+from ayon_shotgrid_hub.rvx_update_from_shotgrid import rvx_update_asset, rvx_validate_sg_asset, rvx_validate_sg_shot, \
+    rvx_validate_sg_sequence
+
 from utils import (
     create_new_ayon_entity,
     get_sg_entity_as_ay_dict,
@@ -313,6 +315,10 @@ def create_ay_entity_from_sg_event(
     )
     if sg_event["entity_type"] == "Asset":
         rvx_validate_sg_asset(sg_ay_dict, sg_session)
+    elif sg_event["entity_type"] == "Shot":
+        rvx_validate_sg_shot(sg_ay_dict, sg_session)
+    elif sg_event["entity_type"] == "Sequence":
+        rvx_validate_sg_sequence(sg_ay_dict, sg_session)
 
     if sg_ay_dict["type"].lower() == "comment":
         # SG note as AYON comment creation is
@@ -595,6 +601,10 @@ def update_ayon_entity_from_sg_event(
 
     if sg_event["entity_type"] == "Asset":
         rvx_validate_sg_asset(sg_ay_dict, sg_session)
+    elif sg_event["entity_type"] == "Shot":
+        rvx_validate_sg_shot(sg_ay_dict, sg_session)
+    elif sg_event["entity_type"] == "Sequence":
+        rvx_validate_sg_sequence(sg_ay_dict, sg_session)
 
     if not sg_ay_dict:
         log.warning(
