@@ -225,6 +225,17 @@ class ShotgridTransmitter:
                     )
                     continue
 
+                # RVX second check to be able to sync certain projects locally for dev purposes
+                sg_session = self.get_sg_connection()
+                if not sg_session.find_one(
+                    "Project",
+                    filters=[["name", "is", project_name], ["sg_ayon_server_url", "is", ayon_api.get_base_url()]],
+                    fields=["code"]
+                    ):
+                    self.log.info(f"Skipping project {project_name} because the sg_ayon_server_url is not matching the current server url.")
+                    continue
+
+
                 hub = self._get_hub(project_name)
                 hub.react_to_ayon_event(source_event)
 

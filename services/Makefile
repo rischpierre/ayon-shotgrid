@@ -1,4 +1,10 @@
-ADDON_VERSION := $(shell grep "version" ../package.py | cut -d' ' -f3 | tr -d '"')
+# Addon version resolution
+# - You can override the version used for tagging by passing VERSION to make.
+# - If VERSION is not provided, it falls back to the value from ../package.py.
+# Examples:
+#   make build SERVICE=leecher VERSION=prod
+#   make build SERVICE=processor VERSION=0.2.3
+ADDON_VERSION := $(if $(VERSION),$(VERSION),$(shell grep "version" ../package.py | cut -d' ' -f3 | tr -d '"'))
 IMAGE := docker-internal.eu.rvx.is/rvx/ayon-shotgrid-$(SERVICE):$(ADDON_VERSION)
 SERVICE = $(error Please specify the service to build with 'SERVICE', for example: 'make build SERVICE=leecher')
 
@@ -7,6 +13,10 @@ default:
 	@echo "AYON Shotgrid $(ADDON_VERSION) Service Builder"
 	@echo ""
 	@echo "Usage: make SERVICE=[service-name] [target]"
+	@echo ""
+	@echo "Version:"
+	@echo "  Override with: VERSION=<value> (defaults to version from ../package.py when omitted)"
+	@echo "  Example: make SERVICE=leecher VERSION=prod build"
 	@echo ""
 	@echo "Passing SERVICE is required for any of the targets to work, possible services:"
 	@echo ""
