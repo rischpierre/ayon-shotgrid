@@ -2172,7 +2172,7 @@ def create_new_sg_entity(
             )
             data["description"] = f"Created in AYON by '{ay_username}'"
         else:
-            data["user"] = {'type': 'HumanUser', 'id': sg_user_id}
+            data["user"] = data["created_by"] = {'type': 'HumanUser', 'id': sg_user_id}
 
         # sync associated task
         if ay_entity.task_id:
@@ -2218,7 +2218,11 @@ def create_new_sg_entity(
 
         product_name = ay_entity.parent.name
         version_str = str(ay_entity.version).zfill(3)
-        version_name = f"{product_name}_v{version_str}"
+
+        ay_folder = ayon_api.get_folder_by_id(ay_project_name, product_data["folderId"])
+
+        # example: 000_000_ZZZ_0010-renderCompositingMain_v002
+        version_name = f"{ay_folder['name']}_{product_name}_v{version_str}"
 
         data[sg_parent_field] = sg_parent_entity
         data["code"] = version_name
