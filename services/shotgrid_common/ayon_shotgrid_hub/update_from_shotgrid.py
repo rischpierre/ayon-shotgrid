@@ -142,41 +142,48 @@ def _rvx_update_ay_entity_list_from_sg(
         else:
             log.debug(f"Entity list {ay_entitity_list_id} does not exists in AYON")
 
-    # create entity list
+    # create entity list or reconnect it after retiring the entity list from ShotGrid
     if not ay_entitity_list_id or not entity_list:
         # in AYON entity list have unique names
         log.debug(f"Creating entity list for ShotGrid Playlist {sg_playlist['id']} in AYON")
         entity_list = _get_entity_list_by_name(project_name, sg_playlist["code"])
         if entity_list:
-            log.error(f"Entity list {entity_list['label']} already exists in AYON, skipping creation because label should be unique.")
-            return
+            # in this case the sg playlist has been retired and re-created, so let's reconnect it the ayon one
+            data = {"attrib": {"shotgridId": sg_playlist["id"], "shotgridType": sg_playlist["type"]}}
+            result = ayon_api.raw_patch(f"projects/{project_name}/lists/{entity_list['id']}", json=data)
+            if not result.ok:
+                log.error(f"Failed to update entity list {entity_list['label']} with data: {data}")
+                return
 
-        data = {
-            "label": sg_playlist["code"],
-            "entity_type": "version",
-            "attrib": {
-                "shotgridId": sg_playlist["id"],
-                "shotgridType": sg_playlist["type"]
-            },
-            "tags": sg_playlist["tag_list"],
-            "active": not sg_playlist["locked"],
-            "data": {
-                "sg_type": sg_playlist["sg_type"],
-            },
-        }
+            sg_session.update("Playlist", sg_playlist["id"], {"sg_ayon_id": entity_list["id"]})
+            log.info(f"Entity list {entity_list['label']} already exists in AYON, reconnecting playlist to it.")
+        else:
+            data = {
+                "label": sg_playlist["code"],
+                "entity_type": "version",
+                "attrib": {
+                    "shotgridId": sg_playlist["id"],
+                    "shotgridType": sg_playlist["type"]
+                },
+                "tags": sg_playlist["tag_list"],
+                "active": not sg_playlist["locked"],
+                "data": {
+                    "sg_type": sg_playlist["sg_type"],
+                },
+            }
 
-        result = ayon_api.raw_post(f"projects/{project_name}/lists", json=data)
-        if result.status != 201:
-            log.error(f"Failed to create entity list: {result.status} - {result.data}")
-            return
+            result = ayon_api.raw_post(f"projects/{project_name}/lists", json=data)
+            if not result.ok:
+                log.error(f"Failed to create entity list: {result.status} - {result.data}")
+                return
 
-        data = {"sg_ayon_id": result.data["id"], "project": sg_project}
-        sg_playlist_ = sg_session.update("Playlist", sg_playlist["id"], data)
-        if not sg_playlist_:
-            log.error(f"Failed to update ShotGrid Playlist with AYON entity list ID")
-            return
+            data = {"sg_ayon_id": result.data["id"], "project": sg_project}
+            sg_playlist_ = sg_session.update("Playlist", sg_playlist["id"], data)
+            if not sg_playlist_:
+                log.error(f"Failed to update ShotGrid Playlist with AYON entity list ID")
+                return
 
-        entity_list = result.data
+            entity_list = result.data
 
     # update containing versions
     if sg_event_meta["type"] == "attribute_change" and sg_event_meta["attribute_name"] == "versions":
