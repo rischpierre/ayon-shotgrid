@@ -752,7 +752,6 @@ class AyonShotgridHub:
                 f"Project {self.project_name} doesn't exist in ""Shotgrid")
             return
 
-        # todo here if the entity is a version, we need the parent entity too
         note_links = self._get_note_links(entity_dict)
 
         addressings_to, content =self._get_addressings_to(
