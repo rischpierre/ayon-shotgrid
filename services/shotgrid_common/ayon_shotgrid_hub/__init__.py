@@ -752,6 +752,7 @@ class AyonShotgridHub:
                 f"Project {self.project_name} doesn't exist in ""Shotgrid")
             return
 
+        # todo here if the entity is a version, we need the parent entity too
         note_links = self._get_note_links(entity_dict)
 
         addressings_to, content =self._get_addressings_to(
@@ -869,7 +870,10 @@ class AyonShotgridHub:
         sg_entity = None
         if sg_id and sg_type:
             sg_entity = self._sg.find_one(
-                sg_type, [["id", "is", int(sg_id)]])
+                sg_type, [["id", "is", int(sg_id)]], ["entity"])
         if sg_entity:
             note_links = [{"type": sg_type, "id": sg_entity["id"]}]
+            parent = sg_entity.get("entity")
+            if parent:
+                note_links.append(parent)
         return note_links
