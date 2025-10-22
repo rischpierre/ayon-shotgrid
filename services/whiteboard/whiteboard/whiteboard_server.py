@@ -55,6 +55,7 @@ assignments: Dict[str, List[AssignedTask]] = {}     # shot_id -> [AssignedTask, 
 # Per-project overrides and assignments (project-aware mode)
 moved_positions_by_project: Dict[str, Dict[str, Tuple[Week, Day]]] = {}
 project_assignments: Dict[str, Dict[str, List[AssignedTask]]] = {}  # project_id -> shot_id -> [AssignedTask]
+project_unassign_overrides: Dict[str, Dict[str, List[AssignedTask]]] = {}  # project_id -> shot_id -> [AssignedTask] marked for removal
 
 # --- Helpers for fallback thumbnails ---
 
@@ -101,6 +102,11 @@ def identicon_thumb(size: int, key: str) -> str:
 
 app = FastAPI(title="Whiteboard")
 
+from fastapi.staticfiles import StaticFiles
+
+root = os.path.dirname(os.path.abspath(__file__))
+static_dir = os.path.join(root, "static")
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 def get_sg_session():
     ayon_api_key = os.environ.get("AYON_API_KEY")
@@ -382,6 +388,14 @@ def get_week(week: Week, project_id: Optional[str] = None):
                     if not any(x.artist_id == a.artist_id and x.task == a.task for x in cur):
                         cur.append(a)
 
+            # Apply unassignment overrides so UI hides removed assignees immediately
+            overrides = project_unassign_overrides.get(str(project_id), {})
+            if overrides:
+                for sid, removed_list in overrides.items():
+                    if sid in a_map:
+                        existing = a_map[sid]
+                        a_map[sid] = [x for x in existing if not any((x.artist_id == r.artist_id and x.task == r.task) for r in removed_list)]
+
             return WeekSnapshot(
                 week=week,
                 days=days_list,
@@ -560,6 +574,11 @@ def unassign_artist(req: AssignArtistRequest, project_id: Optional[str] = None):
         # Filter out matching entries
         filtered = [a for a in cur if not (a.artist_id == req.artist_id and a.task == req.task)]
         pmap[req.shot_id] = filtered
+        # Record an override so prefilled ShotGrid assignees are hidden in the UI
+        ov_map = project_unassign_overrides.setdefault(pid, {})
+        ov_list = ov_map.setdefault(req.shot_id, [])
+        if not any(a.artist_id == req.artist_id and a.task == req.task for a in ov_list):
+            ov_list.append(AssignedTask(artist_id=req.artist_id, task=req.task))
         return {"ok": True, "shot_id": req.shot_id, "assignments": filtered}
     # Demo/global fallback
     cur = assignments.get(req.shot_id, [])
