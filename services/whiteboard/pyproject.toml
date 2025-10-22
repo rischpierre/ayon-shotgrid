@@ -9,6 +9,7 @@ package-mode = false
 python = ">=3.10,<4.0"
 uvicorn = "*"
 shotgun-api3 = "*"
+ayon-python-api = "^1.0.0"
 fastapi = "*"
 
 [tool.poetry.dev-dependencies]

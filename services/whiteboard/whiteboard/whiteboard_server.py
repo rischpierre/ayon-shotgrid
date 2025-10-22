@@ -1,8 +1,3 @@
-# Python 3.10.16
-# Backend: FastAPI + Uvicorn
-# Frontend: index.html served as a static file
-# Note: In-memory store for demo. Replace with DB as needed.
-
 from __future__ import annotations
 from typing import Dict, List, Optional, Literal, Tuple, Set
 from fastapi import FastAPI, HTTPException
@@ -15,7 +10,9 @@ import datetime
 import hashlib
 import urllib.parse
 
+import ayon_api
 import shotgun_api3
+
 
 Day = Literal["mon", "tue", "wed", "thu", "fri"]
 Week = Literal["w0", "w1", "w2"]
@@ -105,13 +102,26 @@ def identicon_thumb(size: int, key: str) -> str:
 app = FastAPI(title="Whiteboard")
 
 
-def _sg_connect():
-    url = os.getenv("SG_URL")
-    script = os.getenv("SG_SCRIPT_NAME")
-    key = os.getenv("SG_API_KEY")
-    if not (shotgun_api3 and url and script and key):
-        raise RuntimeError("ShotGrid not configured")
-    return shotgun_api3.Shotgun(url, script_name=script, api_key=key)
+def get_sg_session():
+    ayon_api_key = os.environ.get("AYON_API_KEY")
+    ayon_server_url = os.environ.get("AYON_SERVER_URL")
+    sg_url = os.environ.get("SG_URL")
+    proxy_url = os.environ.get("HTTP_PROXY").replace("http://", "")
+
+    if not ayon_api_key or not ayon_server_url:
+        raise Exception("AYON_API_KEY and AYON_SERVER_URL are required")
+
+    if not sg_url or not proxy_url:
+        raise Exception("SG_URL and HTTP_PROXY env vars are required")
+
+    ayon_api.init_service(token=ayon_api_key, server_url=ayon_server_url)
+    script_name = ayon_api.get_secret("flow_whiteboard_service_name")["value"]
+    script_key = ayon_api.get_secret("flow_whiteboard_service_key")["value"]
+
+    if not script_name or not script_key:
+        raise Exception("Script name or key is not set")
+
+    return shotgun_api3.Shotgun(sg_url, script_name=script_name, api_key=script_key, http_proxy=proxy_url)
 
 # Schemas for API
 class DaySnapshot(BaseModel):
@@ -168,7 +178,7 @@ def index():
 @app.get("/api/projects", response_model=List[Project])
 def list_projects():
 
-    sg = _sg_connect()
+    sg = get_sg_session()
     fields = ["name", "archived"]
     filters = [["sg_status", "is", "Active"]]  # fetch all, UI can filter archived client-side
     projs = sg.find("Project", filters, fields, order=[{"field_name": "name", "direction": "asc"}])
@@ -186,7 +196,7 @@ def get_tasks(project_id: Optional[str] = None):
     if not project_id:
         return result
     try:
-        sg = _sg_connect()
+        sg = get_sg_session()
         pid = int(project_id)
         # Helper to get tasks for first entity of a given type
         def tasks_for(entity_type: str) -> List[str]:
@@ -250,7 +260,7 @@ def get_week(week: Week, project_id: Optional[str] = None):
     # If a project is provided and ShotGrid is configured, try to build a project-aware snapshot
     if project_id:
         try:
-            sg = _sg_connect()
+            sg = get_sg_session()
 
             # Fetch artists linked to the project
             a_fields = ["name", "image"]
@@ -561,7 +571,7 @@ def list_changes(project_id: Optional[str] = None):
     # Build move list by comparing overrides to current ShotGrid dates
     moves = []
     try:
-        sg = _sg_connect()
+        sg = get_sg_session()
         overrides = moved_positions_by_project.get(pid, {})
         if overrides:
             # fetch shots involved to get names and current delivery
@@ -611,7 +621,7 @@ def publish_changes(project_id: Optional[str] = None):
 
     # Try publishing to ShotGrid; if not configured, treat as success and clear
     def _publish_sg():
-        sg = _sg_connect()
+        sg = get_sg_session()
         proj = {"type": "Project", "id": int(pid)}
         # Moves: update sg_next_delivery
         for sid, (wk, dy) in overrides.items():
