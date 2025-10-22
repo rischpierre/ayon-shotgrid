@@ -2,7 +2,11 @@
 - [x] replace a single cell in an excel sheet with corder
 - [x] generate an excel file with a range of shots that have been replaced
 - [x] get the fields from the template for shots
-- [ ] make a shot and asset tab and fill them up
+- [x] make a shot and asset tab and fill them up
+- [x] start filling up the overview
+- [ ] prepare the questions for the meeting
+    - [ ] filter the shots and assets with updated date ? (meeting) 
+- [ ] do I need to put ami_server.py somewhere because it seems to be related to the create delivery only
 - [ ] make the ami to work on project entity
 - [ ] how to download the resulting template from the browser ? 
 
