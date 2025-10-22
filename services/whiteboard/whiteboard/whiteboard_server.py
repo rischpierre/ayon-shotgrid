@@ -549,6 +549,24 @@ def assign_artist(req: AssignArtistRequest, project_id: Optional[str] = None):
         current.append(AssignedTask(artist_id=req.artist_id, task=req.task))
     return {"ok": True, "shot_id": req.shot_id, "assignments": current}
 
+
+@app.post("/api/unassign")
+def unassign_artist(req: AssignArtistRequest, project_id: Optional[str] = None):
+    # Remove an assignment if present; prefer per-project store when project_id is provided
+    if project_id:
+        pid = str(project_id)
+        pmap = project_assignments.setdefault(pid, {})
+        cur = pmap.get(req.shot_id, [])
+        # Filter out matching entries
+        filtered = [a for a in cur if not (a.artist_id == req.artist_id and a.task == req.task)]
+        pmap[req.shot_id] = filtered
+        return {"ok": True, "shot_id": req.shot_id, "assignments": filtered}
+    # Demo/global fallback
+    cur = assignments.get(req.shot_id, [])
+    filtered = [a for a in cur if not (a.artist_id == req.artist_id and a.task == req.task)]
+    assignments[req.shot_id] = filtered
+    return {"ok": True, "shot_id": req.shot_id, "assignments": filtered}
+
 # --- Change listing and publishing ---
 
 def _current_monday() -> datetime.date:
@@ -661,6 +679,8 @@ def service_main() -> int:
     print("Running Whiteboard server")
     host = os.environ.get("WHITEBOARD_SERVER_HOST")
     port = os.environ.get("WHITEBOARD_SERVER_PORT")
+    assert host, "WHITEBOARD_SERVER_HOST env var not set"
+    assert port, "WHITEBOARD_SERVER_PORT env var not set"
     uvicorn.run(app, host=host, port=int(port))
     return 0
 
