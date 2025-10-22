@@ -1,49 +1,20 @@
 from __future__ import annotations
-from typing import Dict, List, Optional, Literal, Tuple, Set
+from typing import Dict, List, Optional, Tuple, Set
+import os
+import datetime
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
 import uvicorn
-import os
-from typing import Any
-import datetime
-import hashlib
-import urllib.parse
 
-import ayon_api
-import shotgun_api3
-
-
-Day = Literal["mon", "tue", "wed", "thu", "fri"]
-Week = Literal["w0", "w1", "w2"]
-
-class Artist(BaseModel):
-    id: str
-    name: str
-    thumb_url: str
-
-class Item(BaseModel):
-    id: str
-    name: str
-    thumb_url: str
-
-class Board(BaseModel):
-    id: str         # e.g., "shots-1", "assets-3"
-    kind: Literal["shots", "assets"]
-    title: str
-
-class TaskLiteral(str):
-    pass
-
-Task = str
-
-class Assignment(BaseModel):
-    artist_id: str
-    item_id: str     # must reference a shot item
-
-class AssignedTask(BaseModel):
-    artist_id: str
-    task: Task
+from whiteboard.models import (
+    Day, Week, Artist, Item, Board, AssignedTask, Task,
+    DaySnapshot, WeekSnapshot, Project,
+    MoveItemRequest, MoveByDayRequest, MoveByWeekDayRequest, AssignArtistRequest
+)
+from whiteboard.helpers import identicon_thumb, solid_color_thumb, _date_from_week_day
+from whiteboard.sg_helpers import get_sg_session
 
 # In-memory data
 artists: Dict[str, Artist] = {}
@@ -57,139 +28,26 @@ moved_positions_by_project: Dict[str, Dict[str, Tuple[Week, Day]]] = {}
 project_assignments: Dict[str, Dict[str, List[AssignedTask]]] = {}  # project_id -> shot_id -> [AssignedTask]
 project_unassign_overrides: Dict[str, Dict[str, List[AssignedTask]]] = {}  # project_id -> shot_id -> [AssignedTask] marked for removal
 
-# --- Helpers for fallback thumbnails ---
-
-def _hash_color(key: str) -> str:
-    h = int(hashlib.sha256(key.encode('utf-8')).hexdigest()[:8], 16)
-    hue = h % 360
-    # Use HSL with fixed saturation/lightness and convert to hex-ish via hsl() in SVG
-    return f"hsl({hue},70%,35%)"
-
-
-def _svg_data_uri(svg: str) -> str:
-    return "data:image/svg+xml;utf8," + urllib.parse.quote(svg)
-
-
-def solid_color_thumb(width: int, height: int, key: str) -> str:
-    color = _hash_color(key)
-    svg = f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}"><rect width="100%" height="100%" fill="{color}"/></svg>'
-    return _svg_data_uri(svg)
-
-
-def identicon_thumb(size: int, key: str) -> str:
-    # Simple 5x5 mirrored identicon
-    color = _hash_color(key)
-    bg = "#0f1222"
-    cells = []
-    bits = int(hashlib.sha256(key.encode('utf-8')).hexdigest(), 16)
-    idx = 0
-    grid = []
-    for y in range(5):
-        row = []
-        for x in range(3):  # mirror last two
-            row.append(((bits >> idx) & 1) == 1)
-            idx += 1
-        grid.append(row + row[-2::-1])
-    cell = size // 5
-    rects = []
-    for y in range(5):
-        for x in range(5):
-            if grid[y][x]:
-                rects.append(f'<rect x="{x*cell}" y="{y*cell}" width="{cell}" height="{cell}" fill="{color}"/>')
-    svg = f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}"><rect width="100%" height="100%" fill="{bg}"/>' + ''.join(rects) + '</svg>'
-    return _svg_data_uri(svg)
-
-
 app = FastAPI(title="Whiteboard")
 
-from fastapi.staticfiles import StaticFiles
-
+# Static mount for assets (favicon, css, js)
 root = os.path.dirname(os.path.abspath(__file__))
 static_dir = os.path.join(root, "static")
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-def get_sg_session():
-    ayon_api_key = os.environ.get("AYON_API_KEY")
-    ayon_server_url = os.environ.get("AYON_SERVER_URL")
-    sg_url = os.environ.get("SG_URL")
-    proxy_url = os.environ.get("HTTP_PROXY").replace("http://", "")
-
-    if not ayon_api_key or not ayon_server_url:
-        raise Exception("AYON_API_KEY and AYON_SERVER_URL are required")
-
-    if not sg_url or not proxy_url:
-        raise Exception("SG_URL and HTTP_PROXY env vars are required")
-
-    ayon_api.init_service(token=ayon_api_key, server_url=ayon_server_url)
-    script_name = ayon_api.get_secret("flow_whiteboard_service_name")["value"]
-    script_key = ayon_api.get_secret("flow_whiteboard_service_key")["value"]
-
-    if not script_name or not script_key:
-        raise Exception("Script name or key is not set")
-
-    return shotgun_api3.Shotgun(sg_url, script_name=script_name, api_key=script_key, http_proxy=proxy_url)
-
-# Schemas for API
-class DaySnapshot(BaseModel):
-    day: Day
-    boards: List[Board]
-    board_items: Dict[str, List[Item]]  # board_id -> items
-    artists: List[Artist]
-    assignments: Dict[str, List[AssignedTask]]   # shot_id -> [AssignedTask]
-
-class WeekSnapshot(BaseModel):
-    week: Week
-    days: List[Day]
-    boards: Dict[Day, List[Board]]
-    board_items: Dict[str, List[Item]]  # board_id -> items for all days in week
-    artists: List[Artist]
-    assignments: Dict[str, List[AssignedTask]]
-
-class Project(BaseModel):
-    id: Any
-    name: str
-
-class MoveItemRequest(BaseModel):
-    item_id: str
-    from_board_id: Optional[str]
-    to_board_id: str
-    to_index: Optional[int] = None
-
-class MoveByDayRequest(BaseModel):
-    item_id: str
-    kind: Literal["shots", "assets"]
-    to_day: Day
-    to_index: Optional[int] = None
-
-class MoveByWeekDayRequest(BaseModel):
-    item_id: str
-    kind: Literal["shots", "assets"]
-    to_week: Week
-    to_day: Day
-    to_index: Optional[int] = None
-
-class AssignArtistRequest(BaseModel):
-    artist_id: str
-    shot_id: str
-    task: Task
-
 @app.get("/")
 def index():
-    # Serve external index.html placed next to this Python file
-    here = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(here, "index.html")
+    root = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(root, "static", "index.html")
     return FileResponse(path, media_type="text/html")
-
 
 @app.get("/api/projects", response_model=List[Project])
 def list_projects():
-
     sg = get_sg_session()
     fields = ["name", "archived"]
     filters = [["sg_status", "is", "Active"]]  # fetch all, UI can filter archived client-side
     projs = sg.find("Project", filters, fields, order=[{"field_name": "name", "direction": "asc"}])
     return [Project(id=p.get("id"), name=p.get("name")) for p in projs]
-
 
 @app.get("/api/tasks")
 def get_tasks(project_id: Optional[str] = None):
@@ -240,12 +98,12 @@ def get_day(day: Day):
 
     b_ids = list(weeks_days["w0"][day].keys())
     day_boards = [boards[b] for b in b_ids]
-    board_items: Dict[str, List[Item]] = {}
+    board_items_map: Dict[str, List[Item]] = {}
     for b in day_boards:
-        board_items[b.id] = [items[iid] for iid in weeks_days["w0"][day][b.id]]
+        board_items_map[b.id] = [items[iid] for iid in weeks_days["w0"][day][b.id]]
 
     # Only include shots in assignments map
-    a_map: Dict[str, List[str]] = {}
+    a_map: Dict[str, List[AssignedTask]] = {}
     for b in day_boards:
         if b.kind != "shots":
             continue
@@ -256,7 +114,7 @@ def get_day(day: Day):
     return DaySnapshot(
         day=day,
         boards=day_boards,
-        board_items=board_items,
+        board_items=board_items_map,
         artists=list(artists.values()),
         assignments=a_map
     )
@@ -412,26 +270,26 @@ def get_week(week: Week, project_id: Optional[str] = None):
         raise HTTPException(status_code=404, detail="Week not found")
     days_list: List[Day] = ["mon", "tue", "wed", "thu", "fri"]
     boards_by_day: Dict[Day, List[Board]] = {}
-    board_items: Dict[str, List[Item]] = {}
-    a_map: Dict[str, List[str]] = {}
+    board_items_map: Dict[str, List[Item]] = {}
+    a_map2: Dict[str, List[AssignedTask]] = {}
     for d in days_list:
         day_boards_ids = list(weeks_days[week][d].keys())
         day_boards = [boards[b] for b in day_boards_ids]
         boards_by_day[d] = day_boards
         for b in day_boards:
             ids = weeks_days[week][d][b.id]
-            board_items[b.id] = [items[iid] for iid in ids]
+            board_items_map[b.id] = [items[iid] for iid in ids]
             if b.kind == "shots":
                 for iid in ids:
                     if iid in assignments:
-                        a_map[iid] = assignments[iid]
+                        a_map2[iid] = assignments[iid]
     return WeekSnapshot(
         week=week,
         days=days_list,
         boards=boards_by_day,
-        board_items=board_items,
+        board_items=board_items_map,
         artists=list(artists.values()),
-        assignments=a_map,
+        assignments=a_map2,
     )
 
 @app.post("/api/move")
@@ -445,8 +303,8 @@ def move_item(req: MoveItemRequest):
 
     # Remove from source board if provided (search across all weeks/days)
     if req.from_board_id:
-        for wk, days_map in weeks_days.items():
-            for d, bmap in days_map.items():
+        for _wk, days_map in weeks_days.items():
+            for _d, bmap in days_map.items():
                 if req.from_board_id in bmap:
                     if req.item_id in bmap[req.from_board_id]:
                         bmap[req.from_board_id].remove(req.item_id)
@@ -519,8 +377,8 @@ def move_item_by_week_day(req: MoveByWeekDayRequest, project_id: Optional[str] =
 
     # Demo mode: manipulate in-memory weeks_days structure
     # Remove from any current board of the same kind across all weeks/days
-    for wk, days_map in weeks_days.items():
-        for d, bmap in days_map.items():
+    for _wk, days_map in weeks_days.items():
+        for _d, bmap in days_map.items():
             for bid, idlist in bmap.items():
                 if boards[bid].kind != req.kind:
                     continue
@@ -563,7 +421,6 @@ def assign_artist(req: AssignArtistRequest, project_id: Optional[str] = None):
         current.append(AssignedTask(artist_id=req.artist_id, task=req.task))
     return {"ok": True, "shot_id": req.shot_id, "assignments": current}
 
-
 @app.post("/api/unassign")
 def unassign_artist(req: AssignArtistRequest, project_id: Optional[str] = None):
     # Remove an assignment if present; prefer per-project store when project_id is provided
@@ -585,20 +442,6 @@ def unassign_artist(req: AssignArtistRequest, project_id: Optional[str] = None):
     filtered = [a for a in cur if not (a.artist_id == req.artist_id and a.task == req.task)]
     assignments[req.shot_id] = filtered
     return {"ok": True, "shot_id": req.shot_id, "assignments": filtered}
-
-# --- Change listing and publishing ---
-
-def _current_monday() -> datetime.date:
-    today = datetime.date.today()
-    return today - datetime.timedelta(days=today.weekday())  # Monday=0
-
-
-def _date_from_week_day(week: Week, day: Day) -> datetime.date:
-    monday = _current_monday()
-    wk_idx = int(week[1])  # 'w0' -> 0
-    day_idx_map = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4}
-    return monday + datetime.timedelta(days=wk_idx * 7 + day_idx_map[day])
-
 
 @app.get("/api/changes")
 def list_changes(project_id: Optional[str] = None):
@@ -644,7 +487,6 @@ def list_changes(project_id: Optional[str] = None):
 
     assigns = project_assignments.get(pid, {})
     return {"moves": moves, "assignments": assigns}
-
 
 @app.post("/api/publish")
 def publish_changes(project_id: Optional[str] = None):
@@ -693,7 +535,6 @@ def publish_changes(project_id: Optional[str] = None):
 
     return {"ok": True}
 
-
 def service_main() -> int:
     print("Running Whiteboard server")
     host = os.environ.get("WHITEBOARD_SERVER_HOST")
@@ -702,7 +543,6 @@ def service_main() -> int:
     assert port, "WHITEBOARD_SERVER_PORT env var not set"
     uvicorn.run(app, host=host, port=int(port))
     return 0
-
 
 if __name__ == "__main__":
     uvicorn.run(app, host="localhost", port=8000)

@@ -1,4 +1,4 @@
-from .whiteboard_server import (
+from .app import (
     service_main,
 )
 

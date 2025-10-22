@@ -1,4 +1,4 @@
-from .whiteboard_server import service_main
+from .app import service_main
 
 
 if __name__ == "__main__":
