@@ -80,11 +80,54 @@ def fill_assets(template, assets):
     rng.set_replacement_values(rows)
     template.fill()
 
+def get_dates_per_pipeline_step(sg, project_name, shots):
+    steps = sg.find("Step", [["code", "in", ["Compositing", "Animation", "Layout"]]], ["code"])
+    step_map = {x['id']: x for x in steps}
+    shot_map = {x['id']: x for x in shots}
+    tasks = sg.find(
+        "Task",
+            filters = [["project.Project.name", "is", project_name],
+                     ['entity', 'in', list(shot_map.values())],
+                     ["step", "in", steps]
+                     ],
+            fields=["sg_blocking", "due_date", "entity", "step", "content"]
+    )
+    task_map = {x['entity']['id']: x for x in tasks}
+    out_shots = []
+    for shot in shots:
+        task = task_map.get(shot["id"])
+        if not task:
+            continue
+        step_code = step_map[task["step"]["id"]]["code"]
+        if task["due_date"]:
+            shot[step_code.lower() + "_" + "due_date"] = task["due_date"]
+        if task["sg_blocking"]:
+            shot[step_code.lower() + "_" + "sg_blocking"] = task["sg_blocking"]
+        out_shots.append(shot)
+    return out_shots
+
 
 def export_file(template):
     out_file = "ami/report.xlsx"
     print(f"Export excel file {out_file}")
     template.write(out_file)
+
+
+def fill_overview(template):
+
+    data = {
+        "date": "toto",
+        "week_ending": "todo",
+    }
+
+    for tag in template.tags:
+        rendered = StringTemplate(tag).format(data)
+        # If your StringTemplate returns an object with .missing_keys/.invalid_types, handle as needed
+        value = "" if getattr(rendered, "missing_keys", []) or getattr(rendered, "invalid_types", []) else str(rendered)
+
+        template.replacements[tag].set_value(str(value))
+
+    template.fill()
 
 
 def main():
@@ -94,10 +137,15 @@ def main():
     shot_fields = get_fields("shot", template)
     asset_fields = get_fields("asset", template)
     shots = get_shots(sg, project_name, shot_fields)
+    shots = get_dates_per_pipeline_step(sg, project_name, shots)
+
     assets = get_assets(sg, project_name, asset_fields)
+
+    fill_overview(template)
 
     fill_shots(template, shots)
     fill_assets(template, assets)
+
 
     export_file(template)
 
