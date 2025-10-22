@@ -8,8 +8,8 @@ package-mode = false
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
 uvicorn = "*"
-shotgun-api3 = "*"
-ayon-python-api = "^1.0.0"
+shotgun-api3 = "3.8.5"
+ayon-python-api = "1.2.1"
 fastapi = "*"
 
 [tool.poetry.dev-dependencies]
