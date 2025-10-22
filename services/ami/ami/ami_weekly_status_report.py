@@ -1,5 +1,5 @@
 import os
-
+from typing import Literal
 # todo get this lib from somewhere else
 from path_templates import StringTemplate
 import corder
@@ -36,12 +36,15 @@ def get_template():
 
     return crd
 
-def get_shot_fields(template: corder.Corder):
-    range = template.range("shot")
+def get_fields(entity_type: Literal["asset", "shot"], template: corder.Corder):
+    range = template.range(entity_type)
     return [x.lstrip("{").rstrip("}") for x in range.tags]
 
 def get_shots(sg, project_name, fields):
     return sg.find("Shot", filters=[["project.Project.name", "is", project_name]], fields=fields)
+
+def get_assets(sg, project_name, fields):
+    return sg.find("Asset", filters=[["project.Project.name", "is", project_name]], fields=fields)
 
 def fill_shots(template, shots):
     rows = []
@@ -60,20 +63,41 @@ def fill_shots(template, shots):
     rng.set_replacement_values(rows)
     template.fill()
 
+def fill_assets(template, assets):
+    rows = []
+    rng = template.range("asset")  # or your range type as defined in the template
+    for asset in assets:
+
+        row = {}
+        for tag in rng.tags:
+            rendered = StringTemplate(tag).format(asset)
+            # If your StringTemplate returns an object with .missing_keys/.invalid_types, handle as needed
+            value = "" if getattr(rendered, "missing_keys", []) or getattr(rendered, "invalid_types", []) else str(rendered)
+
+            row[tag] = value
+        rows.append(row)
+
+    rng.set_replacement_values(rows)
+    template.fill()
+
 
 def export_file(template):
-    out_file = "ami/template_out.xlsx"
+    out_file = "ami/report.xlsx"
     print(f"Export excel file {out_file}")
     template.write(out_file)
 
 
 def main():
-    project_name = "Zero_Flow"
+    project_name = "Complete_Chaos"
     sg = get_sg_session()
     template = get_template()
-    shot_fields = get_shot_fields(template)
+    shot_fields = get_fields("shot", template)
+    asset_fields = get_fields("asset", template)
     shots = get_shots(sg, project_name, shot_fields)
+    assets = get_assets(sg, project_name, asset_fields)
+
     fill_shots(template, shots)
+    fill_assets(template, assets)
 
     export_file(template)
 
