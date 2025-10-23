@@ -19,8 +19,11 @@
 - [x] remove the hold and omit checkboxes and create boards for both of them instead, both of the board should appear after the 4th week board
 - [x] add the possibility to add a custom annotation on each day cell. we store this information on a text project field called: sg_whiteboard_annotations we need to serialize and deserialize it with json
  
-- [ ] add a set of swatches with a few colors to set the annotations
-- [ ] instead of double click for the annotation, I want to have a right click on the day cell with a menu to set the annotation
+instead of double click for the annotation, I want to have a right click on the day cell with a menu
+in the menu, there will be:
+    - a add/modify annotation option
+    - a remove annotation option
+    - a set color annotation with submenu to set the color of the annotation with a selection of 5 main colors
 
 - [ ] change the vendors thumbnails to be black letter on a white background
  

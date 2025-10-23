@@ -1,6 +1,7 @@
 from __future__ import annotations
 import os
 import logging
+import threading
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import ayon_api
@@ -8,8 +9,14 @@ import shotgun_api3
 
 logger = logging.getLogger(__name__)
 
+_SG_LOCAL = threading.local()
+
 
 def get_sg_session():
+    sg = getattr(_SG_LOCAL, "session", None)
+    if sg is not None:
+        return sg
+
     ayon_api_key = os.environ.get("AYON_API_KEY")
     ayon_server_url = os.environ.get("AYON_SERVER_URL")
     sg_url = os.environ.get("SG_URL")
@@ -29,7 +36,14 @@ def get_sg_session():
     if not script_name or not script_key:
         raise Exception("Script name or key is not set")
 
-    return shotgun_api3.Shotgun(sg_url, script_name=script_name, api_key=script_key, http_proxy=proxy_url)
+    sg = shotgun_api3.Shotgun(
+        sg_url,
+        script_name=script_name,
+        api_key=script_key,
+        http_proxy=proxy_url,
+    )
+    setattr(_SG_LOCAL, "session", sg)
+    return sg
 
 
 # Below are thin helpers that encapsulate all direct ShotGrid API calls.

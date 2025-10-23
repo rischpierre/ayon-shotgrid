@@ -602,9 +602,30 @@ def set_annotation(payload: Dict[str, str], project_id: Optional[str] = None):
         data = sg_get_project_annotations(int(project_id))
         if not isinstance(data, dict):
             data = {}
-        data[key] = {"text": str(text), "color": str(color) or "#c7cbe0"}
+        # If text is empty/whitespace, remove the annotation entry entirely
+        if not str(text).strip():
+            if key in data:
+                try:
+                    del data[key]
+                except Exception:
+                    data[key] = None  # fallback no-op
+        else:
+            data[key] = {"text": str(text), "color": str(color) or "#c7cbe0"}
         sg_set_project_annotations(int(project_id), data)
-        return {"ok": True, "annotations": data}
+        # Normalize output like GET (ensure {text, color})
+        out: Dict[str, Dict[str, str]] = {}
+        for k, v in (data or {}).items():
+            if isinstance(v, dict):
+                text = str(v.get("text", ""))
+                color = str(v.get("color", "#c7cbe0"))
+            elif isinstance(v, str):
+                text = v
+                color = "#c7cbe0"
+            else:
+                text = str(v)
+                color = "#c7cbe0"
+            out[str(k)] = {"text": text, "color": color}
+        return {"ok": True, "annotations": out}
     except Exception:
         logger.exception("Failed to save annotation to ShotGrid")
         raise HTTPException(status_code=500, detail="Failed to save annotation")

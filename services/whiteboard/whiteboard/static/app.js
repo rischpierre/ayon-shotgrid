@@ -57,11 +57,124 @@ ctxUnassign.addEventListener('click', async () => {
         if (resp.ok) await loadMode(currentMode);
     } catch {}
 });
+
+// Day header context menu for annotations
+const dayMenu = document.getElementById('dayMenu');
+const dayAddEdit = document.getElementById('dayAddEdit');
+const dayRemove = document.getElementById('dayRemove');
+const dayColor = document.getElementById('dayColor');
+const dayColorSub = document.getElementById('dayColorSub');
+let dayCtx = null; // { week, day }
+const DAY_COLORS = ['#ff6b6b', '#f1c40f', '#2ecc71', '#3498db', '#c7cbe0'];
+
+function buildDayColorSubmenu(curColor) {
+    dayColorSub.innerHTML = '';
+    DAY_COLORS.forEach(col => {
+        const opt = document.createElement('div');
+        opt.className = 'item';
+        opt.style.display = 'flex';
+        opt.style.alignItems = 'center';
+        opt.style.gap = '8px';
+        opt.innerHTML = `<span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${col};border:2px solid rgba(255,255,255,0.3);"></span><span style="color:#e7e9ef;">${col.toUpperCase()}</span>`;
+        opt.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (!dayCtx) return;
+            const { week, day } = dayCtx;
+            hideDayMenu();
+            const key = `${week}/${day}`;
+            const cur = (window.annotationsMap && window.annotationsMap[key]) || { text: '' };
+            try {
+                const resp = await fetch(`/api/annotations${window.currentProjectId ? `?project_id=${encodeURIComponent(window.currentProjectId)}` : ''}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ week, day, text: cur.text || '', color: col })
+                });
+                if (resp.ok) {
+                    window.annotationsMap = (await resp.json()).annotations || window.annotationsMap;
+                    await loadMode(currentMode);
+                }
+            } catch {}
+        });
+        dayColorSub.appendChild(opt);
+    });
+}
+
+function showDayMenu(x, y, data) {
+    dayCtx = data; // {week, day}
+    // Position main menu
+    dayMenu.style.left = Math.max(8, Math.min(window.innerWidth - 220, x)) + 'px';
+    dayMenu.style.top = Math.max(8, Math.min(window.innerHeight - 180, y)) + 'px';
+    dayMenu.style.display = 'block';
+    dayMenu.setAttribute('aria-hidden', 'false');
+    // Prepare color submenu content and hide initially
+    const key = `${data.week}/${data.day}`;
+    const cur = (window.annotationsMap && window.annotationsMap[key]) || { color: '#c7cbe0' };
+    buildDayColorSubmenu(cur.color);
+    dayColorSub.style.display = 'none';
+}
+function hideDayMenu() {
+    dayMenu.style.display = 'none';
+    dayMenu.setAttribute('aria-hidden', 'true');
+    dayColorSub.style.display = 'none';
+    dayCtx = null;
+}
+
 document.addEventListener('mousedown', (e) => {
-    if (contextMenu.style.display !== 'block') return;
-    if (!contextMenu.contains(e.target)) hideContextMenu();
+    if (contextMenu.style.display === 'block' && !contextMenu.contains(e.target)) hideContextMenu();
+    if (dayMenu.style.display === 'block' && !dayMenu.contains(e.target)) hideDayMenu();
 });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideContextMenu(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { hideContextMenu(); hideDayMenu(); } });
+
+dayAddEdit.addEventListener('click', async () => {
+    if (!dayCtx) return;
+    const { week, day } = dayCtx;
+    const key = `${week}/${day}`;
+    const cur = (window.annotationsMap && window.annotationsMap[key]) || { text: '', color: '#c7cbe0' };
+    hideDayMenu();
+    const newText = window.prompt('Annotation text', cur.text || '');
+    if (newText === null) return;
+    try {
+        const resp = await fetch(`/api/annotations${window.currentProjectId ? `?project_id=${encodeURIComponent(window.currentProjectId)}` : ''}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ week, day, text: newText, color: cur.color || '#c7cbe0' })
+        });
+        if (resp.ok) {
+            window.annotationsMap = (await resp.json()).annotations || window.annotationsMap;
+            await loadMode(currentMode);
+        }
+    } catch {}
+});
+
+dayRemove.addEventListener('click', async () => {
+    if (!dayCtx) return;
+    const { week, day } = dayCtx;
+    hideDayMenu();
+    try {
+        const resp = await fetch(`/api/annotations${window.currentProjectId ? `?project_id=${encodeURIComponent(window.currentProjectId)}` : ''}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ week, day, text: '' })
+        });
+        if (resp.ok) {
+            window.annotationsMap = (await resp.json()).annotations || window.annotationsMap;
+            await loadMode(currentMode);
+        }
+    } catch {}
+});
+
+dayColor.addEventListener('mouseenter', () => {
+    // Show submenu aligned to parent
+    const rect = dayMenu.getBoundingClientRect();
+    dayColorSub.style.left = (rect.width - 2) + 'px';
+    dayColorSub.style.top = '0px';
+    dayColorSub.style.display = 'block';
+});
+dayColor.addEventListener('mouseleave', () => {
+    // Hide submenu when moving off entire menu unless entering submenu
+    // Slight delay not necessary; submenu stays if hovered
+});
+dayMenu.addEventListener('mouseleave', () => {
+    // Hide submenu when leaving menu entirely
+    dayColorSub.style.display = 'none';
+});
 
 function buildTaskOptions() {
     taskOptions.innerHTML = '';
@@ -152,8 +265,14 @@ async function loadMode(mode) {
 
     // Render No due date board (only in shots mode and if provided)
     const w0 = snaps.find(s => s.week === 'w0');
-    // Cache annotations map from w0
-    window.annotationsMap = (w0 && w0.annotations) ? w0.annotations : {};
+    // Cache annotations map from w0, but don't clobber recent local edits if server hasn't caught up yet
+    const serverAnn = (w0 && w0.annotations) ? w0.annotations : {};
+    if (serverAnn && Object.keys(serverAnn).length) {
+        // Merge, giving precedence to locally-updated entries to reflect immediate changes
+        window.annotationsMap = Object.assign({}, serverAnn, window.annotationsMap || {});
+    } else {
+        window.annotationsMap = window.annotationsMap || {};
+    }
     if (mode === 'shots' && w0 && Array.isArray(w0.no_due_date) && w0.no_due_date.length) {
         renderNoDueDate(w0);
     }
@@ -364,16 +483,16 @@ function renderWeeks(snapshot) {
                 annSpan.style.opacity = '0.95';
                 annSpan.title = rawText;
                 annSpan.style.cursor = 'pointer';
+                // Optional: click to quickly edit text
                 annSpan.addEventListener('click', async () => {
                     const curText = String((window.annotationsMap && window.annotationsMap[annKey] && window.annotationsMap[annKey].text) || '');
                     const curColor = String((window.annotationsMap && window.annotationsMap[annKey] && window.annotationsMap[annKey].color) || '#c7cbe0');
                     const newText = window.prompt('Annotation text', curText);
                     if (newText === null) return;
-                    const newColor = window.prompt('Font color (hex, e.g., #ffcc00)', curColor) || curColor;
                     try {
                         const resp = await fetch(`/api/annotations${window.currentProjectId ? `?project_id=${encodeURIComponent(window.currentProjectId)}` : ''}`, {
                             method: 'POST', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ week: wk, day, text: newText, color: newColor })
+                            body: JSON.stringify({ week: wk, day, text: newText, color: curColor })
                         });
                         if (resp.ok) {
                             window.annotationsMap = (await resp.json()).annotations || window.annotationsMap;
@@ -382,25 +501,12 @@ function renderWeeks(snapshot) {
                     } catch {}
                 });
                 h3.appendChild(annSpan);
-            } else {
-                // No widget when there is no annotation; allow creating by double‑clicking the header
-                h3.style.cursor = 'default';
-                h3.addEventListener('dblclick', async () => {
-                    const newText = window.prompt('Add annotation text');
-                    if (newText === null) return;
-                    const newColor = window.prompt('Font color (hex, e.g., #ffcc00)', '#c7cbe0') || '#c7cbe0';
-                    try {
-                        const resp = await fetch(`/api/annotations${window.currentProjectId ? `?project_id=${encodeURIComponent(window.currentProjectId)}` : ''}`, {
-                            method: 'POST', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ week: wk, day, text: newText, color: newColor })
-                        });
-                        if (resp.ok) {
-                            window.annotationsMap = (await resp.json()).annotations || window.annotationsMap;
-                            await loadMode(currentMode);
-                        }
-                    } catch {}
-                });
             }
+            // Right-click on day header opens annotation menu
+            h3.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                showDayMenu(e.clientX, e.clientY, { week: wk, day });
+            });
             const list = wrap.querySelector('.list');
 
             const items = (snapshot.by_week[wk] || {})[day] || [];
