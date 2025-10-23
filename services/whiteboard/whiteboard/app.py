@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Dict, List, Optional, Tuple, Set
 import os
 import datetime
+import logging
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
@@ -15,6 +16,8 @@ from whiteboard.models import (
 )
 from whiteboard.helpers import identicon_thumb, solid_color_thumb, _date_from_week_day
 from whiteboard.sg_helpers import get_sg_session
+
+logger = logging.getLogger(__name__)
 
 # In-memory data
 artists: Dict[str, Artist] = {}
@@ -85,8 +88,8 @@ def get_tasks(project_id: Optional[str] = None):
             result["shots"] = s_tasks
         if a_tasks:
             result["assets"] = a_tasks
-    except Exception as e:
-        print(e)
+    except Exception:
+        logger.exception("Failed to fetch tasks from ShotGrid")
     return result
 
 @app.get("/api/day/{day}", response_model=DaySnapshot)
@@ -134,8 +137,25 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
                 img = a.get("image") or {}
                 thumb_url = img.get("url") if isinstance(img, dict) else img
                 if not thumb_url:
-                    thumb_url = identicon_thumb(64, str(a.get("id") or a.get("name") or "user"))
+                    # deterministic avatar based on name
+                    key = (a.get("name") or str(a.get("id") or "user")).strip()
+                    thumb_url = identicon_thumb(64, key)
                 proj_artists.append(Artist(id=str(a.get("id")), name=a.get("name") or f"User {a.get('id')}", thumb_url=thumb_url))
+
+            # Fetch ShotGrid groups with available thumbnails and include them as draggable assignees
+            try:
+                g_fields = ["code", "sg_thumbnail"]
+                sg_groups = sg.find("Group", [], g_fields, order=[{"field_name": "code", "direction": "asc"}])
+                for g in sg_groups:
+                    thumb = g.get("sg_thumbnail") or {}
+                    g_thumb = thumb.get("url") if isinstance(thumb, dict) else thumb
+                    if not g_thumb:
+                        # Only use groups with a thumbnail per requirement; skip if missing
+                        continue
+                    name = g.get("code")
+                    proj_artists.append(Artist(id=f"g:{g.get('id')}", name=name, thumb_url=g_thumb))
+            except Exception:
+                logger.exception("Failed to fetch ShotGrid groups")
 
             # Fetch shots with delivery dates
             s_fields = ["code", "sg_next_delivery", "image", "sg_sequence"]
@@ -248,13 +268,17 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
                             continue
                         lst = a_map.setdefault(sid, [])
                         for hu in assignees:
-                            aid = str(hu.get("id")) if isinstance(hu, dict) else None
-                            if not aid:
+                            if not isinstance(hu, dict):
                                 continue
+                            hu_id = hu.get("id")
+                            hu_type = (hu.get("type") or "HumanUser").strip()
+                            if hu_id is None:
+                                continue
+                            aid = f"g:{hu_id}" if hu_type == "Group" else str(hu_id)
                             if not any(x.artist_id == aid and x.task == task_name for x in lst):
                                 lst.append(AssignedTask(artist_id=aid, task=task_name))
-                except Exception as e:
-                    print(e)
+                except Exception:
+                    logger.exception("Failed to prefill assignments from ShotGrid")
 
             # Merge in pending (in-memory) project assignments, without duplicating
             proj_assign = project_assignments.get(str(project_id), {})
@@ -284,8 +308,8 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
                 no_due_date=sorted(no_due, key=lambda x: x.name.lower()) if no_due else None,
                 sequences=sorted(seq_names) if seq_names else None,
             )
-        except Exception as e:
-            print(e)
+        except Exception:
+            logger.exception("Failed to build project-aware week snapshot")
 
     # Default: in-memory snapshot
     if week not in weeks_days:
@@ -529,26 +553,30 @@ def publish_changes(project_id: Optional[str] = None):
             try:
                 target_date = _date_from_week_day(wk, dy).isoformat()
                 sg.update("Shot", int(sid), {"sg_next_delivery": target_date})
-            except Exception as e:
-                print(f"Failed updating shot {sid}: {e}")
+            except Exception:
+                logger.exception(f"Failed updating shot {sid}")
         # Assignments: create tasks per (artist, task) for each shot
         for shot_id, task_list in assigns.items():
             for a in task_list:
                 try:
+                    # Determine assignee entity type (HumanUser vs Group)
+                    is_group = isinstance(a.artist_id, str) and a.artist_id.startswith("g:")
+                    assignee_id = int(a.artist_id[2:]) if is_group else int(a.artist_id)
+                    assignee = {"type": "Group", "id": assignee_id} if is_group else {"type": "HumanUser", "id": assignee_id}
                     payload = {
                         "project": proj,
                         "entity": {"type": "Shot", "id": int(shot_id)},
                         "content": a.task,
-                        "task_assignees": [{"type": "HumanUser", "id": int(a.artist_id)}],
+                        "task_assignees": [assignee],
                     }
                     sg.create("Task", payload)
-                except Exception as e:
-                    print(f"Failed creating task for shot {shot_id}: {e}")
+                except Exception:
+                    logger.exception(f"Failed creating task for shot {shot_id}")
 
     try:
         _publish_sg()
-    except Exception as e:
-        print(e)
+    except Exception:
+        logger.exception("Failed to publish to ShotGrid; continuing to clear local state")
         # If ShotGrid not configured, still clear and return ok to keep demo usable
 
     # Clear pending changes for the project
@@ -558,7 +586,10 @@ def publish_changes(project_id: Optional[str] = None):
     return {"ok": True}
 
 def service_main() -> int:
-    print("Running Whiteboard server")
+    # Configure logging
+    log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(level=getattr(logging, log_level, logging.INFO), format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
+    logger.info("Running Whiteboard server")
     host = os.environ.get("WHITEBOARD_SERVER_HOST")
     port = os.environ.get("WHITEBOARD_SERVER_PORT")
     assert host, "WHITEBOARD_SERVER_HOST env var not set"
