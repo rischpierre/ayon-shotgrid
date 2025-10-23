@@ -16,6 +16,7 @@
 - [x] use logging instead of print on the whole project
  
 - [ ] load the tasks per shot, in order to avoid avoid errors if a shot don't have the same tasks as the others
+- [ ] is it possible to have a singleton sg_session to avoid creating new objects everytime
 
 - [ ] the unassignments are working but there is no unassign change displayed on the publish confirmation dialog
 - [ ] check if the asset assignments work 

@@ -15,7 +15,16 @@ from whiteboard.models import (
     MoveItemRequest, MoveByDayRequest, MoveByWeekDayRequest, AssignArtistRequest
 )
 from whiteboard.helpers import identicon_thumb, solid_color_thumb, _date_from_week_day
-from whiteboard.sg_helpers import get_sg_session
+from whiteboard.sg_helpers import (
+    sg_list_projects,
+    sg_get_sample_tasks_for_entity,
+    sg_find_project_artists,
+    sg_list_groups_with_thumbnails,
+    sg_find_project_shots,
+    sg_find_tasks_for_shots,
+    sg_find_shots_by_ids,
+    sg_publish_changes,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +54,7 @@ def index():
 
 @app.get("/api/projects", response_model=List[Project])
 def list_projects():
-    sg = get_sg_session()
-    fields = ["name", "archived"]
-    filters = [["sg_status", "is", "Active"]]  # fetch all, UI can filter archived client-side
-    projs = sg.find("Project", filters, fields, order=[{"field_name": "name", "direction": "asc"}])
+    projs = sg_list_projects()
     return [Project(id=p.get("id"), name=p.get("name")) for p in projs]
 
 @app.get("/api/tasks")
@@ -62,28 +68,9 @@ def get_tasks(project_id: Optional[str] = None):
     if not project_id:
         return result
     try:
-        sg = get_sg_session()
         pid = int(project_id)
-        # Helper to get tasks for first entity of a given type
-        def tasks_for(entity_type: str) -> List[str]:
-            ent = sg.find_one(entity_type, [["project", "is", {"type": "Project", "id": pid}]], ["id"], order=[{"field_name": "id", "direction": "asc"}])
-            if not ent:
-                return []
-            t_fields = ["content"]
-            t_filters = [["project", "is", {"type": "Project", "id": pid}], ["entity", "is", {"type": entity_type, "id": ent["id"]}]]
-            t_list = sg.find("Task", t_filters, t_fields, order=[{"field_name": "content", "direction": "asc"}])
-            names = []
-            seen = set()
-            for t in t_list:
-                name = (t.get("content") or "").strip()
-                if name and name.lower() not in seen:
-                    seen.add(name.lower())
-                    names.append(name)
-                if len(names) >= 8:
-                    break
-            return names
-        s_tasks = tasks_for("Shot")
-        a_tasks = tasks_for("Asset")
+        s_tasks = sg_get_sample_tasks_for_entity(pid, "Shot")
+        a_tasks = sg_get_sample_tasks_for_entity(pid, "Asset")
         if s_tasks:
             result["shots"] = s_tasks
         if a_tasks:
@@ -126,12 +113,8 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
     # If a project is provided and ShotGrid is configured, try to build a project-aware snapshot
     if project_id:
         try:
-            sg = get_sg_session()
-
             # Fetch artists linked to the project
-            a_fields = ["name", "image"]
-            a_filters = [["projects", "is", {"type": "Project", "id": int(project_id)}], ["sg_status_list", "is_not", "dis"]]
-            sg_artists = sg.find("HumanUser", a_filters, a_fields, order=[{"field_name": "name", "direction": "asc"}])
+            sg_artists = sg_find_project_artists(int(project_id))
             proj_artists: List[Artist] = []
             for a in sg_artists:
                 img = a.get("image") or {}
@@ -144,13 +127,11 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
 
             # Fetch ShotGrid groups with available thumbnails and include them as draggable assignees
             try:
-                g_fields = ["code", "sg_thumbnail"]
-                sg_groups = sg.find("Group", [], g_fields, order=[{"field_name": "code", "direction": "asc"}])
+                sg_groups = sg_list_groups_with_thumbnails()
                 for g in sg_groups:
                     thumb = g.get("sg_thumbnail") or {}
                     g_thumb = thumb.get("url") if isinstance(thumb, dict) else thumb
                     if not g_thumb:
-                        # Only use groups with a thumbnail per requirement; skip if missing
                         continue
                     name = g.get("code")
                     proj_artists.append(Artist(id=f"g:{g.get('id')}", name=name, thumb_url=g_thumb))
@@ -158,18 +139,7 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
                 logger.exception("Failed to fetch ShotGrid groups")
 
             # Fetch shots with delivery dates
-            s_fields = ["code", "sg_next_delivery", "image", "sg_sequence"]
-            s_filters = [["project", "is", {"type": "Project", "id": int(project_id)}]]
-
-            # Optionally exclude on-hold (hld) and omitted (omt) statuses
-            exclude_codes: List[str] = []
-            if not include_on_hold:
-                exclude_codes.append("hld")
-            if not include_omitted:
-                exclude_codes.append("omt")
-            if exclude_codes:
-                s_filters.append(["sg_status_list", "not_in", exclude_codes])
-            sg_shots = sg.find("Shot", s_filters, s_fields, order=[{"field_name": "code", "direction": "asc"}])
+            sg_shots = sg_find_project_shots(int(project_id), include_on_hold, include_omitted)
 
             # Build per-week/day mapping
             days_list: List[Day] = ["mon", "tue", "wed", "thu", "fri"]
@@ -251,12 +221,7 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
             # Prefill from ShotGrid existing Tasks/assignees so assignments show on initial load
             if present_shot_ids:
                 try:
-                    task_fields = ["content", "entity", "task_assignees"]
-                    t_filters = [
-                        ["project", "is", {"type": "Project", "id": int(project_id)}],
-                        ["entity", "in", [{"type": "Shot", "id": int(sid)} for sid in present_shot_ids if sid.isdigit()]],
-                    ]
-                    sg_tasks = sg.find("Task", t_filters, task_fields, limit=2000)
+                    sg_tasks = sg_find_tasks_for_shots(int(project_id), [int(sid) for sid in present_shot_ids if sid.isdigit()])
                     for t in sg_tasks:
                         ent = t.get("entity") or {}
                         sid = str(ent.get("id")) if ent else None
@@ -497,13 +462,12 @@ def list_changes(project_id: Optional[str] = None):
     # Build move list by comparing overrides to current ShotGrid dates
     moves = []
     try:
-        sg = get_sg_session()
         overrides = moved_positions_by_project.get(pid, {})
         if overrides:
             # fetch shots involved to get names and current delivery
             shot_ids = [int(sid) for sid in overrides.keys() if sid.isdigit()]
             if shot_ids:
-                shots = sg.find("Shot", [["id", "in", shot_ids]], ["code", "sg_next_delivery"], limit=len(shot_ids))
+                shots = sg_find_shots_by_ids(shot_ids)
                 by_id = {str(s["id"]): s for s in shots}
                 for sid, (wk, dy) in overrides.items():
                     sh = by_id.get(sid, {"code": sid, "sg_next_delivery": None, "id": int(sid) if sid.isdigit() else sid})
@@ -545,36 +509,8 @@ def publish_changes(project_id: Optional[str] = None):
     assigns = project_assignments.get(pid, {})
 
     # Try publishing to ShotGrid; if not configured, treat as success and clear
-    def _publish_sg():
-        sg = get_sg_session()
-        proj = {"type": "Project", "id": int(pid)}
-        # Moves: update sg_next_delivery
-        for sid, (wk, dy) in overrides.items():
-            try:
-                target_date = _date_from_week_day(wk, dy).isoformat()
-                sg.update("Shot", int(sid), {"sg_next_delivery": target_date})
-            except Exception:
-                logger.exception(f"Failed updating shot {sid}")
-        # Assignments: create tasks per (artist, task) for each shot
-        for shot_id, task_list in assigns.items():
-            for a in task_list:
-                try:
-                    # Determine assignee entity type (HumanUser vs Group)
-                    is_group = isinstance(a.artist_id, str) and a.artist_id.startswith("g:")
-                    assignee_id = int(a.artist_id[2:]) if is_group else int(a.artist_id)
-                    assignee = {"type": "Group", "id": assignee_id} if is_group else {"type": "HumanUser", "id": assignee_id}
-                    payload = {
-                        "project": proj,
-                        "entity": {"type": "Shot", "id": int(shot_id)},
-                        "content": a.task,
-                        "task_assignees": [assignee],
-                    }
-                    sg.create("Task", payload)
-                except Exception:
-                    logger.exception(f"Failed creating task for shot {shot_id}")
-
     try:
-        _publish_sg()
+        sg_publish_changes(int(pid), overrides, assigns)
     except Exception:
         logger.exception("Failed to publish to ShotGrid; continuing to clear local state")
         # If ShotGrid not configured, still clear and return ok to keep demo usable
