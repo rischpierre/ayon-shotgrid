@@ -1,5 +1,3 @@
-
-
 # TODO
 - [x] the API key is not set
 - [x] are the shot thumbnails working? -> update the thumbnails on Zero_flow to check it out
@@ -20,4 +18,12 @@
 *cleanup* 
 - [ ] update the 0.0.0-prod addon version so I can deploy the whiteboard on the prod version
 - [ ] add the ip into the dns, ask it
- 
+
+# Todos from vicky 
+- [ ] add 3rd and 4th Week
+- [ ] add a toggle for on hold and omitted shots
+- [ ] shots and assets on the same tab (make the boards a different color)
+- [ ] add flow groups (only the ones with the thumbnail field available)
+  - [ ] Yellow sphere with the letter “Y” in black in the middle = Yannix Profile
+  - [ ] Dark blue sphere with the letter “W” = White Effects Profile
+  - [ ] Red sphere with the letter “W” = White Effects Profile
