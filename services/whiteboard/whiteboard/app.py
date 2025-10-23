@@ -37,7 +37,6 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 @app.get("/")
 def index():
-    root = os.path.dirname(os.path.abspath(__file__))
     path = os.path.join(root, "static", "index.html")
     return FileResponse(path, media_type="text/html")
 
@@ -120,7 +119,7 @@ def get_day(day: Day):
     )
 
 @app.get("/api/week/{week}", response_model=WeekSnapshot)
-def get_week(week: Week, project_id: Optional[str] = None):
+def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool = False, include_omitted: bool = False):
     # If a project is provided and ShotGrid is configured, try to build a project-aware snapshot
     if project_id:
         try:
@@ -141,6 +140,15 @@ def get_week(week: Week, project_id: Optional[str] = None):
             # Fetch shots with delivery dates
             s_fields = ["code", "sg_next_delivery", "image"]
             s_filters = [["project", "is", {"type": "Project", "id": int(project_id)}]]
+
+            # Optionally exclude on-hold (hld) and omitted (omt) statuses
+            exclude_codes: List[str] = []
+            if not include_on_hold:
+                exclude_codes.append("hld")
+            if not include_omitted:
+                exclude_codes.append("omt")
+            if exclude_codes:
+                s_filters.append(["sg_status_list", "not_in", exclude_codes])
             sg_shots = sg.find("Shot", s_filters, s_fields, order=[{"field_name": "code", "direction": "asc"}])
 
             # Build per-week/day mapping
@@ -163,7 +171,7 @@ def get_week(week: Week, project_id: Optional[str] = None):
                     return None
                 delta_days = (dt - monday).days
                 wk_idx = delta_days // 7
-                if wk_idx not in (0, 1, 2):
+                if wk_idx not in (0, 1, 2, 3):
                     return None
                 wd = dt.weekday()  # 0..6
                 if wd > 4:

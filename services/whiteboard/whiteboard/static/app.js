@@ -2,10 +2,29 @@ const weeksEl = document.getElementById('weeks');
 const artistBar = document.getElementById('artistBar');
 const modeButtons = document.querySelectorAll('.mode-tabs button');
 const projectSelect = document.getElementById('projectSelect');
+// Filters: On hold / Omitted
+const toggleOnHold = document.getElementById('toggleOnHold');
+const toggleOmitted = document.getElementById('toggleOmitted');
+window.filters = {
+    showOnHold: localStorage.getItem('wb_showOnHold') === '1',
+    showOmitted: localStorage.getItem('wb_showOmitted') === '1',
+};
+if (toggleOnHold) toggleOnHold.checked = window.filters.showOnHold;
+if (toggleOmitted) toggleOmitted.checked = window.filters.showOmitted;
+function updateFiltersFromUI() {
+    window.filters.showOnHold = !!(toggleOnHold && toggleOnHold.checked);
+    window.filters.showOmitted = !!(toggleOmitted && toggleOmitted.checked);
+    localStorage.setItem('wb_showOnHold', window.filters.showOnHold ? '1' : '0');
+    localStorage.setItem('wb_showOmitted', window.filters.showOmitted ? '1' : '0');
+    loadMode(currentMode);
+}
+if (toggleOnHold) toggleOnHold.addEventListener('change', updateFiltersFromUI);
+if (toggleOmitted) toggleOmitted.addEventListener('change', updateFiltersFromUI);
+
 const dayOrder = ['mon','tue','wed','thu','fri'];
 const dayTitle = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri' };
-const weekOrder = ['w0','w1','w2'];
-const weekTitle = { w0: 'Current week', w1: 'Next week', w2: 'In 2 weeks' };
+const weekOrder = ['w0','w1','w2','w3'];
+const weekTitle = { w0: 'Current week', w1: 'Next week', w2: '3rd week', w3: '4th week' };
 
 // Task configuration (loaded dynamically per project)
 let TASKS_BY_KIND = { shots: ['lighting','tracking','animation','layout'], assets: ['modeling','surfacing','rigging','lookdev'] };
@@ -134,8 +153,11 @@ modeButtons.forEach(b => b.addEventListener('click', () => {
 async function loadMode(mode) {
     // Fetch each week's snapshot
     const snaps = await Promise.all(weekOrder.map(async w => {
-        const pid = window.currentProjectId ? `?project_id=${encodeURIComponent(window.currentProjectId)}` : '';
-        const res = await fetch(`/api/week/${w}${pid}`);
+        const params = new URLSearchParams();
+        if (window.currentProjectId) params.set('project_id', window.currentProjectId);
+        if (window.filters?.showOnHold) params.set('include_on_hold', '1');
+        if (window.filters?.showOmitted) params.set('include_omitted', '1');
+        const res = await fetch(`/api/week/${w}?${params.toString()}`);
         if (!res.ok) throw new Error('Failed to load week ' + w);
         return res.json();
     }));

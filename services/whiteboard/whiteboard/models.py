@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Literal
 from pydantic import BaseModel
 
 Day = Literal["mon", "tue", "wed", "thu", "fri"]
-Week = Literal["w0", "w1", "w2"]
+Week = Literal["w0", "w1", "w2", "w3"]
 
 class Artist(BaseModel):
     id: str
