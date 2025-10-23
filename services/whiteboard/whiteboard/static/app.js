@@ -1,4 +1,5 @@
 const weeksEl = document.getElementById('weeks');
+let sequenceFilter = localStorage.getItem('wb_sequence_filter') || 'ALL';
 const artistBar = document.getElementById('artistBar');
 const modeButtons = document.querySelectorAll('.mode-tabs button');
 const projectSelect = document.getElementById('projectSelect');
@@ -162,8 +163,17 @@ async function loadMode(mode) {
         return res.json();
     }));
 
+    // Clear container
+    weeksEl.innerHTML = '';
+
     // Render artists from first snapshot
     renderArtists(snaps[0]?.artists ?? []);
+
+    // Render No due date board (only in shots mode and if provided)
+    const w0 = snaps.find(s => s.week === 'w0');
+    if (mode === 'shots' && w0 && Array.isArray(w0.no_due_date) && w0.no_due_date.length) {
+        renderNoDueDate(w0);
+    }
 
     // Build per-week, per-day items aggregation for the chosen mode
     const byWeek = {};
@@ -204,8 +214,104 @@ function renderArtists(artists) {
     cacheArtists(artists);
 }
 
+function renderNoDueDate(w0snap) {
+    const section = document.createElement('section');
+    const header = document.createElement('div');
+    header.style.display = 'flex';
+    header.style.alignItems = 'center';
+    header.style.gap = '12px';
+    const h = document.createElement('h2');
+    h.textContent = 'No due date';
+    header.appendChild(h);
+
+    // Sequence filter combobox
+    const seqWrap = document.createElement('div');
+    seqWrap.style.marginLeft = 'auto';
+    const label = document.createElement('label');
+    label.style.fontSize = '12px';
+    label.style.color = '#c7cbe0';
+    label.style.marginRight = '6px';
+    label.textContent = 'Sequence';
+    const select = document.createElement('select');
+    select.style.background = '#0f1330';
+    select.style.color = '#e7e9ef';
+    select.style.border = '1px solid #2a2f58';
+    select.style.borderRadius = '6px';
+    select.style.padding = '6px 8px';
+
+    const seqs = Array.isArray(w0snap.sequences) ? w0snap.sequences : [];
+    const allOpt = document.createElement('option');
+    allOpt.value = 'ALL';
+    allOpt.textContent = 'All sequences';
+    select.appendChild(allOpt);
+    for (const s of seqs) {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s;
+        select.appendChild(opt);
+    }
+    if (!sequenceFilter || (sequenceFilter !== 'ALL' && !seqs.includes(sequenceFilter))) {
+        sequenceFilter = 'ALL';
+    }
+    select.value = sequenceFilter || 'ALL';
+    select.addEventListener('change', () => {
+        sequenceFilter = select.value || 'ALL';
+        localStorage.setItem('wb_sequence_filter', sequenceFilter);
+        // Reload to re-render both no-date and weeks with current filter
+        loadMode(currentMode);
+    });
+
+    seqWrap.appendChild(label);
+    seqWrap.appendChild(select);
+    header.appendChild(seqWrap);
+
+    section.appendChild(header);
+
+    const grid = document.createElement('div');
+    grid.className = 'boards';
+    section.appendChild(grid);
+
+    // Single board
+    const wrap = document.createElement('div');
+    wrap.className = 'board';
+    wrap.innerHTML = `<h3>Shots</h3><div class="list"></div>`;
+    const list = wrap.querySelector('.list');
+
+    const items = w0snap.no_due_date || [];
+    const filtered = items.filter(it => sequenceFilter === 'ALL' || (it.sequence || '') === sequenceFilter);
+
+    for (const it of filtered) {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.dataset.itemId = it.id;
+        card.dataset.kind = 'shots';
+        card.draggable = true;
+        card.addEventListener('dragstart', e => {
+            e.dataTransfer.setData('application/item-id', JSON.stringify({ item_id: it.id, kind: 'shots' }));
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        const seqBadge = it.sequence ? `<div class="badge">${it.sequence}</div>` : '';
+        card.innerHTML = `
+            <div class="thumb"><img src="${it.thumb_url}" alt="thumb" /></div>
+            <div>
+                <div class="title">${it.name} ${seqBadge}</div>
+                <div class="assignees" data-shot-assignees="${it.id}"></div>
+            </div>
+        `;
+        list.appendChild(card);
+    }
+
+    grid.appendChild(wrap);
+
+    // Insert at top of weeks container
+    const prev = document.getElementById('noDueSection');
+    if (prev && prev.parentElement) prev.parentElement.removeChild(prev);
+    section.id = 'noDueSection';
+    weeksEl.prepend(section);
+}
+
 function renderWeeks(snapshot) {
-    weeksEl.innerHTML = '';
+    // weeksEl is managed by loadMode (which may have injected No due date section)
     const today = new Date();
     const dow = today.getDay(); // Sun=0..Sat=6
     const dayMap = {1:'mon',2:'tue',3:'wed',4:'thu',5:'fri'};

@@ -138,7 +138,7 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
                 proj_artists.append(Artist(id=str(a.get("id")), name=a.get("name") or f"User {a.get('id')}", thumb_url=thumb_url))
 
             # Fetch shots with delivery dates
-            s_fields = ["code", "sg_next_delivery", "image"]
+            s_fields = ["code", "sg_next_delivery", "image", "sg_sequence"]
             s_filters = [["project", "is", {"type": "Project", "id": int(project_id)}]]
 
             # Optionally exclude on-hold (hld) and omitted (omt) statuses
@@ -180,6 +180,8 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
 
             # Place shots occurring in requested week into that week's boards
             proj_over = moved_positions_by_project.get(str(project_id), {})
+            no_due: List[Item] = []
+            seq_names: Set[str] = set()
             for sh in sg_shots:
                 # Default placement from delivery date
                 raw_date = sh.get("sg_next_delivery")
@@ -194,18 +196,28 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
                 sid_str = str(sh.get("id"))
                 if sid_str in proj_over:
                     wk_day = proj_over[sid_str]
-                if not wk_day:
-                    continue
-                wk, day = wk_day
-                if wk != week:
-                    continue
                 img = sh.get("image") or {}
                 thumb_url = img.get("url") if isinstance(img, dict) else img
                 if not thumb_url:
                     # Fallback to a deterministic solid color thumbnail
                     key = str(sh.get("id") or sh.get("code") or "shot")
                     thumb_url = solid_color_thumb(96, 64, key)
-                item = Item(id=sid_str, name=sh.get("code") or f"Shot {sh.get('id')}", thumb_url=thumb_url)
+                # Sequence name (if available)
+                seq = sh.get("sg_sequence") or {}
+                seq_name = None
+                if isinstance(seq, dict):
+                    seq_name = seq.get("name") or seq.get("code") or None
+                if seq_name:
+                    seq_names.add(str(seq_name))
+                # If no week/day, collect into no_due list
+                if not wk_day:
+                    no_due.append(Item(id=sid_str, name=sh.get("code") or f"Shot {sh.get('id')}", thumb_url=thumb_url, sequence=seq_name))
+                    continue
+                wk, day = wk_day
+                if wk != week:
+                    # Only place into the requested week's board, but still continue loop to build full no_due list above
+                    continue
+                item = Item(id=sid_str, name=sh.get("code") or f"Shot {sh.get('id')}", thumb_url=thumb_url, sequence=seq_name)
                 board_items[f"{week}-{day}-shots-1"].append(item)
 
             # Build assignments map for shot IDs present in this snapshot
@@ -269,6 +281,8 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
                 board_items=board_items,
                 artists=proj_artists,
                 assignments=a_map,
+                no_due_date=sorted(no_due, key=lambda x: x.name.lower()) if no_due else None,
+                sequences=sorted(seq_names) if seq_names else None,
             )
         except Exception as e:
             print(e)

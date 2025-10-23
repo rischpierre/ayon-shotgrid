@@ -15,6 +15,7 @@ class Item(BaseModel):
     id: str
     name: str
     thumb_url: str
+    sequence: Optional[str] = None
 
 class Board(BaseModel):
     id: str         # e.g., "shots-1", "assets-3"
@@ -48,6 +49,8 @@ class WeekSnapshot(BaseModel):
     board_items: Dict[str, List[Item]]  # board_id -> items for all days in week
     artists: List[Artist]
     assignments: Dict[str, List[AssignedTask]]
+    no_due_date: Optional[List[Item]] = None
+    sequences: Optional[List[str]] = None
 
 class Project(BaseModel):
     id: Any
