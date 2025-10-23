@@ -220,13 +220,9 @@ function renderNoDueDate(w0snap) {
     header.style.display = 'flex';
     header.style.alignItems = 'center';
     header.style.gap = '12px';
-    const h = document.createElement('h2');
-    h.textContent = 'No due date';
-    header.appendChild(h);
 
-    // Sequence filter combobox
+    // Sequence filter combobox (left side)
     const seqWrap = document.createElement('div');
-    seqWrap.style.marginLeft = 'auto';
     const label = document.createElement('label');
     label.style.fontSize = '12px';
     label.style.color = '#c7cbe0';
@@ -260,10 +256,15 @@ function renderNoDueDate(w0snap) {
         // Reload to re-render both no-date and weeks with current filter
         loadMode(currentMode);
     });
-
     seqWrap.appendChild(label);
     seqWrap.appendChild(select);
+
+    const h = document.createElement('h2');
+    h.textContent = 'No due date';
+
+    // Place filter left, then title
     header.appendChild(seqWrap);
+    header.appendChild(h);
 
     section.appendChild(header);
 
@@ -271,11 +272,20 @@ function renderNoDueDate(w0snap) {
     grid.className = 'boards';
     section.appendChild(grid);
 
-    // Single board
+    // Single board that spans the full width
     const wrap = document.createElement('div');
     wrap.className = 'board';
+    wrap.style.gridColumn = '1 / -1';
     wrap.innerHTML = `<h3>Shots</h3><div class="list"></div>`;
     const list = wrap.querySelector('.list');
+
+    // Make the list a responsive grid spanning the page width
+    list.style.display = 'grid';
+    list.style.gridTemplateColumns = 'repeat(auto-fill, minmax(300px, 1fr))';
+    list.style.gap = '8px';
+    list.style.maxHeight = 'unset';
+    list.style.overflowY = 'visible';
+    list.style.alignItems = 'start';
 
     const items = w0snap.no_due_date || [];
     const filtered = items.filter(it => sequenceFilter === 'ALL' || (it.sequence || '') === sequenceFilter);
