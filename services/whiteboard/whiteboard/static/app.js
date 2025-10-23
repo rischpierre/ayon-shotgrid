@@ -3,24 +3,7 @@ let sequenceFilter = localStorage.getItem('wb_sequence_filter') || 'ALL';
 const artistBar = document.getElementById('artistBar');
 const modeButtons = document.querySelectorAll('.mode-tabs button');
 const projectSelect = document.getElementById('projectSelect');
-// Filters: On hold / Omitted
-const toggleOnHold = document.getElementById('toggleOnHold');
-const toggleOmitted = document.getElementById('toggleOmitted');
-window.filters = {
-    showOnHold: localStorage.getItem('wb_showOnHold') === '1',
-    showOmitted: localStorage.getItem('wb_showOmitted') === '1',
-};
-if (toggleOnHold) toggleOnHold.checked = window.filters.showOnHold;
-if (toggleOmitted) toggleOmitted.checked = window.filters.showOmitted;
-function updateFiltersFromUI() {
-    window.filters.showOnHold = !!(toggleOnHold && toggleOnHold.checked);
-    window.filters.showOmitted = !!(toggleOmitted && toggleOmitted.checked);
-    localStorage.setItem('wb_showOnHold', window.filters.showOnHold ? '1' : '0');
-    localStorage.setItem('wb_showOmitted', window.filters.showOmitted ? '1' : '0');
-    loadMode(currentMode);
-}
-if (toggleOnHold) toggleOnHold.addEventListener('change', updateFiltersFromUI);
-if (toggleOmitted) toggleOmitted.addEventListener('change', updateFiltersFromUI);
+// No filters: On hold and Omitted are shown as dedicated boards
 
 const dayOrder = ['mon','tue','wed','thu','fri'];
 const dayTitle = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri' };
@@ -156,8 +139,6 @@ async function loadMode(mode) {
     const snaps = await Promise.all(weekOrder.map(async w => {
         const params = new URLSearchParams();
         if (window.currentProjectId) params.set('project_id', window.currentProjectId);
-        if (window.filters?.showOnHold) params.set('include_on_hold', '1');
-        if (window.filters?.showOmitted) params.set('include_omitted', '1');
         const res = await fetch(`/api/week/${w}?${params.toString()}`);
         if (!res.ok) throw new Error('Failed to load week ' + w);
         return res.json();
@@ -171,6 +152,8 @@ async function loadMode(mode) {
 
     // Render No due date board (only in shots mode and if provided)
     const w0 = snaps.find(s => s.week === 'w0');
+    // Cache annotations map from w0
+    window.annotationsMap = (w0 && w0.annotations) ? w0.annotations : {};
     if (mode === 'shots' && w0 && Array.isArray(w0.no_due_date) && w0.no_due_date.length) {
         renderNoDueDate(w0);
     }
@@ -195,6 +178,11 @@ async function loadMode(mode) {
     }
 
     renderWeeks({ kind: mode, by_week: byWeek, assignments });
+
+    // After weeks, render On hold and Omitted sections (shots mode only)
+    if (mode === 'shots' && w0) {
+        renderHoldOmit(w0);
+    }
 }
 
 function renderArtists(artists) {
@@ -326,6 +314,11 @@ function renderWeeks(snapshot) {
     const dow = today.getDay(); // Sun=0..Sat=6
     const dayMap = {1:'mon',2:'tue',3:'wed',4:'thu',5:'fri'};
     const currentDayKey = dayMap[dow] || null;
+    // Calculate current Monday
+    const monday = new Date(today);
+    const offset = (today.getDay() + 6) % 7; // Mon=0
+    monday.setDate(today.getDate() - offset);
+
     for (const wk of weekOrder) {
         const section = document.createElement('section');
         const h = document.createElement('h2');
@@ -344,7 +337,70 @@ function renderWeeks(snapshot) {
             wrap.dataset.day = day;
             wrap.dataset.week = wk;
             wrap.dataset.kind = snapshot.kind;
-            wrap.innerHTML = `<h3>${dayTitle[day]}</h3><div class="list"></div>`;
+            // Compute calendar date for header
+            const weekIdx = parseInt(wk.slice(1), 10) || 0;
+            const dayIdx = {mon:0,tue:1,wed:2,thu:3,fri:4}[day];
+            const d = new Date(monday);
+            d.setDate(monday.getDate() + weekIdx*7 + dayIdx);
+            const dayNum = d.getDate();
+            const annKey = `${wk}/${day}`;
+            const annObj = (window.annotationsMap && window.annotationsMap[annKey]) ? window.annotationsMap[annKey] : null;
+            wrap.innerHTML = `<h3>${dayTitle[day]} ${dayNum}</h3>
+                <div class="list"></div>`;
+            const h3 = wrap.querySelector('h3');
+            // Make header flex to place annotation on the right side
+            h3.style.display = 'flex';
+            h3.style.alignItems = 'center';
+            h3.style.justifyContent = 'space-between';
+            // If annotation exists and has text, render it on the right
+            if (annObj && typeof annObj === 'object' && annObj.text && String(annObj.text).trim().length) {
+                const annSpan = document.createElement('span');
+                const rawText = String(annObj.text);
+                const truncated = rawText.length > 30 ? rawText.slice(0, 30) + '…' : rawText;
+                annSpan.textContent = truncated;
+                annSpan.style.color = annObj.color || '#c7cbe0';
+                annSpan.style.fontSize = '12px';
+                annSpan.style.marginLeft = '12px';
+                annSpan.style.opacity = '0.95';
+                annSpan.title = rawText;
+                annSpan.style.cursor = 'pointer';
+                annSpan.addEventListener('click', async () => {
+                    const curText = String((window.annotationsMap && window.annotationsMap[annKey] && window.annotationsMap[annKey].text) || '');
+                    const curColor = String((window.annotationsMap && window.annotationsMap[annKey] && window.annotationsMap[annKey].color) || '#c7cbe0');
+                    const newText = window.prompt('Annotation text', curText);
+                    if (newText === null) return;
+                    const newColor = window.prompt('Font color (hex, e.g., #ffcc00)', curColor) || curColor;
+                    try {
+                        const resp = await fetch(`/api/annotations${window.currentProjectId ? `?project_id=${encodeURIComponent(window.currentProjectId)}` : ''}`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ week: wk, day, text: newText, color: newColor })
+                        });
+                        if (resp.ok) {
+                            window.annotationsMap = (await resp.json()).annotations || window.annotationsMap;
+                            await loadMode(currentMode);
+                        }
+                    } catch {}
+                });
+                h3.appendChild(annSpan);
+            } else {
+                // No widget when there is no annotation; allow creating by double‑clicking the header
+                h3.style.cursor = 'default';
+                h3.addEventListener('dblclick', async () => {
+                    const newText = window.prompt('Add annotation text');
+                    if (newText === null) return;
+                    const newColor = window.prompt('Font color (hex, e.g., #ffcc00)', '#c7cbe0') || '#c7cbe0';
+                    try {
+                        const resp = await fetch(`/api/annotations${window.currentProjectId ? `?project_id=${encodeURIComponent(window.currentProjectId)}` : ''}`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ week: wk, day, text: newText, color: newColor })
+                        });
+                        if (resp.ok) {
+                            window.annotationsMap = (await resp.json()).annotations || window.annotationsMap;
+                            await loadMode(currentMode);
+                        }
+                    } catch {}
+                });
+            }
             const list = wrap.querySelector('.list');
 
             const items = (snapshot.by_week[wk] || {})[day] || [];
@@ -615,3 +671,93 @@ confirmPublish.addEventListener('click', async () => {
     await loadTasks();
     loadMode(currentMode);
 })();
+
+
+function renderHoldOmit(w0snap) {
+    // Remove previous section if exists
+    const prev = document.getElementById('holdOmitSection');
+    if (prev && prev.parentElement) prev.parentElement.removeChild(prev);
+
+    // Helper to create a week-like section with 5 day columns
+    function makeWeekLikeSection(title, items) {
+        const section = document.createElement('section');
+        const h2 = document.createElement('h2');
+        h2.textContent = title;
+        section.appendChild(h2);
+        const grid = document.createElement('div');
+        grid.className = 'boards';
+        section.appendChild(grid);
+
+        // Prepare five columns (Mon..Fri)
+        const cols = {};
+        for (const day of dayOrder) {
+            const wrap = document.createElement('div');
+            wrap.className = 'board';
+            wrap.innerHTML = `<h3>${dayTitle[day]}</h3><div class="list"></div>`;
+            const h3 = wrap.querySelector('h3');
+            // Flex header for consistency with week boards
+            h3.style.display = 'flex';
+            h3.style.alignItems = 'center';
+            h3.style.justifyContent = 'space-between';
+            const list = wrap.querySelector('.list');
+            cols[day] = list;
+            grid.appendChild(wrap);
+
+            // Accept drops (UI-only)
+            list.addEventListener('dragover', e => {
+                const types = e.dataTransfer?.types || [];
+                if (types.includes('application/item-id')) { e.preventDefault(); list.classList.add('drop-ok'); }
+            });
+            list.addEventListener('dragleave', () => list.classList.remove('drop-ok'));
+            list.addEventListener('drop', e => {
+                list.classList.remove('drop-ok');
+                const data = e.dataTransfer.getData('application/item-id');
+                try {
+                    const { item_id } = JSON.parse(data || '{}');
+                    if (!item_id) return;
+                    const card = document.querySelector(`.card[data-item-id="${CSS.escape(item_id)}"]`);
+                    if (card) list.appendChild(card);
+                } catch {}
+            });
+        }
+
+        // Distribute items round-robin into the five columns
+        const arr = Array.isArray(items) ? items : [];
+        for (let i = 0; i < arr.length; i++) {
+            const it = arr[i];
+            const day = dayOrder[i % dayOrder.length];
+            const list = cols[day];
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.dataset.itemId = it.id;
+            card.dataset.kind = 'shots';
+            card.draggable = true;
+            card.addEventListener('dragstart', e => {
+                e.dataTransfer.setData('application/item-id', JSON.stringify({ item_id: it.id, kind: 'shots' }));
+                e.dataTransfer.effectAllowed = 'move';
+            });
+            const seqBadge = it.sequence ? `<div class="badge">${it.sequence}</div>` : '';
+            card.innerHTML = `
+                <div class="thumb"><img src="${it.thumb_url}" alt="thumb" /></div>
+                <div>
+                    <div class="title">${it.name} ${seqBadge}</div>
+                    <div class="assignees" data-shot-assignees="${it.id}"></div>
+                </div>
+            `;
+            list.appendChild(card);
+        }
+        return section;
+    }
+
+    const hasHold = Array.isArray(w0snap.on_hold) && w0snap.on_hold.length;
+    const hasOmit = Array.isArray(w0snap.omitted) && w0snap.omitted.length;
+    if (!hasHold && !hasOmit) return;
+
+    const container = document.createElement('section');
+    container.id = 'holdOmitSection';
+
+    if (hasHold) container.appendChild(makeWeekLikeSection('On hold', w0snap.on_hold));
+    if (hasOmit) container.appendChild(makeWeekLikeSection('Omitted', w0snap.omitted));
+
+    weeksEl.appendChild(container);
+}

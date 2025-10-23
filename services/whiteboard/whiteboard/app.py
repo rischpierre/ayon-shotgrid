@@ -24,6 +24,8 @@ from whiteboard.sg_helpers import (
     sg_find_tasks_for_shots,
     sg_find_shots_by_ids,
     sg_publish_changes,
+    sg_get_project_annotations,
+    sg_set_project_annotations,
 )
 
 logger = logging.getLogger(__name__)
@@ -138,7 +140,27 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
             except Exception:
                 logger.exception("Failed to fetch ShotGrid groups")
 
-            # Fetch shots with delivery dates
+            # Fetch project annotations
+            annotations_map: Dict[str, object] = {}
+            try:
+                raw = sg_get_project_annotations(int(project_id))
+                if isinstance(raw, dict):
+                    # normalize values to {text, color}
+                    for k, v in raw.items():
+                        if isinstance(v, dict):
+                            text = str(v.get("text", ""))
+                            color = str(v.get("color", "#c7cbe0"))
+                        elif isinstance(v, str):
+                            text = v
+                            color = "#c7cbe0"
+                        else:
+                            text = str(v)
+                            color = "#c7cbe0"
+                        annotations_map[str(k)] = {"text": text, "color": color}
+            except Exception:
+                logger.exception("Failed to fetch project annotations")
+
+            # Fetch shots with delivery dates and status
             sg_shots = sg_find_project_shots(int(project_id), include_on_hold, include_omitted)
 
             # Build per-week/day mapping
@@ -171,8 +193,34 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
             # Place shots occurring in requested week into that week's boards
             proj_over = moved_positions_by_project.get(str(project_id), {})
             no_due: List[Item] = []
+            on_hold_list: List[Item] = []
+            omitted_list: List[Item] = []
             seq_names: Set[str] = set()
             for sh in sg_shots:
+                status = (sh.get("sg_status_list") or "").strip().lower()
+                img = sh.get("image") or {}
+                thumb_url = img.get("url") if isinstance(img, dict) else img
+                if not thumb_url:
+                    # Fallback to a deterministic solid color thumbnail
+                    key = str(sh.get("id") or sh.get("code") or "shot")
+                    thumb_url = solid_color_thumb(96, 64, key)
+                seq = sh.get("sg_sequence") or {}
+                seq_name = None
+                if isinstance(seq, dict):
+                    seq_name = seq.get("name") or seq.get("code") or None
+                if seq_name:
+                    seq_names.add(str(seq_name))
+                sid_str = str(sh.get("id"))
+                base_item = Item(id=sid_str, name=sh.get("code") or f"Shot {sh.get('id')}", thumb_url=thumb_url, sequence=seq_name)
+
+                # Classify by status first
+                if status == "hld":
+                    on_hold_list.append(base_item)
+                    continue
+                if status == "omt":
+                    omitted_list.append(base_item)
+                    continue
+
                 # Default placement from delivery date
                 raw_date = sh.get("sg_next_delivery")
                 dt = None
@@ -183,32 +231,17 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
                         dt = None
                 wk_day = to_week_and_day(dt) if dt else None
                 # Apply override if present
-                sid_str = str(sh.get("id"))
                 if sid_str in proj_over:
                     wk_day = proj_over[sid_str]
-                img = sh.get("image") or {}
-                thumb_url = img.get("url") if isinstance(img, dict) else img
-                if not thumb_url:
-                    # Fallback to a deterministic solid color thumbnail
-                    key = str(sh.get("id") or sh.get("code") or "shot")
-                    thumb_url = solid_color_thumb(96, 64, key)
-                # Sequence name (if available)
-                seq = sh.get("sg_sequence") or {}
-                seq_name = None
-                if isinstance(seq, dict):
-                    seq_name = seq.get("name") or seq.get("code") or None
-                if seq_name:
-                    seq_names.add(str(seq_name))
                 # If no week/day, collect into no_due list
                 if not wk_day:
-                    no_due.append(Item(id=sid_str, name=sh.get("code") or f"Shot {sh.get('id')}", thumb_url=thumb_url, sequence=seq_name))
+                    no_due.append(base_item)
                     continue
                 wk, day = wk_day
                 if wk != week:
-                    # Only place into the requested week's board, but still continue loop to build full no_due list above
+                    # Only place into the requested week's board, but still continue loop to build full lists above
                     continue
-                item = Item(id=sid_str, name=sh.get("code") or f"Shot {sh.get('id')}", thumb_url=thumb_url, sequence=seq_name)
-                board_items[f"{week}-{day}-shots-1"].append(item)
+                board_items[f"{week}-{day}-shots-1"].append(base_item)
 
             # Build assignments map for shot IDs present in this snapshot
             present_shot_ids: Set[str] = set()
@@ -272,6 +305,9 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
                 assignments=a_map,
                 no_due_date=sorted(no_due, key=lambda x: x.name.lower()) if no_due else None,
                 sequences=sorted(seq_names) if seq_names else None,
+                on_hold=sorted(on_hold_list, key=lambda x: x.name.lower()) if on_hold_list else None,
+                omitted=sorted(omitted_list, key=lambda x: x.name.lower()) if omitted_list else None,
+                annotations=annotations_map or None,
             )
         except Exception:
             logger.exception("Failed to build project-aware week snapshot")
@@ -520,6 +556,58 @@ def publish_changes(project_id: Optional[str] = None):
     project_assignments[pid] = {}
 
     return {"ok": True}
+
+
+@app.get("/api/annotations")
+def get_annotations(project_id: Optional[str] = None):
+    if not project_id:
+        return {}
+    try:
+        data = sg_get_project_annotations(int(project_id))
+        if not isinstance(data, dict):
+            return {}
+        # Ensure values are objects with text and color
+        out: Dict[str, Dict[str, str]] = {}
+        for k, v in data.items():
+            if isinstance(v, dict):
+                text = str(v.get("text", ""))
+                color = str(v.get("color", "#c7cbe0"))
+            elif isinstance(v, str):
+                text = v
+                color = "#c7cbe0"
+            else:
+                text = str(v)
+                color = "#c7cbe0"
+            out[str(k)] = {"text": text, "color": color}
+        return out
+    except Exception:
+        logger.exception("Failed to load annotations from ShotGrid")
+        return {}
+
+
+@app.post("/api/annotations")
+def set_annotation(payload: Dict[str, str], project_id: Optional[str] = None):
+    if not project_id:
+        raise HTTPException(status_code=400, detail="project_id required")
+    week = payload.get("week")
+    day = payload.get("day")
+    text = payload.get("text", "")
+    color = payload.get("color", "#c7cbe0")
+    if week not in ("w0","w1","w2","w3"):
+        raise HTTPException(status_code=400, detail="invalid week")
+    if day not in ("mon","tue","wed","thu","fri"):
+        raise HTTPException(status_code=400, detail="invalid day")
+    key = f"{week}/{day}"
+    try:
+        data = sg_get_project_annotations(int(project_id))
+        if not isinstance(data, dict):
+            data = {}
+        data[key] = {"text": str(text), "color": str(color) or "#c7cbe0"}
+        sg_set_project_annotations(int(project_id), data)
+        return {"ok": True, "annotations": data}
+    except Exception:
+        logger.exception("Failed to save annotation to ShotGrid")
+        raise HTTPException(status_code=500, detail="Failed to save annotation")
 
 def service_main() -> int:
     # Configure logging

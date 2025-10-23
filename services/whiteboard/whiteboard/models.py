@@ -51,6 +51,9 @@ class WeekSnapshot(BaseModel):
     assignments: Dict[str, List[AssignedTask]]
     no_due_date: Optional[List[Item]] = None
     sequences: Optional[List[str]] = None
+    on_hold: Optional[List[Item]] = None
+    omitted: Optional[List[Item]] = None
+    annotations: Optional[Dict[str, Any]] = None
 
 class Project(BaseModel):
     id: Any

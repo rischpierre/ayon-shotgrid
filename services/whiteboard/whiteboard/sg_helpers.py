@@ -79,16 +79,10 @@ def sg_list_groups_with_thumbnails() -> List[Dict[str, Any]]:
 
 
 def sg_find_project_shots(project_id: int, include_on_hold: bool, include_omitted: bool) -> List[Dict[str, Any]]:
+    # Note: include_on_hold/include_omitted flags are ignored; we return all and let the app classify.
     sg = get_sg_session()
-    s_fields = ["code", "sg_next_delivery", "image", "sg_sequence"]
+    s_fields = ["code", "sg_next_delivery", "image", "sg_sequence", "sg_status_list"]
     s_filters: List[Any] = [["project", "is", {"type": "Project", "id": project_id}]]
-    exclude_codes: List[str] = []
-    if not include_on_hold:
-        exclude_codes.append("hld")
-    if not include_omitted:
-        exclude_codes.append("omt")
-    if exclude_codes:
-        s_filters.append(["sg_status_list", "not_in", exclude_codes])
     return sg.find("Shot", s_filters, s_fields, order=[{"field_name": "code", "direction": "asc"}])
 
 
@@ -138,3 +132,33 @@ def sg_publish_changes(project_id: int, overrides: Dict[str, Tuple[str, str]], a
                 sg.create("Task", payload)
             except Exception:
                 logger.exception(f"Failed creating task for shot {shot_id}")
+
+
+def sg_get_project_annotations(project_id: int) -> Dict[str, Any]:
+    """Fetch project's sg_whiteboard_annotations and return parsed JSON dict.
+    Returns an empty dict if not set or invalid.
+    """
+    sg = get_sg_session()
+    proj = sg.find_one("Project", [["id", "is", int(project_id)]], ["sg_whiteboard_annotations"]) or {}
+    raw = proj.get("sg_whiteboard_annotations") if isinstance(proj, dict) else None
+    if not raw:
+        return {}
+    try:
+        import json
+        if isinstance(raw, (dict, list)):
+            return raw  # in case the field is a dict via API
+        return json.loads(str(raw))
+    except Exception:
+        logger.exception("Failed to parse sg_whiteboard_annotations; returning empty dict")
+        return {}
+
+
+def sg_set_project_annotations(project_id: int, data: Dict[str, Any]) -> None:
+    """Serialize data to JSON and store in Project.sg_whiteboard_annotations"""
+    sg = get_sg_session()
+    try:
+        import json
+        payload = {"sg_whiteboard_annotations": json.dumps(data)}
+        sg.update("Project", int(project_id), payload)
+    except Exception:
+        logger.exception("Failed to update sg_whiteboard_annotations")

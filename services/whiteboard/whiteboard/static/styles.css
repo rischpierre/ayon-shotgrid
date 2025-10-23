@@ -42,6 +42,7 @@ header {
 .board.current-day h3 { background: rgba(106,169,255,0.08); }
 .board h3 {
     margin: 0; padding: 10px 12px; font-size: 14px; color: #cbd3ea; border-bottom: 1px solid #24294d;
+    display:flex; align-items:center; justify-content:space-between;
 }
 .board .list {
     padding: 10px; display: flex; flex-direction: column; gap: 8px; flex: 1;
