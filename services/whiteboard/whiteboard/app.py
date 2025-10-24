@@ -21,6 +21,7 @@ from whiteboard.sg_helpers import (
     sg_find_project_artists,
     sg_list_groups_with_thumbnails,
     sg_find_project_shots,
+    sg_find_project_assets,
     sg_find_tasks_for_shots,
     sg_find_shots_by_ids,
     sg_publish_changes,
@@ -162,6 +163,12 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
 
             # Fetch shots with delivery dates and status
             sg_shots = sg_find_project_shots(int(project_id), include_on_hold, include_omitted)
+            # Fetch assets with delivery dates and types/status
+            try:
+                sg_assets = sg_find_project_assets(int(project_id), include_on_hold, include_omitted)
+            except Exception:
+                logger.exception("Failed to fetch project assets")
+                sg_assets = []
 
             # Build per-week/day mapping
             days_list: List[Day] = ["mon", "tue", "wed", "thu", "fri"]
@@ -243,6 +250,48 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
                     continue
                 board_items[f"{week}-{day}-shots-1"].append(base_item)
 
+            # Assets classification and placement for requested week
+            assets_no_due: List[Item] = []
+            asset_types: Set[str] = set()
+            for a in sg_assets:
+                status = (a.get("sg_status_list") or "").strip().lower()
+                img = a.get("image") or {}
+                thumb_url = img.get("url") if isinstance(img, dict) else img
+                if not thumb_url:
+                    key = str(a.get("id") or a.get("code") or "asset")
+                    thumb_url = solid_color_thumb(96, 64, key)
+                a_type = a.get("sg_asset_type") or None
+                if a_type:
+                    asset_types.add(str(a_type))
+                aid_str = str(a.get("id"))
+                base_item = Item(id=aid_str, name=a.get("code") or f"Asset {a.get('id')}", thumb_url=thumb_url, sequence=str(a_type) if a_type else None)
+
+                # Respect on hold/omitted similarly to shots
+                if status == "hld":
+                    # No special hold/omit boards for assets in UI yet; place into no-due list to keep visible
+                    assets_no_due.append(base_item)
+                    continue
+                if status == "omt":
+                    # Skip omitted assets by default
+                    continue
+
+                raw_date = a.get("sg_next_delivery")
+                adt = None
+                if raw_date:
+                    try:
+                        adt = datetime.date.fromisoformat(str(raw_date))
+                    except Exception:
+                        adt = None
+                wk_day = to_week_and_day(adt) if adt else None
+                # Overrides currently tracked per shot only; ignore for assets
+                if not wk_day:
+                    assets_no_due.append(base_item)
+                    continue
+                awk, aday = wk_day
+                if awk != week:
+                    continue
+                board_items[f"{week}-{aday}-assets-1"].append(base_item)
+
             # Build assignments map for shot IDs present in this snapshot
             present_shot_ids: Set[str] = set()
             for d in days_list:
@@ -250,6 +299,7 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
                     present_shot_ids.add(it.id)
 
             a_map: Dict[str, List[AssignedTask]] = {}
+            tasks_map: Dict[str, List[str]] = {}
 
             # Prefill from ShotGrid existing Tasks/assignees so assignments show on initial load
             if present_shot_ids:
@@ -261,6 +311,11 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
                         if not sid or sid not in present_shot_ids:
                             continue
                         task_name = (t.get("content") or "").strip()
+                        # Build per-shot tasks list
+                        if task_name:
+                            cur_list = tasks_map.setdefault(sid, [])
+                            if task_name not in cur_list:
+                                cur_list.append(task_name)
                         assignees = t.get("task_assignees") or []
                         if not task_name or not assignees:
                             continue
@@ -308,6 +363,9 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
                 on_hold=sorted(on_hold_list, key=lambda x: x.name.lower()) if on_hold_list else None,
                 omitted=sorted(omitted_list, key=lambda x: x.name.lower()) if omitted_list else None,
                 annotations=annotations_map or None,
+                assets_no_due_date=sorted(assets_no_due, key=lambda x: x.name.lower()) if assets_no_due else None,
+                asset_types=sorted(asset_types) if asset_types else None,
+                tasks_per_shot=tasks_map or None,
             )
         except Exception:
             logger.exception("Failed to build project-aware week snapshot")

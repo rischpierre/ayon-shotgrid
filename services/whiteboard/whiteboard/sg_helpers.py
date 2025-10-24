@@ -100,6 +100,16 @@ def sg_find_project_shots(project_id: int, include_on_hold: bool, include_omitte
     return sg.find("Shot", s_filters, s_fields, order=[{"field_name": "code", "direction": "asc"}])
 
 
+def sg_find_project_assets(project_id: int, include_on_hold: bool, include_omitted: bool) -> List[Dict[str, Any]]:
+    """Return all assets for a project with fields needed for whiteboard.
+    Uses sg_asset_type for filtering and sg_next_delivery for scheduling when available.
+    """
+    sg = get_sg_session()
+    a_fields = ["code", "sg_next_delivery", "image", "sg_asset_type", "sg_status_list"]
+    a_filters: List[Any] = [["project", "is", {"type": "Project", "id": project_id}]]
+    return sg.find("Asset", a_filters, a_fields, order=[{"field_name": "code", "direction": "asc"}])
+
+
 def sg_find_tasks_for_shots(project_id: int, shot_ids: Sequence[int]) -> List[Dict[str, Any]]:
     sg = get_sg_session()
     task_fields = ["content", "entity", "task_assignees"]

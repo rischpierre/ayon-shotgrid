@@ -54,6 +54,11 @@ class WeekSnapshot(BaseModel):
     on_hold: Optional[List[Item]] = None
     omitted: Optional[List[Item]] = None
     annotations: Optional[Dict[str, Any]] = None
+    # Assets-specific extras
+    assets_no_due_date: Optional[List[Item]] = None
+    asset_types: Optional[List[str]] = None
+    # Per-shot tasks to allow differing task sets per shot
+    tasks_per_shot: Optional[Dict[str, List[str]]] = None
 
 class Project(BaseModel):
     id: Any

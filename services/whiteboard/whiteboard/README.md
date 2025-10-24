@@ -18,19 +18,15 @@
 - [x] add the number of the day on each day cell like Mon 12 or tues 15 
 - [x] remove the hold and omit checkboxes and create boards for both of them instead, both of the board should appear after the 4th week board
 - [x] add the possibility to add a custom annotation on each day cell. we store this information on a text project field called: sg_whiteboard_annotations we need to serialize and deserialize it with json
- 
-instead of double click for the annotation, I want to have a right click on the day cell with a menu
-in the menu, there will be:
-    - a add/modify annotation option
-    - a remove annotation option
-    - a set color annotation with submenu to set the color of the annotation with a selection of 5 main colors
+- [x] add the it into the dns, ask it
+- [x] annotations 
+- [x] is it possible to have a singleton sg_session or something else to avoid creating new objects everytime
+- [x] change the vendors thumbnails to be black letter on a white background
 
-- [ ] change the vendors thumbnails to be black letter on a white background
- 
+- [ ] add entity_type on the url so we can load a page with the assets tab open first
+- [ ] add no due date week board for assets also, and it should have a combobox to filter them by type (like it is done for shots) 
 - [ ] load the tasks per shot, in order to avoid avoid errors if a shot don't have the same tasks as the others
-- [ ] is it possible to have a singleton sg_session or something else to avoid creating new objects everytime
-- [ ] the unassignments are working but there is no unassign change displayed on the publish confirmation dialog
+ 
 - [ ] check if the asset assignments work 
-- [ ] add the it into the dns, ask it
  
 - [ ] update the 0.0.0-prod addon version so I can deploy the whiteboard on the prod version

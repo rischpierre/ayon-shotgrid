@@ -1,5 +1,6 @@
 const weeksEl = document.getElementById('weeks');
 let sequenceFilter = localStorage.getItem('wb_sequence_filter') || 'ALL';
+let assetTypeFilter = localStorage.getItem('wb_asset_type_filter') || 'ALL';
 const artistBar = document.getElementById('artistBar');
 const modeButtons = document.querySelectorAll('.mode-tabs button');
 const projectSelect = document.getElementById('projectSelect');
@@ -176,9 +177,9 @@ dayMenu.addEventListener('mouseleave', () => {
     dayColorSub.style.display = 'none';
 });
 
-function buildTaskOptions() {
+function buildTaskOptions(taskListOverride) {
     taskOptions.innerHTML = '';
-    const list = TASKS_BY_KIND['shots'] || [];
+    const list = Array.isArray(taskListOverride) && taskListOverride.length ? taskListOverride : (TASKS_BY_KIND['shots'] || []);
     for (const tRaw of list) {
         const t = String(tRaw);
         const opt = document.createElement('div');
@@ -202,6 +203,9 @@ function buildTaskOptions() {
 
 function showTaskPicker(x, y, artistId, shotId) {
     pendingAssign = { artistId, shotId };
+    // Prefer per-shot tasks if available from week snapshot
+    const perShot = (window.tasksPerShot && window.tasksPerShot[shotId]) ? window.tasksPerShot[shotId] : null;
+    buildTaskOptions(perShot);
     taskPicker.style.left = Math.max(8, Math.min(window.innerWidth - 256, x + 8)) + 'px';
     taskPicker.style.top = Math.max(8, Math.min(window.innerHeight - 200, y + 8)) + 'px';
     taskPicker.style.display = 'block';
@@ -238,12 +242,25 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTaskPi
 
 buildTaskOptions();
 
-let currentMode = 'shots';
+// Determine initial mode from URL (?entity_type=shots|assets)
+(function initModeFromUrl(){
+    const params = new URLSearchParams(location.search);
+    const et = (params.get('entity_type') || '').toLowerCase();
+    let initial = (et === 'assets') ? 'assets' : 'shots';
+    // Highlight the proper tab
+    modeButtons.forEach(x => x.classList.toggle('active', x.dataset.mode === initial));
+    window.currentMode = initial;
+})();
+let currentMode = window.currentMode || 'shots';
 
 modeButtons.forEach(b => b.addEventListener('click', () => {
     modeButtons.forEach(x => x.classList.remove('active'));
     b.classList.add('active');
     currentMode = b.dataset.mode;
+    // Sync URL param entity_type
+    const params = new URLSearchParams(location.search);
+    params.set('entity_type', currentMode);
+    window.history.replaceState({}, '', `${location.pathname}?${params.toString()}`);
     loadMode(currentMode);
 }));
 
@@ -273,8 +290,13 @@ async function loadMode(mode) {
     } else {
         window.annotationsMap = window.annotationsMap || {};
     }
+    // Expose per-shot tasks map for task picker
+    window.tasksPerShot = (w0 && w0.tasks_per_shot) ? w0.tasks_per_shot : {};
     if (mode === 'shots' && w0 && Array.isArray(w0.no_due_date) && w0.no_due_date.length) {
         renderNoDueDate(w0);
+    }
+    if (mode === 'assets' && w0 && Array.isArray(w0.assets_no_due_date) && w0.assets_no_due_date.length) {
+        renderNoDueDateAssets(w0);
     }
 
     // Build per-week, per-day items aggregation for the chosen mode
@@ -407,12 +429,116 @@ function renderNoDueDate(w0snap) {
             e.dataTransfer.setData('application/item-id', JSON.stringify({ item_id: it.id, kind: 'shots' }));
             e.dataTransfer.effectAllowed = 'move';
         });
-        const seqBadge = it.sequence ? `<div class="badge">${it.sequence}</div>` : '';
+        const seqBadge = it.sequence ? `<div class=\"badge\">${it.sequence}</div>` : '';
         card.innerHTML = `
-            <div class="thumb"><img src="${it.thumb_url}" alt="thumb" /></div>
+            <div class=\"thumb\"><img src=\"${it.thumb_url}\" alt=\"thumb\" /></div>
             <div>
-                <div class="title">${it.name} ${seqBadge}</div>
-                <div class="assignees" data-shot-assignees="${it.id}"></div>
+                <div class=\"title\">${it.name} ${seqBadge}</div>
+                <div class=\"assignees\" data-shot-assignees=\"${it.id}\"></div>
+            </div>
+        `;
+        list.appendChild(card);
+    }
+
+    grid.appendChild(wrap);
+
+    // Insert at top of weeks container
+    const prev = document.getElementById('noDueSection');
+    if (prev && prev.parentElement) prev.parentElement.removeChild(prev);
+    section.id = 'noDueSection';
+    weeksEl.prepend(section);
+}
+
+function renderNoDueDateAssets(w0snap) {
+    const section = document.createElement('section');
+    const header = document.createElement('div');
+    header.style.display = 'flex';
+    header.style.alignItems = 'center';
+    header.style.gap = '12px';
+
+    // Type filter combobox (left side)
+    const typeWrap = document.createElement('div');
+    const label = document.createElement('label');
+    label.style.fontSize = '12px';
+    label.style.color = '#c7cbe0';
+    label.style.marginRight = '6px';
+    label.textContent = 'Type';
+    const select = document.createElement('select');
+    select.style.background = '#0f1330';
+    select.style.color = '#e7e9ef';
+    select.style.border = '1px solid #2a2f58';
+    select.style.borderRadius = '6px';
+    select.style.padding = '6px 8px';
+
+    const types = Array.isArray(w0snap.asset_types) ? w0snap.asset_types : [];
+    const allOpt = document.createElement('option');
+    allOpt.value = 'ALL';
+    allOpt.textContent = 'All types';
+    select.appendChild(allOpt);
+    for (const t of types) {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        select.appendChild(opt);
+    }
+    if (!assetTypeFilter || (assetTypeFilter !== 'ALL' && !types.includes(assetTypeFilter))) {
+        assetTypeFilter = 'ALL';
+    }
+    select.value = assetTypeFilter || 'ALL';
+    select.addEventListener('change', () => {
+        assetTypeFilter = select.value || 'ALL';
+        localStorage.setItem('wb_asset_type_filter', assetTypeFilter);
+        // Reload to re-render both no-date and weeks with current filter
+        loadMode(currentMode);
+    });
+    typeWrap.appendChild(label);
+    typeWrap.appendChild(select);
+
+    const h = document.createElement('h2');
+    h.textContent = 'No due date';
+
+    // Place filter left, then title
+    header.appendChild(typeWrap);
+    header.appendChild(h);
+
+    section.appendChild(header);
+
+    const grid = document.createElement('div');
+    grid.className = 'boards';
+    section.appendChild(grid);
+
+    // Single board spanning full width
+    const wrap = document.createElement('div');
+    wrap.className = 'board';
+    wrap.style.gridColumn = '1 / -1';
+    wrap.innerHTML = `<h3>Assets</h3><div class=\"list\"></div>`;
+    const list = wrap.querySelector('.list');
+
+    list.style.display = 'grid';
+    list.style.gridTemplateColumns = 'repeat(auto-fill, minmax(300px, 1fr))';
+    list.style.gap = '8px';
+    list.style.maxHeight = 'unset';
+    list.style.overflowY = 'visible';
+    list.style.alignItems = 'start';
+
+    const items = w0snap.assets_no_due_date || [];
+    const filtered = items.filter(it => assetTypeFilter === 'ALL' || (it.sequence || '') === assetTypeFilter);
+
+    for (const it of filtered) {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.dataset.itemId = it.id;
+        card.dataset.kind = 'assets';
+        card.draggable = true;
+        card.addEventListener('dragstart', e => {
+            e.dataTransfer.setData('application/item-id', JSON.stringify({ item_id: it.id, kind: 'assets' }));
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        const typeBadge = it.sequence ? `<div class=\"badge\">${it.sequence}</div>` : '';
+        card.innerHTML = `
+            <div class=\"thumb\"><img src=\"${it.thumb_url}\" alt=\"thumb\" /></div>
+            <div>
+                <div class=\"title\">${it.name} ${typeBadge}</div>
             </div>
         `;
         list.appendChild(card);
