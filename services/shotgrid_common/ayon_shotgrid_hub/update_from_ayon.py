@@ -275,16 +275,18 @@ def create_sg_entity_from_ayon_event(
         else:
             ayon_api.update_folder(project_name, ay_entity["id"], attrib=attribs)
 
-        # ay_entity.attribs.set(
-        #     SHOTGRID_ID_ATTRIB,
-        #     sg_id
-        # )
-        # ay_entity.attribs.set(
-        #     SHOTGRID_TYPE_ATTRIB,
-        #     sg_type
-        # )
+        ay_entity.attribs.set(
+            SHOTGRID_ID_ATTRIB,
+            sg_id
+        )
+        ay_entity.attribs.set(
+            SHOTGRID_TYPE_ATTRIB,
+            sg_type
+        )
+
         # ayon_entity_hub.commit_changes()
-        # return ay_entity
+
+        return ay_entity
 
     except Exception:
         log.error(
