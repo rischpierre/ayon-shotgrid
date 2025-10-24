@@ -14,7 +14,6 @@
 - [x] make sure the artists icons are based on the names of the artists so they are the same everytime we reload the server 
 - [x] ensure that the color of the tasks are based on their name so they are the same everytime we reload the server
 - [x] use logging instead of print on the whole project
-
 - [x] add the number of the day on each day cell like Mon 12 or tues 15 
 - [x] remove the hold and omit checkboxes and create boards for both of them instead, both of the board should appear after the 4th week board
 - [x] add the possibility to add a custom annotation on each day cell. we store this information on a text project field called: sg_whiteboard_annotations we need to serialize and deserialize it with json
@@ -22,11 +21,13 @@
 - [x] annotations 
 - [x] is it possible to have a singleton sg_session or something else to avoid creating new objects everytime
 - [x] change the vendors thumbnails to be black letter on a white background
+- [x] add entity_type on the url so we can load a page with the assets tab open first
+- [x] add no due date week board for assets also, and it should have a combobox to filter them by type (like it is done for shots) 
+- [x] load the tasks per shot, in order to avoid avoid errors if a shot don't have the same tasks as the others
+- [x] check if the asset assignments work 
 
-- [ ] add entity_type on the url so we can load a page with the assets tab open first
-- [ ] add no due date week board for assets also, and it should have a combobox to filter them by type (like it is done for shots) 
-- [ ] load the tasks per shot, in order to avoid avoid errors if a shot don't have the same tasks as the others
+- [ ] bugfix: I cannot drag and dropt assets to day boards and I cannot assign an artist to an asset
  
-- [ ] check if the asset assignments work 
+- [ ] on the due date board, limit the number of shots displayed, use a scrollbar if there is more than 3 rows, do the same for the assets 
  
 - [ ] update the 0.0.0-prod addon version so I can deploy the whiteboard on the prod version

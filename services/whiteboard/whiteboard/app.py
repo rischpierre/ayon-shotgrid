@@ -283,7 +283,9 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
                     except Exception:
                         adt = None
                 wk_day = to_week_and_day(adt) if adt else None
-                # Overrides currently tracked per shot only; ignore for assets
+                # Apply override if present (support assets moves too)
+                if aid_str in proj_over:
+                    wk_day = proj_over[aid_str]
                 if not wk_day:
                     assets_no_due.append(base_item)
                     continue
@@ -296,6 +298,10 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
             present_shot_ids: Set[str] = set()
             for d in days_list:
                 for it in board_items.get(f"{week}-{d}-shots-1", []):
+                    present_shot_ids.add(it.id)
+            # Include assets present in this snapshot as well, so assignments can attach to assets
+            for d in days_list:
+                for it in board_items.get(f"{week}-{d}-assets-1", []):
                     present_shot_ids.add(it.id)
 
             a_map: Dict[str, List[AssignedTask]] = {}
@@ -329,7 +335,7 @@ def get_week(week: Week, project_id: Optional[str] = None, include_on_hold: bool
                                 continue
                             aid = f"g:{hu_id}" if hu_type == "Group" else str(hu_id)
                             if not any(x.artist_id == aid and x.task == task_name for x in lst):
-                                lst.append(AssignedTask(artist_id=aid, task=task_name))
+                                lst.append(AssignedTask(artist_id=aid, task=task_name, task_id=str(t.get("id")) if t.get("id") is not None else None))
                 except Exception:
                     logger.exception("Failed to prefill assignments from ShotGrid")
 

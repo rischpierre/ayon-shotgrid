@@ -34,6 +34,7 @@ class Assignment(BaseModel):
 class AssignedTask(BaseModel):
     artist_id: str
     task: Task
+    task_id: Optional[str] = None
 
 class DaySnapshot(BaseModel):
     day: Day

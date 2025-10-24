@@ -112,7 +112,7 @@ def sg_find_project_assets(project_id: int, include_on_hold: bool, include_omitt
 
 def sg_find_tasks_for_shots(project_id: int, shot_ids: Sequence[int]) -> List[Dict[str, Any]]:
     sg = get_sg_session()
-    task_fields = ["content", "entity", "task_assignees"]
+    task_fields = ["id", "content", "entity", "task_assignees"]
     t_filters = [["project", "is", {"type": "Project", "id": project_id}], ["entity", "in", [{"type": "Shot", "id": int(sid)} for sid in shot_ids]]]
     return sg.find("Task", t_filters, task_fields, limit=2000)
 
@@ -132,30 +132,82 @@ def sg_publish_changes(project_id: int, overrides: Dict[str, Tuple[str, str]], a
     proj = {"type": "Project", "id": int(project_id)}
     from whiteboard.helpers import _date_from_week_day  # local import to avoid circular
 
-    # Moves: update sg_next_delivery
+    # Moves: update sg_next_delivery for Shots or Assets based on actual entity type
     for sid, (wk, dy) in overrides.items():
         try:
+            # Skip non-numeric IDs defensively
+            if not str(sid).isdigit():
+                logger.warning(f"Skipping move for non-numeric id '{sid}'")
+                continue
             target_date = _date_from_week_day(wk, dy).isoformat()
-            sg.update("Shot", int(sid), {"sg_next_delivery": target_date})
-        except Exception:
-            logger.exception(f"Failed updating shot {sid}")
-
-    # Assignments: create tasks per (artist, task) for each shot
-    for shot_id, task_list in assigns.items():
-        for a in task_list or []:
+            eid = int(sid)
+            # Resolve entity type cheaply: check Shot first, then Asset
+            ent_type: Optional[str] = None
             try:
-                is_group = isinstance(a.artist_id, str) and a.artist_id.startswith("g:")
-                assignee_id = int(a.artist_id[2:]) if is_group else int(a.artist_id)
-                assignee = {"type": "Group", "id": assignee_id} if is_group else {"type": "HumanUser", "id": assignee_id}
-                payload = {
-                    "project": proj,
-                    "entity": {"type": "Shot", "id": int(shot_id)},
-                    "content": a.task,
-                    "task_assignees": [assignee],
-                }
-                sg.create("Task", payload)
+                found_shot = sg.find_one("Shot", [["id", "is", eid]], ["id"])  # type: ignore
+                if found_shot:
+                    ent_type = "Shot"
+                else:
+                    found_asset = sg.find_one("Asset", [["id", "is", eid]], ["id"])  # type: ignore
+                    if found_asset:
+                        ent_type = "Asset"
             except Exception:
-                logger.exception(f"Failed creating task for shot {shot_id}")
+                # If type resolution fails, fall back to trying Shot then Asset via update
+                ent_type = None
+            if ent_type:
+                sg.update(ent_type, eid, {"sg_next_delivery": target_date})
+                logger.info(f"Updated {ent_type} {eid} sg_next_delivery -> {target_date}")
+            else:
+                # Fallback: try Shot then Asset updates, logging failures
+                try:
+                    sg.update("Shot", eid, {"sg_next_delivery": target_date})
+                    logger.info(f"Updated Shot {eid} sg_next_delivery -> {target_date}")
+                except Exception:
+                    try:
+                        sg.update("Asset", eid, {"sg_next_delivery": target_date})
+                        logger.info(f"Updated Asset {eid} sg_next_delivery -> {target_date}")
+                    except Exception:
+                        logger.exception(f"Failed updating sg_next_delivery for id {sid} (Shot/Asset)")
+        except Exception:
+            logger.exception(f"Failed processing move for id {sid}")
+
+    # Assignments: update existing Task assignees per (artist, task) for each item (shot or asset)
+    for item_id, task_list in assigns.items():
+        for a in task_list or []:
+            # Determine assignee entity
+            is_group = isinstance(a.artist_id, str) and a.artist_id.startswith("g:")
+            assignee_id = int(a.artist_id[2:]) if is_group else int(a.artist_id)
+            assignee = {"type": "Group", "id": assignee_id} if is_group else {"type": "HumanUser", "id": assignee_id}
+
+            def _update_task_for(entity_type: str) -> bool:
+                try:
+                    # Find existing Task by entity and content
+                    filters = [
+                        ["project", "is", proj],
+                        ["entity", "is", {"type": entity_type, "id": int(item_id)}],
+                        ["content", "is", a.task],
+                    ]
+                    found = sg.find_one("Task", filters, ["id", "task_assignees"])
+                    if not found:
+                        return False
+                    tid = int(found["id"])  # type: ignore
+                    existing = found.get("task_assignees") or []
+                    # Check presence
+                    exists = any((isinstance(x, dict) and int(x.get("id", -1)) == assignee_id and (x.get("type") or ("Group" if is_group else "HumanUser")) == ("Group" if is_group else "HumanUser")) for x in existing)
+                    if not exists:
+                        updated = list(existing) + [assignee]
+                        sg.update("Task", tid, {"task_assignees": updated})
+                    return True
+                except Exception:
+                    logger.exception(f"Failed updating assignees for {entity_type} {item_id} task '{a.task}'")
+                    return False
+
+            # Try updating Shot task first, then Asset
+            if _update_task_for("Shot"):
+                continue
+            if _update_task_for("Asset"):
+                continue
+            logger.warning(f"No existing Task found for item {item_id} with name '{a.task}'. Skipping creation per policy.")
 
 
 def sg_get_project_annotations(project_id: int) -> Dict[str, Any]:

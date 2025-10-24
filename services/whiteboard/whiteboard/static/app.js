@@ -177,9 +177,10 @@ dayMenu.addEventListener('mouseleave', () => {
     dayColorSub.style.display = 'none';
 });
 
-function buildTaskOptions(taskListOverride) {
+function buildTaskOptions(taskListOverride, kind='shots') {
     taskOptions.innerHTML = '';
-    const list = Array.isArray(taskListOverride) && taskListOverride.length ? taskListOverride : (TASKS_BY_KIND['shots'] || []);
+    const defaultList = (TASKS_BY_KIND[kind] || TASKS_BY_KIND['shots'] || []);
+    const list = Array.isArray(taskListOverride) && taskListOverride.length ? taskListOverride : defaultList;
     for (const tRaw of list) {
         const t = String(tRaw);
         const opt = document.createElement('div');
@@ -201,11 +202,11 @@ function buildTaskOptions(taskListOverride) {
     }
 }
 
-function showTaskPicker(x, y, artistId, shotId) {
-    pendingAssign = { artistId, shotId };
-    // Prefer per-shot tasks if available from week snapshot
-    const perShot = (window.tasksPerShot && window.tasksPerShot[shotId]) ? window.tasksPerShot[shotId] : null;
-    buildTaskOptions(perShot);
+function showTaskPicker(x, y, artistId, shotId, kind='shots') {
+    pendingAssign = { artistId, shotId, kind };
+    // Prefer per-shot tasks if available from week snapshot (shots only)
+    const perShot = (kind === 'shots' && window.tasksPerShot && window.tasksPerShot[shotId]) ? window.tasksPerShot[shotId] : null;
+    buildTaskOptions(perShot, kind);
     taskPicker.style.left = Math.max(8, Math.min(window.innerWidth - 256, x + 8)) + 'px';
     taskPicker.style.top = Math.max(8, Math.min(window.innerHeight - 200, y + 8)) + 'px';
     taskPicker.style.display = 'block';
@@ -655,26 +656,24 @@ function renderWeeks(snapshot) {
                 `;
                 window._itemNameCache = window._itemNameCache || {};
                 window._itemNameCache[it.id] = it.name;
-                if (snapshot.kind === 'shots') {
-                    const holder = card.querySelector('.assignees');
-                    const assigned = snapshot.assignments[it.id] || [];
-                    for (const a of assigned) {
-                        const artist = (window._artistsCache || []).find(x => x.id === a.artist_id);
-                        if (!artist) continue;
-                        const av = document.createElement('div');
-                        av.className = 'assignee';
-                        av.style.borderColor = colorForTask(a.task);
-                        av.dataset.artistId = a.artist_id;
-                        av.dataset.task = a.task;
-                        av.dataset.shotId = it.id;
-                        av.title = `${artist.name} — ${a.task} (right‑click to unassign)`;
-                        av.innerHTML = `<img src="${artist.thumb_url}" alt="${artist.name}" />`;
-                        av.addEventListener('contextmenu', (e) => {
-                            e.preventDefault();
-                            showContextMenu(e.clientX, e.clientY, { artistId: a.artist_id, shotId: it.id, task: a.task });
-                        });
-                        holder.appendChild(av);
-                    }
+                const holder = card.querySelector('.assignees');
+                const assigned = snapshot.assignments[it.id] || [];
+                for (const a of assigned) {
+                    const artist = (window._artistsCache || []).find(x => x.id === a.artist_id);
+                    if (!artist) continue;
+                    const av = document.createElement('div');
+                    av.className = 'assignee';
+                    av.style.borderColor = colorForTask(a.task);
+                    av.dataset.artistId = a.artist_id;
+                    av.dataset.task = a.task;
+                    av.dataset.shotId = it.id;
+                    av.title = `${artist.name} — ${a.task} (right‑click to unassign)`;
+                    av.innerHTML = `<img src="${artist.thumb_url}" alt="${artist.name}" />`;
+                    av.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        showContextMenu(e.clientX, e.clientY, { artistId: a.artist_id, shotId: it.id, task: a.task });
+                    });
+                    holder.appendChild(av);
                 }
                 list.appendChild(card);
             }
@@ -684,7 +683,7 @@ function renderWeeks(snapshot) {
                 const types = e.dataTransfer?.types || [];
                 const isArtist = types.includes('application/artist-id');
                 const isItem = types.includes('application/item-id');
-                if ((isArtist && snapshot.kind === 'shots') || isItem) {
+                if (isArtist || isItem) {
                     e.preventDefault();
                 }
             });
@@ -693,7 +692,7 @@ function renderWeeks(snapshot) {
                 const types = e.dataTransfer?.types || [];
                 const isArtist = types.includes('application/artist-id');
                 const isItem = types.includes('application/item-id');
-                const ok = (isArtist && snapshot.kind === 'shots') || isItem;
+                const ok = (isArtist || isItem);
                 wrap.classList.toggle('drop-ok', ok);
                 wrap.classList.toggle('drop-bad', !ok && (isArtist || isItem));
             });
@@ -721,17 +720,16 @@ function renderWeeks(snapshot) {
                     } catch {}
                 }
 
-                // Assigning artists to shots (only in shots mode)
-                if (snapshot.kind !== 'shots') return; // forbid assigning to assets
+                // Assigning artists to shots or assets
                 const artistId = e.dataTransfer.getData('application/artist-id');
                 if (!artistId) return;
-                // Assign onto nearest shot card under cursor (or the first card if none)
+                // Assign onto nearest card of current kind under cursor (or the first card if none)
                 const card = document.elementFromPoint(e.clientX, e.clientY)?.closest('.card');
-                const shotCard = card && card.dataset.kind === 'shots' ? card : list.querySelector('.card');
-                if (!shotCard) return;
-                const shotId = shotCard.dataset.itemId;
+                const targetCard = card && card.dataset.kind === snapshot.kind ? card : list.querySelector('.card');
+                if (!targetCard) return;
+                const itemId = targetCard.dataset.itemId;
                 // Instead of assigning immediately, open task picker
-                showTaskPicker(e.clientX, e.clientY, artistId, shotId);
+                showTaskPicker(e.clientX, e.clientY, artistId, itemId, snapshot.kind);
             });
 
             grid.appendChild(wrap);
