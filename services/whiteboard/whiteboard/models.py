@@ -1,25 +1,45 @@
 from __future__ import annotations
-from typing import Any, Dict, List, Optional, Literal
-
+from enum import Enum
+from typing import Dict, List, Optional, Tuple, Any, Literal
 from pydantic import BaseModel
 
-Day = Literal["mon", "tue", "wed", "thu", "fri"]
-Week = Literal["w0", "w1", "w2", "w3"]
+class Day(Enum):
+    mon = "mon"
+    tue = "tue"
+    wed = "wed"
+    thu = "thu"
+    fri = "fri"
+
+Days = [Day.mon, Day.tue, Day.wed, Day.thu, Day.fri]
+
+class Week(Enum):
+    w0 = "w0"  # current week
+    w1 = "w1"  # next week
+    w2 = "w2"  # two weeks from now
+    w3 = "w3"  # three weeks from now
+
+Weeks = [Week.w0, Week.w1, Week.w2, Week.w3]
+
+class EntityType(Enum):
+    Shot = "Shot"
+    Asset = "Asset"
 
 class Artist(BaseModel):
-    id: str
+    id: int
     name: str
     thumb_url: str
+    is_group: bool
 
 class Item(BaseModel):
-    id: str
+    id: int  # entity id
     name: str
     thumb_url: str
     sequence: Optional[str] = None
+    entity_type: EntityType
 
 class Board(BaseModel):
     id: str         # e.g., "shots-1", "assets-3"
-    kind: Literal["shots", "assets"]
+    entity_type: EntityType
     title: str
 
 class TaskLiteral(str):
@@ -88,3 +108,18 @@ class AssignArtistRequest(BaseModel):
     artist_id: str
     shot_id: str
     task: Task
+
+
+artists: Dict[str, Artist] = {}
+# week -> day -> board_id -> list[item_id]
+weeks_days: Dict[Week, Dict[Day, Dict[str, List[str]]]] = {}
+boards: Dict[str, Board] = {}
+items: Dict[str, Item] = {}                # shots and assets share same map; differentiate by board membership
+assignments: Dict[int, List[AssignedTask]] = {}     # shot_id -> [AssignedTask, ...]
+
+# Per-project overrides and assignments (project-aware mode)
+moved_positions_by_project: Dict[int, Dict[int, Tuple[Week, Day]]] = {}  # project_id -> shot_id -> (week, day)
+project_assignments: Dict[int, Dict[int, List[AssignedTask]]] = {}  # project_id -> shot_id -> [AssignedTask]
+project_unassign_overrides: Dict[int, Dict[int, List[AssignedTask]]] = {}  # project_id -> shot_id -> [AssignedTask] marked for removal
+
+

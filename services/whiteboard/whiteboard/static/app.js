@@ -11,8 +11,13 @@ const dayTitle = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri' };
 const weekOrder = ['w0','w1','w2','w3'];
 const weekTitle = { w0: 'Current week', w1: 'Next week', w2: '3rd week', w3: '4th week' };
 
+const EntityType = Object.freeze({
+  Shot: 'Shot',
+  Asset: 'Asset',
+});
+
 // Task configuration (loaded dynamically per project)
-let TASKS_BY_KIND = { shots: ['lighting','tracking','animation','layout'], assets: ['modeling','surfacing','rigging','lookdev'] };
+let TASKS_PER_ENTITY_TYPE = { shots: ['lighting','tracking','animation','layout'], assets: ['modeling','surfacing','rigging','lookdev'] };
 
 function hashColor(str) {
     // Simple deterministic HSL color from string
@@ -27,7 +32,15 @@ function colorForTask(taskName) { return hashColor(String(taskName || 'task')); 
 const taskPicker = document.getElementById('taskPicker');
 const taskOptions = document.getElementById('taskOptions');
 const taskPickerHeader = document.getElementById('taskPickerHeader');
-let pendingAssign = null; // { artistId, shotId }
+
+class PendingAssign {
+    constructor(artist_id, entity_id, entity_type) {
+        this.artist_id = String(artist_id);
+        this.entity_id = String(entity_id);
+        this.entity_type = entity_type;
+    }
+}
+let pendingAssign = /** @type {PendingAssign|null} */ (null);
 
 // Context menu elements/state for unassign
 const contextMenu = document.getElementById('contextMenu');
@@ -177,9 +190,9 @@ dayMenu.addEventListener('mouseleave', () => {
     dayColorSub.style.display = 'none';
 });
 
-function buildTaskOptions(taskListOverride, kind='shots') {
+function buildTaskOptions(taskListOverride, entity_type) {
     taskOptions.innerHTML = '';
-    const defaultList = (TASKS_BY_KIND[kind] || TASKS_BY_KIND['shots'] || []);
+    const defaultList = (TASKS_PER_ENTITY_TYPE[entity_type] || TASKS_PER_ENTITY_TYPE[EntityType.Shot] || []);
     const list = Array.isArray(taskListOverride) && taskListOverride.length ? taskListOverride : defaultList;
     for (const tRaw of list) {
         const t = String(tRaw);
@@ -190,11 +203,10 @@ function buildTaskOptions(taskListOverride, kind='shots') {
         opt.innerHTML = `<div class="task-swatch" style="background:${colorForTask(t)}"></div><div class="task-label">${label}</div>`;
         opt.addEventListener('click', async () => {
             if (!pendingAssign) return;
-            const { artistId, shotId } = pendingAssign;
             hideTaskPicker();
             const resp = await fetch(`/api/assign${window.currentProjectId ? `?project_id=${encodeURIComponent(window.currentProjectId)}` : ''}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ artist_id: artistId, shot_id: shotId, task: t })
+                body: JSON.stringify({ artist_id: pendingAssign.artist_id, entity_id: pendingAssign.entity_id, entity_type: pendingAssign.entity_type, task: t })
             });
             if (resp.ok) await loadMode(currentMode);
         });
@@ -202,11 +214,11 @@ function buildTaskOptions(taskListOverride, kind='shots') {
     }
 }
 
-function showTaskPicker(x, y, artistId, shotId, kind='shots') {
-    pendingAssign = { artistId, shotId, kind };
-    // Prefer per-shot tasks if available from week snapshot (shots only)
-    const perShot = (kind === 'shots' && window.tasksPerShot && window.tasksPerShot[shotId]) ? window.tasksPerShot[shotId] : null;
-    buildTaskOptions(perShot, kind);
+function showTaskPicker(x, y, artistId, shotId, entity_type) {
+    pendingAssign = { artist_id: artistId, entity_id: shotId, entity_type: entity_type};
+
+    const perShot = (entity_type === EntityType.Shot && window.tasksPerShot && window.tasksPerShot[shotId]) ? window.tasksPerShot[shotId] : null;
+    buildTaskOptions(perShot, entity_type);
     taskPicker.style.left = Math.max(8, Math.min(window.innerWidth - 256, x + 8)) + 'px';
     taskPicker.style.top = Math.max(8, Math.min(window.innerHeight - 200, y + 8)) + 'px';
     taskPicker.style.display = 'block';
@@ -247,18 +259,17 @@ buildTaskOptions();
 (function initModeFromUrl(){
     const params = new URLSearchParams(location.search);
     const et = (params.get('entity_type') || '').toLowerCase();
-    let initial = (et === 'assets') ? 'assets' : 'shots';
+    let initial = (et === EntityType.Asset) ? EntityType.Asset : EntityType.Shot;
     // Highlight the proper tab
     modeButtons.forEach(x => x.classList.toggle('active', x.dataset.mode === initial));
     window.currentMode = initial;
 })();
-let currentMode = window.currentMode || 'shots';
+let currentMode = window.currentMode || EntityType.Shot;
 
 modeButtons.forEach(b => b.addEventListener('click', () => {
     modeButtons.forEach(x => x.classList.remove('active'));
     b.classList.add('active');
     currentMode = b.dataset.mode;
-    // Sync URL param entity_type
     const params = new URLSearchParams(location.search);
     params.set('entity_type', currentMode);
     window.history.replaceState({}, '', `${location.pathname}?${params.toString()}`);
@@ -293,10 +304,10 @@ async function loadMode(mode) {
     }
     // Expose per-shot tasks map for task picker
     window.tasksPerShot = (w0 && w0.tasks_per_shot) ? w0.tasks_per_shot : {};
-    if (mode === 'shots' && w0 && Array.isArray(w0.no_due_date) && w0.no_due_date.length) {
+    if (mode === EntityType.Shot && w0 && Array.isArray(w0.no_due_date) && w0.no_due_date.length) {
         renderNoDueDate(w0);
     }
-    if (mode === 'assets' && w0 && Array.isArray(w0.assets_no_due_date) && w0.assets_no_due_date.length) {
+    if (mode === EntityType.Asset && w0 && Array.isArray(w0.assets_no_due_date) && w0.assets_no_due_date.length) {
         renderNoDueDateAssets(w0);
     }
 
@@ -309,20 +320,20 @@ async function loadMode(mode) {
             const itemsForDay = [];
             const boardsForDay = snap.boards[day] || [];
             for (const b of boardsForDay) {
-                if (b.kind !== mode) continue;
+                if (b.entity_type !== mode) continue;
                 const arr = snap.board_items[b.id] || [];
                 itemsForDay.push(...arr);
             }
             weekMap[day] = itemsForDay;
         }
         byWeek[snap.week] = weekMap;
-        if (mode === 'shots') Object.assign(assignments, snap.assignments || {});
+        if (mode === EntityType.Shot) Object.assign(assignments, snap.assignments || {});
     }
 
-    renderWeeks({ kind: mode, by_week: byWeek, assignments });
+    renderWeeks({ entity_type: mode, by_week: byWeek, assignments });
 
     // After weeks, render On hold and Omitted sections (shots mode only)
-    if (mode === 'shots' && w0) {
+    if (mode === EntityType.Shot && w0) {
         renderHoldOmit(w0);
     }
 }
@@ -424,10 +435,10 @@ function renderNoDueDate(w0snap) {
         const card = document.createElement('div');
         card.className = 'card';
         card.dataset.itemId = it.id;
-        card.dataset.kind = 'shots';
+        card.dataset.entity_type = EntityType.Shot;
         card.draggable = true;
         card.addEventListener('dragstart', e => {
-            e.dataTransfer.setData('application/item-id', JSON.stringify({ item_id: it.id, kind: 'shots' }));
+            e.dataTransfer.setData('application/item-id', JSON.stringify({ item_id: it.id, entity_type: EntityType.Shot}));
             e.dataTransfer.effectAllowed = 'move';
         });
         const seqBadge = it.sequence ? `<div class=\"badge\">${it.sequence}</div>` : '';
@@ -529,10 +540,10 @@ function renderNoDueDateAssets(w0snap) {
         const card = document.createElement('div');
         card.className = 'card';
         card.dataset.itemId = it.id;
-        card.dataset.kind = 'assets';
+        card.dataset.entity_type = EntityType.Asset;
         card.draggable = true;
         card.addEventListener('dragstart', e => {
-            e.dataTransfer.setData('application/item-id', JSON.stringify({ item_id: it.id, kind: 'assets' }));
+            e.dataTransfer.setData('application/item-id', JSON.stringify({ item_id: it.id, entity_type: EntityType.Asset }));
             e.dataTransfer.effectAllowed = 'move';
         });
         const typeBadge = it.sequence ? `<div class=\"badge\">${it.sequence}</div>` : '';
@@ -582,7 +593,7 @@ function renderWeeks(snapshot) {
             }
             wrap.dataset.day = day;
             wrap.dataset.week = wk;
-            wrap.dataset.kind = snapshot.kind;
+            wrap.dataset.entity_type = snapshot.entity_type;
             // Compute calendar date for header
             const weekIdx = parseInt(wk.slice(1), 10) || 0;
             const dayIdx = {mon:0,tue:1,wed:2,thu:3,fri:4}[day];
@@ -641,10 +652,10 @@ function renderWeeks(snapshot) {
                 const card = document.createElement('div');
                 card.className = 'card';
                 card.dataset.itemId = it.id;
-                card.dataset.kind = snapshot.kind;
+                card.dataset.entity_type = snapshot.entity_type;
                 card.draggable = true;
                 card.addEventListener('dragstart', e => {
-                    e.dataTransfer.setData('application/item-id', JSON.stringify({ item_id: it.id, kind: snapshot.kind }));
+                    e.dataTransfer.setData('application/item-id', JSON.stringify({ item_id: it.id, entity_type: snapshot.entity_type }));
                     e.dataTransfer.effectAllowed = 'move';
                 });
                 card.innerHTML = `
@@ -711,7 +722,7 @@ function renderWeeks(snapshot) {
                         const resp = await fetch(`/api/move_week_day${window.currentProjectId ? `?project_id=${encodeURIComponent(window.currentProjectId)}` : ''}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ item_id: data.item_id, kind: data.kind, to_week: wk, to_day: day })
+                            body: JSON.stringify({ item_id: data.item_id, entity_type: data.entity_type, to_week: wk, to_day: day })
                         });
                         if (resp.ok) {
                             await loadMode(currentMode);
@@ -723,13 +734,13 @@ function renderWeeks(snapshot) {
                 // Assigning artists to shots or assets
                 const artistId = e.dataTransfer.getData('application/artist-id');
                 if (!artistId) return;
-                // Assign onto nearest card of current kind under cursor (or the first card if none)
+                // Assign onto nearest card of current entity_type under cursor (or the first card if none)
                 const card = document.elementFromPoint(e.clientX, e.clientY)?.closest('.card');
-                const targetCard = card && card.dataset.kind === snapshot.kind ? card : list.querySelector('.card');
+                const targetCard = card && card.dataset.entity_type === snapshot.entity_type ? card : list.querySelector('.card');
                 if (!targetCard) return;
                 const itemId = targetCard.dataset.itemId;
                 // Instead of assigning immediately, open task picker
-                showTaskPicker(e.clientX, e.clientY, artistId, itemId, snapshot.kind);
+                showTaskPicker(e.clientX, e.clientY, artistId, itemId, snapshot.entity_type);
             });
 
             grid.appendChild(wrap);
@@ -752,9 +763,9 @@ async function loadTasks() {
         if (res.ok) {
             const data = await res.json();
             if (data && typeof data === 'object') {
-                TASKS_BY_KIND = {
-                    shots: Array.isArray(data.shots) && data.shots.length ? data.shots : TASKS_BY_KIND.shots,
-                    assets: Array.isArray(data.assets) && data.assets.length ? data.assets : TASKS_BY_KIND.assets,
+                TASKS_PER_ENTITY_TYPE = {
+                    shots: Array.isArray(data.shots) && data.shots.length ? data.shots : TASKS_PER_ENTITY_TYPE.shots,
+                    assets: Array.isArray(data.assets) && data.assets.length ? data.assets : TASKS_PER_ENTITY_TYPE.assets,
                 };
             }
         }
@@ -960,10 +971,10 @@ function renderHoldOmit(w0snap) {
             const card = document.createElement('div');
             card.className = 'card';
             card.dataset.itemId = it.id;
-            card.dataset.kind = 'shots';
+            card.dataset.entity_type = EntityType.Shot;
             card.draggable = true;
             card.addEventListener('dragstart', e => {
-                e.dataTransfer.setData('application/item-id', JSON.stringify({ item_id: it.id, kind: 'shots' }));
+                e.dataTransfer.setData('application/item-id', JSON.stringify({ item_id: it.id, entity_type: EntityType.Shot }));
                 e.dataTransfer.effectAllowed = 'move';
             });
             const seqBadge = it.sequence ? `<div class="badge">${it.sequence}</div>` : '';

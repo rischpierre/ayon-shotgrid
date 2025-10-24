@@ -86,13 +86,12 @@ def sg_find_project_artists(project_id: int) -> List[Dict[str, Any]]:
     return sg.find("HumanUser", a_filters, a_fields, order=[{"field_name": "name", "direction": "asc"}])
 
 
-def sg_list_groups_with_thumbnails() -> List[Dict[str, Any]]:
+def sg_list_groups() -> List[Dict[str, Any]]:
     sg = get_sg_session()
-    g_fields = ["code", "sg_thumbnail"]
-    return sg.find("Group", [], g_fields, order=[{"field_name": "code", "direction": "asc"}])
+    return sg.find("Group", [], ["code", "sg_thumbnail"], order=[{"field_name": "code", "direction": "asc"}])
 
 
-def sg_find_project_shots(project_id: int, include_on_hold: bool, include_omitted: bool) -> List[Dict[str, Any]]:
+def sg_find_project_shots(project_id: int) -> List[Dict[str, Any]]:
     # Note: include_on_hold/include_omitted flags are ignored; we return all and let the app classify.
     sg = get_sg_session()
     s_fields = ["code", "sg_next_delivery", "image", "sg_sequence", "sg_status_list"]
@@ -100,7 +99,7 @@ def sg_find_project_shots(project_id: int, include_on_hold: bool, include_omitte
     return sg.find("Shot", s_filters, s_fields, order=[{"field_name": "code", "direction": "asc"}])
 
 
-def sg_find_project_assets(project_id: int, include_on_hold: bool, include_omitted: bool) -> List[Dict[str, Any]]:
+def sg_find_project_assets(project_id: int) -> List[Dict[str, Any]]:
     """Return all assets for a project with fields needed for whiteboard.
     Uses sg_asset_type for filtering and sg_next_delivery for scheduling when available.
     """

@@ -3,7 +3,8 @@ import datetime
 import hashlib
 import urllib.parse
 
-from whiteboard.models import Day, Week
+from whiteboard.models import Day, Week, Days, Weeks
+from typing import Dict, List, Optional, Tuple, Any, Literal
 
 def _hash_color(key: str) -> str:
     h = int(hashlib.sha256(key.encode('utf-8')).hexdigest()[:8], 16)
@@ -47,6 +48,21 @@ def _current_monday() -> datetime.date:
 
 def _date_from_week_day(week: Week, day: Day) -> datetime.date:
     monday = _current_monday()
-    wk_idx = int(week[1])  # 'w0' -> 0
+    week_id = int(week[1])  # 'w0' -> 0
     day_idx_map = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4}
-    return monday + datetime.timedelta(days=wk_idx * 7 + day_idx_map[day])
+    return monday + datetime.timedelta(days=week_id * 7 + day_idx_map[day])
+
+def to_week_and_day(dt: datetime.date, current_monday: datetime.date) -> Optional[Tuple[Week, Day]]:
+    if dt < current_monday:
+        return None
+    delta_days = (dt - current_monday).days
+    week_id = delta_days // 7
+
+    if week_id not in (0, 1, 2, 3):
+        return None
+
+    wd = dt.weekday()  # 0..6
+    if wd > 4:
+        return None
+
+    return Weeks[week_id], Days[wd]
