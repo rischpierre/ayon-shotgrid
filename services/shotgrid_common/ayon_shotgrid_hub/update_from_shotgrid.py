@@ -210,9 +210,13 @@ def _rvx_update_ay_entity_list_from_sg(
             log.debug(f"Removing version {removed_version['id']} from entity list {entity_list['id']}")
             sg_version = sg_session.find_one("Version", [["project", "is", sg_project], ["id", "is", removed_version["id"]]], ["sg_ayon_id"])
 
+            if not sg_version:
+                log.error(f"Version {removed_version['id']} does not exists in ShotGrid, skipping")
+                continue
+
             if not sg_version.get("sg_ayon_id"):
                 log.error(f"Version {removed_version['id']} does not have a corresponding AYON ID, skipping")
-                return
+                continue
 
             # remove version from entity list
             list_item_id = _get_entity_list_item_from_entity_id(project_name, entity_list["id"], sg_version['sg_ayon_id'])
