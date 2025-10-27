@@ -121,7 +121,7 @@ def sg_find_shots_by_ids(shot_ids: Sequence[int]) -> List[Dict[str, Any]]:
     return sg.find("Shot", [["id", "in", list(map(int, shot_ids))]], ["code", "sg_next_delivery"], limit=len(shot_ids))
 
 
-def sg_publish_changes(project_id: int, overrides: Dict[str, Tuple[str, str]], assigns: Dict[str, List[Any]]) -> None:
+def sg_publish_changes(project_id: int, overrides: Dict[int, Tuple[str, str]], assigns: Dict[int, List[Any]]) -> None:
     """Perform updates and task creations in ShotGrid.
 
     overrides: shot_id -> (week, day)

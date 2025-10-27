@@ -465,55 +465,57 @@ def assign_artist(req: AssignArtistRequest, project_id: str):
 @app.post("/api/unassign")
 def unassign_artist(req: AssignArtistRequest, project_id: Optional[str] = None):
     # Remove an assignment if present; prefer per-project store when project_id is provided
-    if project_id:
-        pid = str(project_id)
-        pmap = project_assignments.setdefault(pid, {})
-        cur = pmap.get(req.shot_id, [])
-        # Filter out matching entries
-        filtered = [a for a in cur if not (a.artist_id == req.artist_id and a.task == req.task)]
-        pmap[req.shot_id] = filtered
-        # Record an override so prefilled ShotGrid assignees are hidden in the UI
-        ov_map = project_unassign_overrides.setdefault(pid, {})
-        ov_list = ov_map.setdefault(req.shot_id, [])
-        if not any(a.artist_id == req.artist_id and a.task == req.task for a in ov_list):
-            ov_list.append(AssignedTask(artist_id=req.artist_id, task=req.task))
-        return {"ok": True, "shot_id": req.shot_id, "assignments": filtered}
-    # Demo/global fallback
-    cur = assignments.get(req.shot_id, [])
+    project_id = str(project_id)
+    pmap = project_assignments.setdefault(project_id, {})
+    cur = pmap.get(req.shot_id, [])
+
+    # Filter out matching entries
     filtered = [a for a in cur if not (a.artist_id == req.artist_id and a.task == req.task)]
-    assignments[req.shot_id] = filtered
+    pmap[req.shot_id] = filtered
+
+    # Record an override so prefilled ShotGrid assignees are hidden in the UI
+    ov_map = project_unassign_overrides.setdefault(project_id, {})
+    ov_list = ov_map.setdefault(req.shot_id, [])
+    if not any(a.artist_id == req.artist_id and a.task == req.task for a in ov_list):
+        ov_list.append(AssignedTask(artist_id=req.artist_id, task=req.task))
     return {"ok": True, "shot_id": req.shot_id, "assignments": filtered}
+
 
 @app.get("/api/changes")
 def list_changes(project_id: Optional[str] = None):
-    if not project_id:
-        return {"moves": [], "assignments": {}}
-    pid = str(project_id)
+
+    project_id = int(project_id)
     # Build move list by comparing overrides to current ShotGrid dates
     moves = []
+    assigns = project_assignments.get(project_id, {})
+
     try:
-        overrides = moved_positions_by_project.get(pid, {})
-        if overrides:
-            # fetch shots involved to get names and current delivery
-            shot_ids = [int(sid) for sid in overrides.keys() if sid.isdigit()]
-            if shot_ids:
-                shots = sg_find_shots_by_ids(shot_ids)
-                by_id = {str(s["id"]): s for s in shots}
-                for sid, (wk, dy) in overrides.items():
-                    sh = by_id.get(sid, {"code": sid, "sg_next_delivery": None, "id": int(sid) if sid.isdigit() else sid})
-                    from_date = sh.get("sg_next_delivery")
-                    to_date = _date_from_week_day(wk, dy).isoformat()
-                    moves.append({
-                        "shot_id": sid,
-                        "shot_name": sh.get("code") or f"Shot {sid}",
-                        "from_date": from_date,
-                        "to_week": wk,
-                        "to_day": dy,
-                        "to_date": to_date,
-                    })
+        overrides = moved_positions_by_project.get(project_id, {})
+        if not overrides:
+            return {"moves": moves, "assignments": assigns}
+        # fetch shots involved to get names and current delivery
+        shot_ids = [int(sid) for sid in overrides.keys() if sid.isdigit()]
+        if not shot_ids:
+            return {"moves": moves, "assignments": assigns}
+
+        shots = sg_find_shots_by_ids(shot_ids)
+        by_id = {str(s["id"]): s for s in shots}
+        for sid, (wk, dy) in overrides.items():
+            sh = by_id.get(sid, {"code": sid, "sg_next_delivery": None, "id": int(sid) if sid.isdigit() else sid})
+            from_date = sh.get("sg_next_delivery")
+            to_date = _date_from_week_day(wk, dy).isoformat()
+            moves.append({
+                "shot_id": sid,
+                "shot_name": sh.get("code") or f"Shot {sid}",
+                "from_date": from_date,
+                "to_week": wk,
+                "to_day": dy,
+                "to_date": to_date,
+            })
+
     except Exception:
         # If ShotGrid not configured, still show moves based on overrides only
-        overrides = moved_positions_by_project.get(pid, {})
+        overrides = moved_positions_by_project.get(project_id, {})
         for sid, (wk, dy) in overrides.items():
             to_date = _date_from_week_day(wk, dy).isoformat()
             moves.append({
@@ -525,44 +527,41 @@ def list_changes(project_id: Optional[str] = None):
                 "to_date": to_date,
             })
 
-    assigns = project_assignments.get(pid, {})
     return {"moves": moves, "assignments": assigns}
 
 @app.post("/api/publish")
 def publish_changes(project_id: Optional[str] = None):
-    if not project_id:
-        raise HTTPException(status_code=400, detail="project_id required")
-    pid = str(project_id)
+
+    project_id = int(project_id)
 
     # Prepare data
-    overrides = moved_positions_by_project.get(pid, {})
-    assigns = project_assignments.get(pid, {})
+    overrides = moved_positions_by_project.get(project_id, {})
+    assigns = project_assignments.get(project_id, {})
 
     # Try publishing to ShotGrid; if not configured, treat as success and clear
     try:
-        sg_publish_changes(int(pid), overrides, assigns)
+        sg_publish_changes(project_id, overrides, assigns)
     except Exception:
         logger.exception("Failed to publish to ShotGrid; continuing to clear local state")
         # If ShotGrid not configured, still clear and return ok to keep demo usable
 
     # Clear pending changes for the project
-    moved_positions_by_project[pid] = {}
-    project_assignments[pid] = {}
+    moved_positions_by_project[project_id] = {}
+    project_assignments[project_id] = {}
 
     return {"ok": True}
 
 
 @app.get("/api/annotations")
 def get_annotations(project_id: Optional[str] = None):
-    if not project_id:
-        return {}
     try:
-        data = sg_get_project_annotations(int(project_id))
-        if not isinstance(data, dict):
+        annotations = sg_get_project_annotations(int(project_id))
+        if not isinstance(annotations, dict):
             return {}
+
         # Ensure values are objects with text and color
         out: Dict[str, Dict[str, str]] = {}
-        for k, v in data.items():
+        for k, v in annotations.items():
             if isinstance(v, dict):
                 text = str(v.get("text", ""))
                 color = str(v.get("color", "#c7cbe0"))
