@@ -60,16 +60,35 @@ def server_url():
 
     # One shot scheduled on Wednesday of current week
     wed_str = _current_week_wed_date_str()
+
     appmod.sg_find_project_shots = lambda project_id: [
         {
             "id": 1001,
             "code": "sh010",
             "sg_next_delivery": wed_str,
             "sg_status_list": "wip",
-            "tasks": [{"name": "Animation","id": 23}],
+            "tasks": [{"name": "Animation", "id": 23}],
             "image": {"url": None},
             "sg_sequence": {"name": "SQ01"},
-        }
+        },
+        {
+            "id": 1002,
+            "code": "sh020",
+            "sg_next_delivery": None,
+            "sg_status_list": "wip",
+            "tasks": [{"name": "Animation", "id": 23}],
+            "image": {"url": None},
+            "sg_sequence": {"name": "SQ01"},
+        },
+        {
+            "id": 1003,
+            "code": "sh030",
+            "sg_next_delivery": None,
+            "sg_status_list": "omt",
+            "tasks": [{"name": "Animation", "id": 23}],
+            "image": {"url": None},
+            "sg_sequence": {"name": "SQ01"},
+        },
     ]
 
     # No assets to keep DOM minimal for this test

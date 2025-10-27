@@ -8,6 +8,9 @@ def test_drag_and_drop_shot_between_days(page: Page, server_url: str):
     # Open the Whiteboard page
     page.goto(f"{server_url}/")
 
+    # in order to see the page
+    import time; time.sleep(2000)
+
     # Wait for the project select to populate and the initial week to render
     project_select = page.locator("select#projectSelect")
     expect(project_select).to_be_visible()
