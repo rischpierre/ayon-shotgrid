@@ -19,7 +19,7 @@ from whiteboard.sg_helpers import (
     sg_list_groups,
     sg_find_project_shots,
     sg_find_project_assets,
-    sg_find_tasks_for_shots,
+    sg_find_tasks_for_entities,
     sg_find_shots_by_ids,
     sg_publish_changes,
     sg_get_project_annotations,
@@ -104,23 +104,26 @@ def get_week(week: Week, project_id: str):
         # Fetch artists linked to the project
         sg_artists = sg_find_project_artists(project_id)
         proj_artists: List[Artist] = []
-        for artist in sg_artists:
-            img = artist.get("image") or {}
+        for asset in sg_artists:
+            img = asset.get("image") or {}
             thumb_url = img.get("url") if isinstance(img, dict) else img
 
             # deterministic avatar based on name
             if not thumb_url:
-                key = (artist.get("name") or str(artist.get("id") or "user")).strip()
+                key = (asset.get("name") or str(asset.get("id") or "user")).strip()
                 thumb_url = identicon_thumb(64, key)
 
-            proj_artists.append(Artist(id=artist["id"], name=artist["name"], thumb_url=thumb_url, is_group=False))
+            proj_artists.append(Artist(id=asset["id"], name=asset["name"], thumb_url=thumb_url, is_group=False))
 
         sg_groups = sg_list_groups()
         for group in sg_groups:
-            g_thumb = group.get("sg_thumbnail", {}).get("url")
+            g_thumb = group.get("sg_thumbnail")
             if not g_thumb:
                 continue
-            proj_artists.append(Artist(id=group["id"], name=group["code"], thumb_url=g_thumb, is_group=True))
+            url = g_thumb.get("url")
+            if not url:
+                continue
+            proj_artists.append(Artist(id=group["id"], name=group["code"], thumb_url=url, is_group=True))
 
         # Fetch project annotations
         annotations_map: Dict[str, object] = {}
@@ -152,8 +155,8 @@ def get_week(week: Week, project_id: str):
             Board(id=f"{week}-{d}-assets-1", entity_type=EntityType.Asset, title="Assets"),
         ] for d in Days}
         board_items: Dict[str, List[Item]] = {f"{week}-{d}-shots-1": [] for d in Days}
-        for d in Days:
-            board_items[f"{week}-{d}-assets-1"] = []
+        for day in Days:
+            board_items[f"{week}-{day}-assets-1"] = []
 
         # Date mapping helpers
         today = datetime.date.today()
@@ -166,7 +169,7 @@ def get_week(week: Week, project_id: str):
         no_due: List[Item] = []
         on_hold_list: List[Item] = []
         omitted_list: List[Item] = []
-        seq_names: Set[str] = set()
+        parent_names: Set[str] = set()
         for shot in sg_shots:
             status = shot.get("sg_status_list")
             img = shot.get("image") or {}
@@ -176,16 +179,17 @@ def get_week(week: Week, project_id: str):
                 key = str(shot.get("id") or shot.get("code") or "shot")
                 thumb_url = solid_color_thumb(96, 64, key)
             seq_name = shot.get("sg_sequence", {}).get("name")
-            if seq_name:
-                seq_names.add(seq_name)
 
-            shot_item = Item(id=shot["id"], name=shot["code"], thumb_url=thumb_url, sequence=seq_name, entity_type=EntityType.Shot)
+            if seq_name:
+                parent_names.add(seq_name)
+
+            asset_item = Item(id=shot["id"], name=shot["code"], thumb_url=thumb_url, parent=seq_name, entity_type=EntityType.Shot)
 
             if status == "hld":
-                on_hold_list.append(shot_item)
+                on_hold_list.append(asset_item)
                 continue
             if status == "omt":
-                omitted_list.append(shot_item)
+                omitted_list.append(asset_item)
                 continue
 
             # Default placement from delivery date
@@ -198,139 +202,157 @@ def get_week(week: Week, project_id: str):
                     dt = None
 
             wk_day = to_week_and_day(dt, current_monday=monday) if dt else None
-            if shot_item.id in proj_over:
-                wk_day = proj_over[shot_item.id]
+            if asset_item.id in proj_over:
+                wk_day = proj_over[asset_item.id]
 
             if not wk_day:
-                no_due.append(shot_item)
+                no_due.append(asset_item)
                 continue
             wk, day = wk_day
             if wk != week:
                 # Only place into the requested week's board, but still continue loop to build full lists above
                 continue
-            board_items[f"{week}-{day}-shots-1"].append(shot_item)
+            board_items[f"{week}-{day}-shots-1"].append(asset_item)
 
         # Assets classification and placement for requested week
         assets_no_due: List[Item] = []
         asset_types: Set[str] = set()
-        for artist in sg_assets:
-            status = (artist.get("sg_status_list") or "").strip().lower()
-            img = artist.get("image") or {}
+        for asset in sg_assets:
+            status = asset.get("sg_status_list")
+            img = asset.get("image") or {}
             thumb_url = img.get("url") if isinstance(img, dict) else img
             if not thumb_url:
-                key = str(artist.get("id") or artist.get("code") or "asset")
+                key = str(asset.get("id") or asset.get("code") or "asset")
                 thumb_url = solid_color_thumb(96, 64, key)
-            a_type = artist.get("sg_asset_type") or None
-            if a_type:
-                asset_types.add(str(a_type))
-            aid_str = str(artist.get("id"))
-            shot_item = Item(id=aid_str, name=artist.get("code") or f"Asset {artist.get('id')}", thumb_url=thumb_url, sequence=str(a_type) if a_type else None)
+
+            asset_type = asset.get("sg_asset_type")
+            if asset_type:
+                asset_types.add(str(asset_type))
+            id = asset["id"]
+            asset_item = Item(
+                id=id,
+                name=asset.get("code"),
+                thumb_url=thumb_url,
+                parent=asset_type,
+                entity_type=EntityType.Asset,
+            )
 
             # Respect on hold/omitted similarly to shots
             if status == "hld":
                 # No special hold/omit boards for assets in UI yet; place into no-due list to keep visible
-                assets_no_due.append(shot_item)
+                assets_no_due.append(asset_item)
                 continue
             if status == "omt":
                 # Skip omitted assets by default
                 continue
 
-            raw_date = artist.get("sg_next_delivery")
+            raw_date = asset.get("sg_next_delivery")
             adt = None
             if raw_date:
                 try:
                     adt = datetime.date.fromisoformat(str(raw_date))
                 except Exception:
                     adt = None
-            wk_day = to_week_and_day(adt) if adt else None
-            # Apply override if present (support assets moves too)
-            if aid_str in proj_over:
-                wk_day = proj_over[aid_str]
+
+            monday = today - datetime.timedelta(days=(datetime.date.today().weekday()))  #
+            wk_day = to_week_and_day(adt, monday) if adt else None
+
+            if id in proj_over:
+                wk_day = proj_over[id]
+
             if not wk_day:
-                assets_no_due.append(shot_item)
+                assets_no_due.append(asset_item)
                 continue
             awk, aday = wk_day
             if awk != week:
                 continue
-            board_items[f"{week}-{aday}-assets-1"].append(shot_item)
+            board_items[f"{week}-{aday}-assets-1"].append(asset_item)
 
-        # Build assignments map for shot IDs present in this snapshot
-        present_shot_ids: Set[str] = set()
-        for d in Days:
-            for it in board_items.get(f"{week}-{d}-shots-1", []):
-                present_shot_ids.add(it.id)
-        # Include assets present in this snapshot as well, so assignments can attach to assets
-        for d in Days:
-            for it in board_items.get(f"{week}-{d}-assets-1", []):
-                present_shot_ids.add(it.id)
+        shot_ids: Set[int] = set()
+        asset_ids: Set[int] = set()
+        for day in Days:
+            for item in board_items.get(f"{week}-{day}-shots-1", []):
+                shot_ids.add(item.id)
 
-        a_map: Dict[str, List[AssignedTask]] = {}
-        tasks_map: Dict[str, List[str]] = {}
+            for item in board_items.get(f"{week}-{day}-assets-1", []):
+                asset_ids.add(item.id)
 
-        # Prefill from ShotGrid existing Tasks/assignees so assignments show on initial load
-        if present_shot_ids:
+        assignee_map: Dict[int, List[AssignedTask]] = {}
+        tasks_map: Dict[int, List[str]] = {}
+
+        current_ids = shot_ids or asset_ids
+        if current_ids:
             try:
-                sg_tasks = sg_find_tasks_for_shots(project_id, [int(sid) for sid in present_shot_ids if sid.isdigit()])
-                for t in sg_tasks:
-                    ent = t.get("entity") or {}
-                    sid = str(ent.get("id")) if ent else None
-                    if not sid or sid not in present_shot_ids:
+                if shot_ids:
+                    sg_tasks = sg_find_tasks_for_entities(project_id, EntityType.Shot, list(shot_ids))
+                else:
+                    sg_tasks = sg_find_tasks_for_entities(project_id, EntityType.Asset, list(asset_ids))
+
+                for task in sg_tasks:
+                    entity = task.get("entity") or {}
+                    entity_id = entity.get("id") if entity else None
+                    if not entity_id or entity_id not in current_ids:
                         continue
-                    task_name = (t.get("content") or "").strip()
+
+                    task_name = task.get("content")
+
                     # Build per-shot tasks list
                     if task_name:
-                        cur_list = tasks_map.setdefault(sid, [])
+                        cur_list = tasks_map.setdefault(entity_id, [])
                         if task_name not in cur_list:
                             cur_list.append(task_name)
-                    assignees = t.get("task_assignees") or []
+
+                    assignees = task.get("task_assignees")
                     if not task_name or not assignees:
                         continue
-                    lst = a_map.setdefault(sid, [])
-                    for hu in assignees:
-                        if not isinstance(hu, dict):
+
+                    lst = assignee_map.setdefault(entity_id, [])
+
+                    for assignee in assignees:
+                        if not isinstance(assignee, dict):
                             continue
-                        hu_id = hu.get("id")
-                        hu_type = (hu.get("type") or "HumanUser").strip()
-                        if hu_id is None:
+
+                        id = assignee.get("id")
+                        type_ = (assignee.get("type") or "HumanUser").strip()
+                        if id is None:
                             continue
-                        aid = f"g:{hu_id}" if hu_type == "Group" else str(hu_id)
+                        aid = f"g:{id}" if type_ == "Group" else str(id)
+
                         if not any(x.artist_id == aid and x.task == task_name for x in lst):
-                            lst.append(AssignedTask(artist_id=aid, task=task_name, task_id=str(t.get("id")) if t.get("id") is not None else None))
+                            lst.append(AssignedTask(artist_id=aid, task=task_name, task_id=str(task.get("id")) if task.get("id") is not None else None))
             except Exception:
                 logger.exception("Failed to prefill assignments from ShotGrid")
 
         # Merge in pending (in-memory) project assignments, without duplicating
-        proj_assign = project_assignments.get(str(project_id), {})
-        for sid, lst in proj_assign.items():
-            if sid not in present_shot_ids:
+        proj_assign = project_assignments.get(project_id, {})
+        for entity_id, lst in proj_assign.items():
+            if entity_id not in current_ids:
                 continue
-            cur = a_map.setdefault(sid, [])
-            for artist in lst:
-                if not any(x.artist_id == artist.artist_id and x.task == artist.task for x in cur):
-                    cur.append(artist)
+            cur = assignee_map.setdefault(entity_id, [])
+            for asset in lst:
+                if not any(x.artist_id == asset.artist_id and x.task == asset.task for x in cur):
+                    cur.append(asset)
 
         # Apply unassignment overrides so UI hides removed assignees immediately
-        overrides = project_unassign_overrides.get(str(project_id), {})
+        overrides = project_unassign_overrides.get(project_id, {})
         if overrides:
-            for sid, removed_list in overrides.items():
-                if sid in a_map:
-                    existing = a_map[sid]
-                    a_map[sid] = [x for x in existing if not any((x.artist_id == r.artist_id and x.task == r.task) for r in removed_list)]
-
+            for entity_id, removed_list in overrides.items():
+                if entity_id in assignee_map:
+                    existing = assignee_map[entity_id]
+                    assignee_map[entity_id] = [x for x in existing if not any((x.artist_id == r.artist_id and x.task == r.task) for r in removed_list)]
         return WeekSnapshot(
             week=week,
             days=Days,
             boards=boards_by_day,
             board_items=board_items,
             artists=proj_artists,
-            assignments=a_map,
+            assignments=assignee_map,
             no_due_date=sorted(no_due, key=lambda x: x.name.lower()) if no_due else None,
-            sequences=sorted(seq_names) if seq_names else None,
+            parents=sorted(parent_names) or sorted(asset_types),
             on_hold=sorted(on_hold_list, key=lambda x: x.name.lower()) if on_hold_list else None,
             omitted=sorted(omitted_list, key=lambda x: x.name.lower()) if omitted_list else None,
             annotations=annotations_map or None,
             assets_no_due_date=sorted(assets_no_due, key=lambda x: x.name.lower()) if assets_no_due else None,
-            asset_types=sorted(asset_types) if asset_types else None,
             tasks_per_shot=tasks_map or None,
         )
     except Exception:

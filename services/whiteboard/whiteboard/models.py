@@ -34,7 +34,7 @@ class Item(BaseModel):
     id: int  # entity id
     name: str
     thumb_url: str
-    sequence: Optional[str] = None
+    parent: str  # sequence or asset type
     entity_type: EntityType
 
 class Board(BaseModel):
@@ -69,17 +69,14 @@ class WeekSnapshot(BaseModel):
     boards: Dict[Day, List[Board]]
     board_items: Dict[str, List[Item]]  # board_id -> items for all days in week
     artists: List[Artist]
-    assignments: Dict[str, List[AssignedTask]]
+    assignments: Dict[int, List[AssignedTask]]
     no_due_date: Optional[List[Item]] = None
-    sequences: Optional[List[str]] = None
+    parents: Optional[List[str]] = None
     on_hold: Optional[List[Item]] = None
     omitted: Optional[List[Item]] = None
     annotations: Optional[Dict[str, Any]] = None
-    # Assets-specific extras
     assets_no_due_date: Optional[List[Item]] = None
-    asset_types: Optional[List[str]] = None
-    # Per-shot tasks to allow differing task sets per shot
-    tasks_per_shot: Optional[Dict[str, List[str]]] = None
+    tasks_per_shot: Optional[Dict[int, List[str]]] = None
 
 class Project(BaseModel):
     id: Any

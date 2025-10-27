@@ -7,6 +7,8 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import ayon_api
 import shotgun_api3
 
+from whiteboard.models import EntityType
+
 logger = logging.getLogger(__name__)
 
 _SG_LOCAL = threading.local()
@@ -109,11 +111,17 @@ def sg_find_project_assets(project_id: int) -> List[Dict[str, Any]]:
     return sg.find("Asset", a_filters, a_fields, order=[{"field_name": "code", "direction": "asc"}])
 
 
-def sg_find_tasks_for_shots(project_id: int, shot_ids: Sequence[int]) -> List[Dict[str, Any]]:
+def sg_find_tasks_for_entities(project_id: int, entity_type: EntityType, ids: Sequence[int]) -> List[Dict[str, Any]]:
     sg = get_sg_session()
     task_fields = ["id", "content", "entity", "task_assignees"]
-    t_filters = [["project", "is", {"type": "Project", "id": project_id}], ["entity", "in", [{"type": "Shot", "id": int(sid)} for sid in shot_ids]]]
-    return sg.find("Task", t_filters, task_fields, limit=2000)
+    if entity_type == EntityType.Shot:
+        filters = [["project", "is", {"type": "Project", "id": project_id}],
+                   ["entity.Shot.id", "in", ids]]
+    else:
+        filters = [["project", "is", {"type": "Project", "id": project_id}],
+                   ["entity.Asset.id", "in", ids]]
+
+    return sg.find("Task", filters, task_fields)
 
 
 def sg_find_shots_by_ids(shot_ids: Sequence[int]) -> List[Dict[str, Any]]:
