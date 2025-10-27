@@ -1,17 +1,17 @@
 from __future__ import annotations
-from typing import Dict, List, Optional, Tuple, Set
-import os
+
 import datetime
 import logging
+import os
+from typing import Set
 
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-import uvicorn
-
-from whiteboard.models import *
 
 from whiteboard.helpers import identicon_thumb, solid_color_thumb, _date_from_week_day, to_week_and_day
+from whiteboard.models import *
 from whiteboard.sg_helpers import (
     sg_list_projects,
     sg_find_tasks_per_entity,
@@ -35,15 +35,18 @@ root = os.path.dirname(os.path.abspath(__file__))
 static_dir = os.path.join(root, "static")
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
+
 @app.get("/")
 def index():
     path = os.path.join(root, "static", "index.html")
     return FileResponse(path, media_type="text/html")
 
+
 @app.get("/api/projects", response_model=List[Project])
 def list_projects():
     projs = sg_list_projects()
     return [Project(id=p.get("id"), name=p.get("name")) for p in projs]
+
 
 @app.get("/api/tasks")
 def get_tasks(project_id: str):
@@ -74,12 +77,9 @@ def get_day(day: Day):
                 a_map[iid] = assignments[iid]
 
     return DaySnapshot(
-        day=day,
-        boards=day_boards,
-        board_items=board_items_map,
-        artists=list(artists.values()),
-        assignments=a_map
+        day=day, boards=day_boards, board_items=board_items_map, artists=list(artists.values()), assignments=a_map
     )
+
 
 @app.get("/api/week/{week}", response_model=WeekSnapshot)
 def get_week(week: Week, project_id: str):
@@ -134,10 +134,13 @@ def get_week(week: Week, project_id: str):
         sg_assets = sg_find_project_assets(project_id)
 
         # Prepare minimal board structure: one shots board (index 1) per day, plus matching empty assets board
-        boards_by_day: Dict[Day, List[Board]] = {d: [
-            Board(id=f"{week}-{d}-shots-1", entity_type=EntityType.Shot, title="Shots"),
-            Board(id=f"{week}-{d}-assets-1", entity_type=EntityType.Asset, title="Assets"),
-        ] for d in Days}
+        boards_by_day: Dict[Day, List[Board]] = {
+            d: [
+                Board(id=f"{week}-{d}-shots-1", entity_type=EntityType.Shot, title="Shots"),
+                Board(id=f"{week}-{d}-assets-1", entity_type=EntityType.Asset, title="Assets"),
+            ]
+            for d in Days
+        }
         board_items: Dict[str, List[Item]] = {f"{week}-{d}-shots-1": [] for d in Days}
         for day in Days:
             board_items[f"{week}-{day}-assets-1"] = []
@@ -146,7 +149,6 @@ def get_week(week: Week, project_id: str):
         today = datetime.date.today()
         # Find Monday of current ISO week
         monday = today - datetime.timedelta(days=(today.weekday()))  # Monday=0
-
 
         # Place shots occurring in requested week into that week's boards
         proj_over = moved_positions_by_project.get(project_id, {})
@@ -167,7 +169,9 @@ def get_week(week: Week, project_id: str):
             if seq_name:
                 parent_names.add(seq_name)
 
-            asset_item = Item(id=shot["id"], name=shot["code"], thumb_url=thumb_url, parent=seq_name, entity_type=EntityType.Shot)
+            asset_item = Item(
+                id=shot["id"], name=shot["code"], thumb_url=thumb_url, parent=seq_name, entity_type=EntityType.Shot
+            )
 
             if status == "hld":
                 on_hold_list.append(asset_item)
@@ -268,9 +272,13 @@ def get_week(week: Week, project_id: str):
         if current_ids:
             try:
                 if shot_ids:
-                    sg_tasks = [task for shot_id, task in tasks_per_entity[EntityType.Shot].items() if shot_id in shot_ids]
+                    sg_tasks = [
+                        task for shot_id, task in tasks_per_entity[EntityType.Shot].items() if shot_id in shot_ids
+                    ]
                 else:
-                    sg_tasks = [task for asset_id, task in tasks_per_entity[EntityType.Asset].items() if asset_id in asset_ids]
+                    sg_tasks = [
+                        task for asset_id, task in tasks_per_entity[EntityType.Asset].items() if asset_id in asset_ids
+                    ]
 
                 for sg_task in sg_tasks:
                     entity = sg_task.get("entity") or {}
@@ -298,13 +306,15 @@ def get_week(week: Week, project_id: str):
 
                         id = assignee["id"]
 
-                        if not any(x.artist_id == id and x.task == task_name for x in lst):
-                            lst.append(AssignedTask(
-                                artist_is_group=True if assignee["type"] == "Group" else False,
-                                artist_id=id,
-                                task=task_name,
-                                task_id=sg_task["id"],
-                            ))
+                        if not any(x.artist_id == id and x.task_name == task_name for x in lst):
+                            lst.append(
+                                AssignedTask(
+                                    artist_is_group=True if assignee["type"] == "Group" else False,
+                                    artist_id=id,
+                                    task_name=task_name,
+                                    task_id=sg_task["id"],
+                                )
+                            )
             except Exception:
                 logger.exception("Failed to prefill assignments from ShotGrid")
 
@@ -315,7 +325,7 @@ def get_week(week: Week, project_id: str):
                 continue
             cur = assignee_map.setdefault(entity_id, [])
             for asset in lst:
-                if not any(x.artist_id == asset.artist_id and x.task == asset.task for x in cur):
+                if not any(x.artist_id == asset.artist_id and x.task_name == asset.task_name for x in cur):
                     cur.append(asset)
 
         # Apply unassignment overrides so UI hides removed assignees immediately
@@ -324,7 +334,11 @@ def get_week(week: Week, project_id: str):
             for entity_id, removed_list in overrides.items():
                 if entity_id in assignee_map:
                     existing = assignee_map[entity_id]
-                    assignee_map[entity_id] = [x for x in existing if not any((x.artist_id == r.artist_id and x.task == r.task) for r in removed_list)]
+                    assignee_map[entity_id] = [
+                        x
+                        for x in existing
+                        if not any((x.artist_id == r.artist_id and x.task_name == r.task_name) for r in removed_list)
+                    ]
         return WeekSnapshot(
             week=week,
             days=Days,
@@ -352,18 +366,25 @@ def move_item(req: MoveByWeekDayRequest, project_id: Optional[str] = None):
     mp[int(req.item_id)] = (req.to_week, req.to_day)
     return {"ok": True}
 
+
 @app.post("/api/assign")
 def assign_artist(req: AssignArtistRequest, project_id: str):
-    artist_id, artist_is_group, entity_id, entity_type, task = \
-        (req["artist_id"], req["artist_is_group"], req["entity_id"], req["entity_type"], req["task"])
 
     project_id = int(project_id)
     assign_map = project_assignments.setdefault(project_id, {})
-    cur = assign_map.setdefault(req.shot_id, [])
+    assignments = assign_map.setdefault(req.shot_id, [])
 
-    if not any(a.artist_id == req.artist_id and a.task == req.task for a in cur):
-        cur.append(AssignedTask(artist_id=req.artist_id, artist_is_group=artist_is_group, task=req.task))
-    return {"ok": True, "shot_id": req.shot_id, "assignments": cur}
+    if not any(a.artist_id == req.artist_id and a.task_name == req.task_name for a in assignments):
+        assignments.append(
+            AssignedTask(
+                artist_id=req.artist_id,
+                artist_is_group=req.artist_is_group,
+                task_name=req.task_name,
+                task_id=req.task_id,
+            )
+        )
+    return {"ok": True, "shot_id": req.shot_id, "assignments": assignments}
+
 
 @app.post("/api/unassign")
 def unassign_artist(req: AssignArtistRequest, project_id: Optional[str] = None):
@@ -373,14 +394,21 @@ def unassign_artist(req: AssignArtistRequest, project_id: Optional[str] = None):
     cur = pmap.get(req.shot_id, [])
 
     # Filter out matching entries
-    filtered = [a for a in cur if not (a.artist_id == req.artist_id and a.task == req.task)]
+    filtered = [a for a in cur if not (a.artist_id == req.artist_id and a.task_name == req.task_name)]
     pmap[req.shot_id] = filtered
 
     # Record an override so prefilled ShotGrid assignees are hidden in the UI
     ov_map = project_unassign_overrides.setdefault(project_id, {})
     ov_list = ov_map.setdefault(req.shot_id, [])
-    if not any(a.artist_id == req.artist_id and a.task == req.task for a in ov_list):
-        ov_list.append(AssignedTask(artist_id=req.artist_id, task=req.task, artist_is_group=req.artist_is_group))
+    if not any(a.artist_id == req.artist_id and a.task_name == req.task_name for a in ov_list):
+        ov_list.append(
+            AssignedTask(
+                artist_id=req.artist_id,
+                task_name=req.task_name,
+                task_id=req.task_id,
+                artist_is_group=req.artist_is_group,
+            )
+        )
     return {"ok": True, "shot_id": req.shot_id, "assignments": filtered}
 
 
@@ -407,30 +435,35 @@ def list_changes(project_id: Optional[str] = None):
             sh = by_id.get(sid, {"code": sid, "sg_next_delivery": None, "id": int(sid) if sid.isdigit() else sid})
             from_date = sh.get("sg_next_delivery")
             to_date = _date_from_week_day(wk, dy).isoformat()
-            moves.append({
-                "shot_id": sid,
-                "shot_name": sh.get("code") or f"Shot {sid}",
-                "from_date": from_date,
-                "to_week": wk,
-                "to_day": dy,
-                "to_date": to_date,
-            })
+            moves.append(
+                {
+                    "shot_id": sid,
+                    "shot_name": sh.get("code") or f"Shot {sid}",
+                    "from_date": from_date,
+                    "to_week": wk,
+                    "to_day": dy,
+                    "to_date": to_date,
+                }
+            )
 
     except Exception:
         # If ShotGrid not configured, still show moves based on overrides only
         overrides = moved_positions_by_project.get(project_id, {})
         for sid, (wk, dy) in overrides.items():
             to_date = _date_from_week_day(wk, dy).isoformat()
-            moves.append({
-                "shot_id": sid,
-                "shot_name": f"Shot {sid}",
-                "from_date": None,
-                "to_week": wk,
-                "to_day": dy,
-                "to_date": to_date,
-            })
+            moves.append(
+                {
+                    "shot_id": sid,
+                    "shot_name": f"Shot {sid}",
+                    "from_date": None,
+                    "to_week": wk,
+                    "to_day": dy,
+                    "to_date": to_date,
+                }
+            )
 
     return {"moves": moves, "assignments": assigns}
+
 
 @app.post("/api/publish")
 def publish_changes(project_id: Optional[str] = None):
@@ -489,9 +522,9 @@ def set_annotation(payload: Dict[str, str], project_id: Optional[str] = None):
     day = payload.get("day")
     text = payload.get("text", "")
     color = payload.get("color", "#c7cbe0")
-    if week not in ("w0","w1","w2","w3"):
+    if week not in ("w0", "w1", "w2", "w3"):
         raise HTTPException(status_code=400, detail="invalid week")
-    if day not in ("mon","tue","wed","thu","fri"):
+    if day not in ("mon", "tue", "wed", "thu", "fri"):
         raise HTTPException(status_code=400, detail="invalid day")
     key = f"{week}/{day}"
     try:
@@ -526,10 +559,13 @@ def set_annotation(payload: Dict[str, str], project_id: Optional[str] = None):
         logger.exception("Failed to save annotation to ShotGrid")
         raise HTTPException(status_code=500, detail="Failed to save annotation")
 
+
 def service_main() -> int:
     # Configure logging
     log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
-    logging.basicConfig(level=getattr(logging, log_level, logging.INFO), format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
+    logging.basicConfig(
+        level=getattr(logging, log_level, logging.INFO), format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    )
     logger.info("Running Whiteboard server")
     host = os.environ.get("WHITEBOARD_SERVER_HOST")
     port = os.environ.get("WHITEBOARD_SERVER_PORT")
@@ -537,6 +573,7 @@ def service_main() -> int:
     assert port, "WHITEBOARD_SERVER_PORT env var not set"
     uvicorn.run(app, host=host, port=int(port))
     return 0
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="localhost", port=8000)

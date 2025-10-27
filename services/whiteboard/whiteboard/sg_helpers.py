@@ -1,6 +1,7 @@
 from __future__ import annotations
-import os
+
 import logging
+import os
 import threading
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -59,6 +60,7 @@ def sg_list_projects() -> List[Dict[str, Any]]:
     filters = [["sg_status", "is", "Active"]]
     return sg.find("Project", filters, fields, order=[{"field_name": "name", "direction": "asc"}])
 
+
 def sg_find_project_artists(project_id: int) -> List[Dict[str, Any]]:
     sg = get_sg_session()
     a_fields = ["name", "image"]
@@ -87,6 +89,7 @@ def sg_find_project_assets(project_id: int) -> List[Dict[str, Any]]:
     a_fields = ["code", "sg_next_delivery", "image", "sg_asset_type", "sg_status_list"]
     a_filters: List[Any] = [["project", "is", {"type": "Project", "id": project_id}]]
     return sg.find("Asset", a_filters, a_fields, order=[{"field_name": "code", "direction": "asc"}])
+
 
 def sg_find_tasks_per_entity(project_id: int) -> dict[EntityType, dict[int, Any]]:
 
@@ -176,7 +179,15 @@ def sg_publish_changes(project_id: int, overrides: Dict[int, Tuple[str, str]], a
                     tid = int(found["id"])  # type: ignore
                     existing = found.get("task_assignees") or []
                     # Check presence
-                    exists = any((isinstance(x, dict) and int(x.get("id", -1)) == assignee_id and (x.get("type") or ("Group" if is_group else "HumanUser")) == ("Group" if is_group else "HumanUser")) for x in existing)
+                    exists = any(
+                        (
+                            isinstance(x, dict)
+                            and int(x.get("id", -1)) == assignee_id
+                            and (x.get("type") or ("Group" if is_group else "HumanUser"))
+                            == ("Group" if is_group else "HumanUser")
+                        )
+                        for x in existing
+                    )
                     if not exists:
                         updated = list(existing) + [assignee]
                         sg.update("Task", tid, {"task_assignees": updated})
@@ -190,7 +201,9 @@ def sg_publish_changes(project_id: int, overrides: Dict[int, Tuple[str, str]], a
                 continue
             if _update_task_for("Asset"):
                 continue
-            logger.warning(f"No existing Task found for item {item_id} with name '{a.task}'. Skipping creation per policy.")
+            logger.warning(
+                f"No existing Task found for item {item_id} with name '{a.task}'. Skipping creation per policy."
+            )
 
 
 def sg_get_project_annotations(project_id: int) -> Dict[str, Any]:
@@ -204,6 +217,7 @@ def sg_get_project_annotations(project_id: int) -> Dict[str, Any]:
         return {}
     try:
         import json
+
         if isinstance(raw, (dict, list)):
             return raw  # in case the field is a dict via API
         return json.loads(str(raw))
@@ -217,6 +231,7 @@ def sg_set_project_annotations(project_id: int, data: Dict[str, Any]) -> None:
     sg = get_sg_session()
     try:
         import json
+
         payload = {"sg_whiteboard_annotations": json.dumps(data)}
         sg.update("Project", int(project_id), payload)
     except Exception:

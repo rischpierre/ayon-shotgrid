@@ -1,7 +1,10 @@
 from __future__ import annotations
+
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Any, Literal
+from typing import Dict, List, Optional, Tuple, Any
+
 from pydantic import BaseModel
+
 
 class Day(Enum):
     mon = "mon"
@@ -10,7 +13,9 @@ class Day(Enum):
     thu = "thu"
     fri = "fri"
 
+
 Days = [Day.mon, Day.tue, Day.wed, Day.thu, Day.fri]
+
 
 class Week(Enum):
     w0 = "w0"  # current week
@@ -18,17 +23,21 @@ class Week(Enum):
     w2 = "w2"  # two weeks from now
     w3 = "w3"  # three weeks from now
 
+
 Weeks = [Week.w0, Week.w1, Week.w2, Week.w3]
+
 
 class EntityType(Enum):
     Shot = "Shot"
     Asset = "Asset"
+
 
 class Artist(BaseModel):
     id: int
     name: str
     thumb_url: str
     is_group: bool
+
 
 class Item(BaseModel):
     id: int  # entity id
@@ -37,27 +46,27 @@ class Item(BaseModel):
     parent: str  # sequence or asset type
     entity_type: EntityType
 
+
 class Board(BaseModel):
-    id: str         # e.g., "shots-1", "assets-3"
+    id: str  # e.g., "shots-1", "assets-3"
     entity_type: EntityType
     title: str
-
-# todo is this used ?
-Task = str
 
 
 class AssignedTask(BaseModel):
     artist_id: int
     artist_is_group: bool
-    task: Task
+    task_name: str
     task_id: int
+
 
 class DaySnapshot(BaseModel):
     day: Day
     boards: List[Board]
     board_items: Dict[str, List[Item]]  # board_id -> items
     artists: List[Artist]
-    assignments: Dict[str, List[AssignedTask]]   # shot_id -> [AssignedTask]
+    assignments: Dict[str, List[AssignedTask]]  # shot_id -> [AssignedTask]
+
 
 class WeekSnapshot(BaseModel):
     week: Week
@@ -74,9 +83,11 @@ class WeekSnapshot(BaseModel):
     assets_no_due_date: Optional[List[Item]] = None
     tasks_per_shot: Optional[Dict[int, List[str]]] = None
 
+
 class Project(BaseModel):
     id: int
     name: str
+
 
 class MoveByWeekDayRequest(BaseModel):
     item_id: int
@@ -85,24 +96,26 @@ class MoveByWeekDayRequest(BaseModel):
     to_day: Day
     to_index: Optional[int] = None
 
+
 class AssignArtistRequest(BaseModel):
     artist_id: int
     artist_is_group: bool
     shot_id: int
-    task: Task
+    task_name: str
+    task_id: int
 
 
 artists: Dict[str, Artist] = {}
 # week -> day -> board_id -> list[item_id]
 weeks_days: Dict[Week, Dict[Day, Dict[str, List[str]]]] = {}
 boards: Dict[str, Board] = {}
-items: Dict[str, Item] = {}                # shots and assets share same map; differentiate by board membership
-assignments: Dict[int, List[AssignedTask]] = {}     # shot_id -> [AssignedTask, ...]
+items: Dict[str, Item] = {}  # shots and assets share same map; differentiate by board membership
+assignments: Dict[int, List[AssignedTask]] = {}  # shot_id -> [AssignedTask, ...]
 
 # Per-project overrides and assignments (project-aware mode)
 moved_positions_by_project: Dict[int, Dict[int, Tuple[Week, Day]]] = {}  # project_id -> shot_id -> (week, day)
 project_assignments: Dict[int, Dict[int, List[AssignedTask]]] = {}  # project_id -> shot_id -> [AssignedTask]
-project_unassign_overrides: Dict[int, Dict[int, List[AssignedTask]]] = {}  # project_id -> shot_id -> [AssignedTask] marked for removal
+project_unassign_overrides: Dict[int, Dict[int, List[AssignedTask]]] = (
+    {}
+)  # project_id -> shot_id -> [AssignedTask] marked for removal
 tasks_per_entity: Dict[EntityType, dict[int, Any]] = {}
-
-

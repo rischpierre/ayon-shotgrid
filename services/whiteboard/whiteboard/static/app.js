@@ -34,10 +34,10 @@ const taskPickerHeader = document.getElementById('taskPickerHeader');
 
 class PendingAssign {
     constructor(artist_id, artist_is_group, entity_id, entity_type) {
-        this.artist_id = String(artist_id);
+        this.artist_id = int(artist_id);
         this.artist_is_group = artist_is_group;
-        this.entity_id = String(entity_id);
-        this.entity_type = entity_type;
+        this.entity_id = int(entity_id);
+        this.entity_type = String(entity_type);
     }
 }
 let pendingAssign = /** @type {PendingAssign|null} */ (null);
@@ -192,15 +192,15 @@ dayMenu.addEventListener('mouseleave', () => {
 
 function buildTaskOptions(entity_id, entity_type) {
     taskOptions.innerHTML = '';
-    const defaultList = TASKS_PER_ENTITY[entity_type][entity_id];
-    const list = Array.isArray(taskListOverride) && taskListOverride.length ? taskListOverride : defaultList;
-    for (const tRaw of list) {
-        const t = String(tRaw);
+    const tasks = TASKS_PER_ENTITY[entity_type][entity_id];
+    for (const task of tasks) {
+        const task_name = String(task["name"]);
+        const task_id = String(task["id"]);
         const opt = document.createElement('div');
         opt.className = 'task-option';
-        opt.dataset.task = t;
-        const label = t.length ? (t[0].toUpperCase()+t.slice(1)) : t;
-        opt.innerHTML = `<div class="task-swatch" style="background:${colorForTask(t)}"></div><div class="task-label">${label}</div>`;
+        opt.dataset.task = task_name;
+        const label = task_name.length ? (task_name[0].toUpperCase()+task_name.slice(1)) : task_name;
+        opt.innerHTML = `<div class="task-swatch" style="background:${colorForTask(task_name)}"></div><div class="task-label">${label}</div>`;
         opt.addEventListener('click', async () => {
             if (!pendingAssign) return;
             const pending_assign = pendingAssign; // capture before hiding (hideTaskPicker clears it)
@@ -209,7 +209,8 @@ function buildTaskOptions(entity_id, entity_type) {
                 artist_is_group: pending_assign.artist_is_group,
                 entity_id: pending_assign.entity_id,
                 entity_type: pending_assign.entity_type,
-                task: t
+                task_name: task_name,
+                task_id: task_id,
             }
 
             hideTaskPicker();
