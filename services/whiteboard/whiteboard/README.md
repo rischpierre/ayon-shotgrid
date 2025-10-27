@@ -36,3 +36,34 @@
 - [ ] get tasks per entity instead of getting a sample for all the shots and assets in the project
 
 - [ ] update the 0.0.0-prod addon version so I can deploy the whiteboard on the prod version
+ 
+- [ ] make the manual tests
+
+
+
+# Tests to do
+for assets:
+- [ ] move an entity on another day
+- [ ] set an entity to no date (right click menu)
+ 
+- [ ] create an annotation with a color
+- [ ] change the color
+- [ ] remove the annotation
+
+- [ ] assign an artist
+- [ ] unassign an artist
+- [ ] assign a group
+- [ ] unassign a group
+ 
+for shots:
+- [ ] move an entity on another day
+- [ ] set an entity to no date (right click menu)
+ 
+- [ ] create an annotation with a color
+- [ ] change the color
+- [ ] remove the annotation
+
+- [ ] assign an artist
+- [ ] unassign an artist
+- [ ] assign a group
+- [ ] unassign a group
