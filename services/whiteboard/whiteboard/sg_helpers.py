@@ -59,28 +59,6 @@ def sg_list_projects() -> List[Dict[str, Any]]:
     filters = [["sg_status", "is", "Active"]]
     return sg.find("Project", filters, fields, order=[{"field_name": "name", "direction": "asc"}])
 
-
-def sg_get_sample_tasks_for_entity(project_id: int, entity_type: str, limit: int = 8) -> List[str]:
-    """Return up to `limit` distinct task names for the first entity of given type in the project."""
-    sg = get_sg_session()
-    ent = sg.find_one(entity_type, [["project", "is", {"type": "Project", "id": project_id}]], ["id"], order=[{"field_name": "id", "direction": "asc"}])
-    if not ent:
-        return []
-    t_fields = ["content"]
-    t_filters = [["project", "is", {"type": "Project", "id": project_id}], ["entity", "is", {"type": entity_type, "id": ent["id"]}]]
-    t_list = sg.find("Task", t_filters, t_fields, order=[{"field_name": "content", "direction": "asc"}])
-    names: List[str] = []
-    seen = set()
-    for t in t_list:
-        name = (t.get("content") or "").strip()
-        if name and name.lower() not in seen:
-            seen.add(name.lower())
-            names.append(name)
-        if len(names) >= limit:
-            break
-    return names
-
-
 def sg_find_project_artists(project_id: int) -> List[Dict[str, Any]]:
     sg = get_sg_session()
     a_fields = ["name", "image"]
@@ -110,18 +88,16 @@ def sg_find_project_assets(project_id: int) -> List[Dict[str, Any]]:
     a_filters: List[Any] = [["project", "is", {"type": "Project", "id": project_id}]]
     return sg.find("Asset", a_filters, a_fields, order=[{"field_name": "code", "direction": "asc"}])
 
+def sg_find_tasks_per_entity(project_id: int) -> dict[EntityType, dict[int, Any]]:
 
-def sg_find_tasks_for_entities(project_id: int, entity_type: EntityType, ids: Sequence[int]) -> List[Dict[str, Any]]:
     sg = get_sg_session()
     task_fields = ["id", "content", "entity", "task_assignees"]
-    if entity_type == EntityType.Shot:
-        filters = [["project", "is", {"type": "Project", "id": project_id}],
-                   ["entity.Shot.id", "in", ids]]
-    else:
-        filters = [["project", "is", {"type": "Project", "id": project_id}],
-                   ["entity.Asset.id", "in", ids]]
-
-    return sg.find("Task", filters, task_fields)
+    tasks = sg.find("Task", [["project.Project.id", "is", project_id]], task_fields)
+    result = {EntityType.Shot: {}, EntityType.Asset: {}}
+    for task in tasks:
+        # enityType -> enity_id -> task
+        result[EntityType[task["entity"]["type"]]][task["entity"]["id"]] = task
+    return result
 
 
 def sg_find_shots_by_ids(shot_ids: Sequence[int]) -> List[Dict[str, Any]]:

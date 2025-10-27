@@ -14,12 +14,11 @@ from whiteboard.models import *
 from whiteboard.helpers import identicon_thumb, solid_color_thumb, _date_from_week_day, to_week_and_day
 from whiteboard.sg_helpers import (
     sg_list_projects,
-    sg_get_sample_tasks_for_entity,
+    sg_find_tasks_per_entity,
     sg_find_project_artists,
     sg_list_groups,
     sg_find_project_shots,
     sg_find_project_assets,
-    sg_find_tasks_for_entities,
     sg_find_shots_by_ids,
     sg_publish_changes,
     sg_get_project_annotations,
@@ -47,26 +46,11 @@ def list_projects():
     return [Project(id=p.get("id"), name=p.get("name")) for p in projs]
 
 @app.get("/api/tasks")
-def get_tasks(project_id: Optional[str] = None):
-    """
-    Return task names for shots and assets derived from the first found shot/asset in the project.
-    Fallback to defaults if ShotGrid is unavailable or no tasks found.
-    """
-    default = ["lighting", "tracking", "animation", "layout"]
-    result = {EntityType.Shot: default, EntityType.Asset: default}
-    if not project_id:
-        return result
-    try:
-        pid = int(project_id)
-        s_tasks = sg_get_sample_tasks_for_entity(pid, "Shot")
-        a_tasks = sg_get_sample_tasks_for_entity(pid, "Asset")
-        if s_tasks:
-            result[EntityType.Shot] = s_tasks
-        if a_tasks:
-            result[EntityType.Asset] = a_tasks
-    except Exception:
-        logger.exception("Failed to fetch tasks from ShotGrid")
-    return result
+def get_tasks(project_id: str):
+    global tasks_per_entity
+    tasks_per_entity = sg_find_tasks_per_entity(int(project_id))
+    return tasks_per_entity
+
 
 @app.get("/api/day/{day}", response_model=DaySnapshot)
 def get_day(day: Day):
@@ -284,13 +268,13 @@ def get_week(week: Week, project_id: str):
         if current_ids:
             try:
                 if shot_ids:
-                    sg_tasks = sg_find_tasks_for_entities(project_id, EntityType.Shot, list(shot_ids))
+                    sg_tasks = [task for shot_id, task in tasks_per_entity[EntityType.Shot].items() if shot_id in shot_ids]
                 else:
-                    sg_tasks = sg_find_tasks_for_entities(project_id, EntityType.Asset, list(asset_ids))
+                    sg_tasks = [task for asset_id, task in tasks_per_entity[EntityType.Asset].items() if asset_id in asset_ids]
 
                 for sg_task in sg_tasks:
                     entity = sg_task.get("entity") or {}
-                    entity_id = entity.get("id") if entity else None
+                    entity_id = entity["id"] if entity else None
                     if not entity_id or entity_id not in current_ids:
                         continue
 

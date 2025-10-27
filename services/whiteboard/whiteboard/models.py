@@ -103,5 +103,6 @@ assignments: Dict[int, List[AssignedTask]] = {}     # shot_id -> [AssignedTask, 
 moved_positions_by_project: Dict[int, Dict[int, Tuple[Week, Day]]] = {}  # project_id -> shot_id -> (week, day)
 project_assignments: Dict[int, Dict[int, List[AssignedTask]]] = {}  # project_id -> shot_id -> [AssignedTask]
 project_unassign_overrides: Dict[int, Dict[int, List[AssignedTask]]] = {}  # project_id -> shot_id -> [AssignedTask] marked for removal
+tasks_per_entity: Dict[EntityType, dict[int, Any]] = {}
 
 

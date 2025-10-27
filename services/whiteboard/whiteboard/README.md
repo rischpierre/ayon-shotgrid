@@ -26,11 +26,7 @@
 - [x] load the tasks per shot, in order to avoid avoid errors if a shot don't have the same tasks as the others
 - [x] check if the asset assignments work 
 
-- [ ] bugfix: I cannot drag and dropt assets to day boards and I cannot assign an artist to an asset
- 
 - [ ] add button to remove due date (use a menu to remove the due date from the item) 
 - [ ] get tasks per entity instead of getting a sample for all the shots and assets in the project
- 
-- [ ] on the due date board, limit the number of shots displayed, use a scrollbar if there is more than 3 rows, do the same for the assets 
  
 - [ ] update the 0.0.0-prod addon version so I can deploy the whiteboard on the prod version

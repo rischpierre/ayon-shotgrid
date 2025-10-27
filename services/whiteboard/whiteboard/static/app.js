@@ -16,8 +16,7 @@ const EntityType = Object.freeze({
   Asset: 'Asset',
 });
 
-// Task configuration (loaded dynamically per project)
-let TASKS_PER_ENTITY_TYPE = { shots: ['lighting','tracking','animation','layout'], assets: ['modeling','surfacing','rigging','lookdev'] };
+let TASKS_PER_ENTITY = { "Shot": {}, "Asset": {}};
 
 function hashColor(str) {
     // Simple deterministic HSL color from string
@@ -191,9 +190,9 @@ dayMenu.addEventListener('mouseleave', () => {
     dayColorSub.style.display = 'none';
 });
 
-function buildTaskOptions(taskListOverride, entity_type) {
+function buildTaskOptions(entity_id, entity_type) {
     taskOptions.innerHTML = '';
-    const defaultList = (TASKS_PER_ENTITY_TYPE[entity_type] || TASKS_PER_ENTITY_TYPE[EntityType.Shot] || []);
+    const defaultList = TASKS_PER_ENTITY[entity_type][entity_id];
     const list = Array.isArray(taskListOverride) && taskListOverride.length ? taskListOverride : defaultList;
     for (const tRaw of list) {
         const t = String(tRaw);
@@ -224,11 +223,10 @@ function buildTaskOptions(taskListOverride, entity_type) {
     }
 }
 
-function showTaskPicker(x, y, artistId, artistIsGroup, shotId, entity_type) {
-    pendingAssign = { artist_id: artistId, artist_is_group: artistIsGroup,  entity_id: shotId, entity_type: entity_type};
+function showTaskPicker(x, y, artistId, artistIsGroup, entity_id, entity_type) {
+    pendingAssign = { artist_id: artistId, artist_is_group: artistIsGroup,  entity_id:  entity_id, entity_type: entity_type};
 
-    const perShot = (entity_type === EntityType.Shot && window.tasksPerShot && window.tasksPerShot[shotId]) ? window.tasksPerShot[shotId] : null;
-    buildTaskOptions(perShot, entity_type);
+    buildTaskOptions(entity_id, entity_type);
     taskPicker.style.left = Math.max(8, Math.min(window.innerWidth - 256, x + 8)) + 'px';
     taskPicker.style.top = Math.max(8, Math.min(window.innerHeight - 200, y + 8)) + 'px';
     taskPicker.style.display = 'block';
@@ -263,7 +261,6 @@ document.addEventListener('mousedown', (e) => {
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTaskPicker(); });
 
-buildTaskOptions();
 
 // Determine initial mode from URL (?entity_type=shots|assets)
 (function initModeFromUrl(){
@@ -738,7 +735,6 @@ function renderWeeks(snapshot) {
                             to_week: wk,
                             to_day: day
                         }
-                        console.log(body)
                         const resp = await fetch(`/api/move_item${window.currentProjectId ? `?project_id=${encodeURIComponent(window.currentProjectId)}` : ''}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -784,14 +780,10 @@ async function loadTasks() {
         if (res.ok) {
             const data = await res.json();
             if (data && typeof data === 'object') {
-                TASKS_PER_ENTITY_TYPE = {
-                    shots: Array.isArray(data.shots) && data.shots.length ? data.shots : TASKS_PER_ENTITY_TYPE.shots,
-                    assets: Array.isArray(data.assets) && data.assets.length ? data.assets : TASKS_PER_ENTITY_TYPE.assets,
-                };
+                TASKS_PER_ENTITY = data;
             }
         }
     } catch {}
-    buildTaskOptions();
 }
 
 // Project dropdown + URL sync
