@@ -370,7 +370,8 @@ def move_item(req: MoveByWeekDayRequest, project_id: Optional[str] = None):
 
 @app.post("/api/assign")
 def assign_artist(req: AssignArtistRequest, project_id: str):
-    artist_id, artist_is_group, entity_id, entity_type, task = (req["artist_id"], req["artist_is_group"], req["entity_id"], req["entity_type"], req["task"])
+    artist_id, artist_is_group, entity_id, entity_type, task = \
+        (req["artist_id"], req["artist_is_group"], req["entity_id"], req["entity_type"], req["task"])
 
     project_id = int(project_id)
     assign_map = project_assignments.setdefault(project_id, {})
@@ -395,7 +396,7 @@ def unassign_artist(req: AssignArtistRequest, project_id: Optional[str] = None):
     ov_map = project_unassign_overrides.setdefault(project_id, {})
     ov_list = ov_map.setdefault(req.shot_id, [])
     if not any(a.artist_id == req.artist_id and a.task == req.task for a in ov_list):
-        ov_list.append(AssignedTask(artist_id=req.artist_id, task=req.task))
+        ov_list.append(AssignedTask(artist_id=req.artist_id, task=req.task, artist_is_group=req.artist_is_group))
     return {"ok": True, "shot_id": req.shot_id, "assignments": filtered}
 
 

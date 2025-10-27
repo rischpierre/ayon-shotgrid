@@ -62,12 +62,12 @@ function hideContextMenu() {
 }
 ctxUnassign.addEventListener('click', async () => {
     if (!ctxData) return;
-    const { artistId, shotId, task } = ctxData;
+    const { artistId, artist_is_group, shotId, task } = ctxData;
     hideContextMenu();
     try {
         const resp = await fetch(`/api/unassign${window.currentProjectId ? `?project_id=${encodeURIComponent(window.currentProjectId)}` : ''}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ artist_id: artistId, shot_id: shotId, task })
+            body: JSON.stringify({ artist_id: artistId, artist_is_group: artist_is_group,shot_id: shotId, task: task })
         });
         if (resp.ok) await loadMode(currentMode);
     } catch {}
@@ -681,22 +681,23 @@ function renderWeeks(snapshot) {
                 window._itemNameCache[it.id] = it.name;
                 const holder = card.querySelector('.assignees');
                 const assigned = snapshot.assignments[it.id] || [];
-                for (const a of assigned) {
-                    const artist = (window._artistsCache || []).find(x => x.id === a.artist_id);
+                for (const assignment of assigned) {
+                    const artist = (window._artistsCache || []).find(x => x.id === assignment.artist_id);
                     if (!artist) continue;
-                    const av = document.createElement('div');
-                    av.className = 'assignee';
-                    av.style.borderColor = colorForTask(a.task);
-                    av.dataset.artistId = a.artist_id;
-                    av.dataset.task = a.task;
-                    av.dataset.shotId = it.id;
-                    av.title = `${artist.name} — ${a.task} (right‑click to unassign)`;
-                    av.innerHTML = `<img src="${artist.thumb_url}" alt="${artist.name}" />`;
-                    av.addEventListener('contextmenu', (e) => {
+                    const div = document.createElement('div');
+                    div.className = 'assignee';
+                    div.style.borderColor = colorForTask(assignment.task);
+                    div.dataset.artistId = assignment.artist_id;
+                    div.dataset.artistIsGroup = assignment.artist_is_group;
+                    div.dataset.task = assignment.task;
+                    div.dataset.shotId = it.id;
+                    div.title = `${artist.name} — ${assignment.task} (right‑click to unassign)`;
+                    div.innerHTML = `<img src="${artist.thumb_url}" alt="${artist.name}" />`;
+                    div.addEventListener('contextmenu', (e) => {
                         e.preventDefault();
-                        showContextMenu(e.clientX, e.clientY, { artistId: a.artist_id, shotId: it.id, task: a.task });
+                        showContextMenu(e.clientX, e.clientY, {artistId: assignment.artist_id, artist_is_group: assignment.artist_is_group, shotId: it.id, task: assignment.task });
                     });
-                    holder.appendChild(av);
+                    holder.appendChild(div);
                 }
                 list.appendChild(card);
             }
