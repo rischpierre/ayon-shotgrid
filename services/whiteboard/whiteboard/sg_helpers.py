@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import ayon_api
 import shotgun_api3
 
-from whiteboard.models import EntityType
+from whiteboard.models import EntityType, Week, Day
 
 logger = logging.getLogger(__name__)
 
@@ -108,12 +108,7 @@ def sg_find_shots_by_ids(shot_ids: Sequence[int]) -> List[Dict[str, Any]]:
     return sg.find("Shot", [["id", "in", list(map(int, shot_ids))]], ["code", "sg_next_delivery"], limit=len(shot_ids))
 
 
-def sg_publish_changes(project_id: int, overrides: Dict[int, Tuple[str, str]], assigns: Dict[int, List[Any]]) -> None:
-    """Perform updates and task creations in ShotGrid.
-
-    overrides: shot_id -> (week, day)
-    assigns: shot_id -> List[AssignedTask-like {artist_id, task}] (duck-typed)
-    """
+def sg_publish_changes(project_id: int, overrides: Dict[int, Tuple[Week, Day]], assigns: Dict[int, List[Any]]) -> None:
     sg = get_sg_session()
     proj = {"type": "Project", "id": int(project_id)}
     from whiteboard.helpers import _date_from_week_day  # local import to avoid circular

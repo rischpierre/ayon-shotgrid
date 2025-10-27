@@ -59,15 +59,6 @@ class AssignedTask(BaseModel):
     task_name: str
     task_id: int
 
-
-class DaySnapshot(BaseModel):
-    day: Day
-    boards: List[Board]
-    board_items: Dict[str, List[Item]]  # board_id -> items
-    artists: List[Artist]
-    assignments: Dict[str, List[AssignedTask]]  # shot_id -> [AssignedTask]
-
-
 class WeekSnapshot(BaseModel):
     week: Week
     days: List[Day]
@@ -109,7 +100,6 @@ artists: Dict[str, Artist] = {}
 # week -> day -> board_id -> list[item_id]
 weeks_days: Dict[Week, Dict[Day, Dict[str, List[str]]]] = {}
 boards: Dict[str, Board] = {}
-items: Dict[str, Item] = {}  # shots and assets share same map; differentiate by board membership
 assignments: Dict[int, List[AssignedTask]] = {}  # shot_id -> [AssignedTask, ...]
 
 # Per-project overrides and assignments (project-aware mode)

@@ -44,8 +44,7 @@ def index():
 
 @app.get("/api/projects", response_model=List[Project])
 def list_projects():
-    projs = sg_list_projects()
-    return [Project(id=p.get("id"), name=p.get("name")) for p in projs]
+    return [Project(id=p.get("id"), name=p.get("name")) for p in sg_list_projects()]
 
 
 @app.get("/api/tasks")
@@ -53,33 +52,6 @@ def get_tasks(project_id: str):
     global tasks_per_entity
     tasks_per_entity = sg_find_tasks_per_entity(int(project_id))
     return tasks_per_entity
-
-
-@app.get("/api/day/{day}", response_model=DaySnapshot)
-def get_day(day: Day):
-    # Back-compat endpoint: returns current week (w0) view for a single day
-    if day not in weeks_days.get("w0", {}):
-        raise HTTPException(status_code=404, detail="Day not found")
-
-    b_ids = list(weeks_days["w0"][day].keys())
-    day_boards = [boards[b] for b in b_ids]
-    board_items_map: Dict[str, List[Item]] = {}
-    for b in day_boards:
-        board_items_map[b.id] = [items[iid] for iid in weeks_days["w0"][day][b.id]]
-
-    # Only include shots in assignments map
-    a_map: Dict[str, List[AssignedTask]] = {}
-    for b in day_boards:
-        if b.entity_type != EntityType.Shot:
-            continue
-        for iid in weeks_days["w0"][day][b.id]:
-            if iid in assignments:
-                a_map[iid] = assignments[iid]
-
-    return DaySnapshot(
-        day=day, boards=day_boards, board_items=board_items_map, artists=list(artists.values()), assignments=a_map
-    )
-
 
 @app.get("/api/week/{week}", response_model=WeekSnapshot)
 def get_week(week: Week, project_id: str):
@@ -186,7 +158,8 @@ def get_week(week: Week, project_id: str):
             if raw_date:
                 try:
                     dt = datetime.date.fromisoformat(str(raw_date))
-                except Exception:
+                except Exception as e:
+                    logger.exception(f"Failed to parse shot next delivery date: {e}")
                     dt = None
 
             wk_day = to_week_and_day(dt, current_monday=monday) if dt else None
@@ -216,9 +189,9 @@ def get_week(week: Week, project_id: str):
             asset_type = asset.get("sg_asset_type")
             if asset_type:
                 asset_types.add(str(asset_type))
-            id = asset["id"]
+            asset_id = asset["id"]
             asset_item = Item(
-                id=id,
+                id=asset_id,
                 name=asset.get("code"),
                 thumb_url=thumb_url,
                 parent=asset_type,
@@ -239,14 +212,15 @@ def get_week(week: Week, project_id: str):
             if raw_date:
                 try:
                     adt = datetime.date.fromisoformat(str(raw_date))
-                except Exception:
+                except Exception as e:
+                    logger.exception(f"Failed to parse asset next delivery date: {e}")
                     adt = None
 
             monday = today - datetime.timedelta(days=(datetime.date.today().weekday()))  #
             wk_day = to_week_and_day(adt, monday) if adt else None
 
-            if id in proj_over:
-                wk_day = proj_over[id]
+            if asset_id in proj_over:
+                wk_day = proj_over[asset_id]
 
             if not wk_day:
                 assets_no_due.append(asset_item)
@@ -304,19 +278,19 @@ def get_week(week: Week, project_id: str):
                         if not isinstance(assignee, dict):
                             continue
 
-                        id = assignee["id"]
+                        asset_id = assignee["id"]
 
-                        if not any(x.artist_id == id and x.task_name == task_name for x in lst):
+                        if not any(x.artist_id == asset_id and x.task_name == task_name for x in lst):
                             lst.append(
                                 AssignedTask(
                                     artist_is_group=True if assignee["type"] == "Group" else False,
-                                    artist_id=id,
+                                    artist_id=asset_id,
                                     task_name=task_name,
                                     task_id=sg_task["id"],
                                 )
                             )
-            except Exception:
-                logger.exception("Failed to prefill assignments from ShotGrid")
+            except Exception as e:
+                logger.exception(f"Failed to prefill assignments from ShotGrid: {e}")
 
         # Merge in pending (in-memory) project assignments, without duplicating
         proj_assign = project_assignments.get(project_id, {})
@@ -354,8 +328,8 @@ def get_week(week: Week, project_id: str):
             assets_no_due_date=sorted(assets_no_due, key=lambda x: x.name.lower()) if assets_no_due else None,
             tasks_per_shot=tasks_map or None,
         )
-    except Exception:
-        logger.exception("Failed to build project-aware week snapshot")
+    except Exception as e:
+        logger.exception(f"Failed to build project-aware week snapshot {e}")
 
 
 @app.post("/api/move_item")
@@ -425,20 +399,21 @@ def list_changes(project_id: Optional[str] = None):
         if not overrides:
             return {"moves": moves, "assignments": assigns}
         # fetch shots involved to get names and current delivery
-        shot_ids = [int(sid) for sid in overrides.keys() if sid.isdigit()]
+        shot_ids = list(overrides.keys())
         if not shot_ids:
             return {"moves": moves, "assignments": assigns}
 
+        # todo need to handle assets as well
         shots = sg_find_shots_by_ids(shot_ids)
-        by_id = {str(s["id"]): s for s in shots}
-        for sid, (wk, dy) in overrides.items():
-            sh = by_id.get(sid, {"code": sid, "sg_next_delivery": None, "id": int(sid) if sid.isdigit() else sid})
+        by_id = {s["id"]: s for s in shots}
+        for shot_id, (wk, dy) in overrides.items():
+            sh = by_id.get(shot_id, {"code": shot_id, "sg_next_delivery": None, "id": shot_id})
             from_date = sh.get("sg_next_delivery")
             to_date = _date_from_week_day(wk, dy).isoformat()
             moves.append(
                 {
-                    "shot_id": sid,
-                    "shot_name": sh.get("code") or f"Shot {sid}",
+                    "shot_id": shot_id,
+                    "shot_name": sh.get("code") or f"Shot {shot_id}",
                     "from_date": from_date,
                     "to_week": wk,
                     "to_day": dy,
@@ -449,12 +424,12 @@ def list_changes(project_id: Optional[str] = None):
     except Exception:
         # If ShotGrid not configured, still show moves based on overrides only
         overrides = moved_positions_by_project.get(project_id, {})
-        for sid, (wk, dy) in overrides.items():
+        for shot_id, (wk, dy) in overrides.items():
             to_date = _date_from_week_day(wk, dy).isoformat()
             moves.append(
                 {
-                    "shot_id": sid,
-                    "shot_name": f"Shot {sid}",
+                    "shot_id": shot_id,
+                    "shot_name": f"Shot {shot_id}",
                     "from_date": None,
                     "to_week": wk,
                     "to_day": dy,
@@ -477,8 +452,8 @@ def publish_changes(project_id: Optional[str] = None):
     # Try publishing to ShotGrid; if not configured, treat as success and clear
     try:
         sg_publish_changes(project_id, overrides, assigns)
-    except Exception:
-        logger.exception("Failed to publish to ShotGrid; continuing to clear local state")
+    except Exception as e:
+        logger.exception(f"Failed to publish to ShotGrid; continuing to clear local state: {e}")
         # If ShotGrid not configured, still clear and return ok to keep demo usable
 
     # Clear pending changes for the project
@@ -491,13 +466,13 @@ def publish_changes(project_id: Optional[str] = None):
 @app.get("/api/annotations")
 def get_annotations(project_id: Optional[str] = None):
     try:
-        annotations = sg_get_project_annotations(int(project_id))
-        if not isinstance(annotations, dict):
+        annotations_ = sg_get_project_annotations(int(project_id))
+        if not isinstance(annotations_, dict):
             return {}
 
         # Ensure values are objects with text and color
         out: Dict[str, Dict[str, str]] = {}
-        for k, v in annotations.items():
+        for k, v in annotations_.items():
             if isinstance(v, dict):
                 text = str(v.get("text", ""))
                 color = str(v.get("color", "#c7cbe0"))
@@ -522,7 +497,7 @@ def set_annotation(payload: Dict[str, str], project_id: Optional[str] = None):
     day = payload.get("day")
     text = payload.get("text", "")
     color = payload.get("color", "#c7cbe0")
-    if week not in ("w0", "w1", "w2", "w3"):
+    if week not in (Week.w0, Week.w1, Week.w2, Week.w3):
         raise HTTPException(status_code=400, detail="invalid week")
     if day not in ("mon", "tue", "wed", "thu", "fri"):
         raise HTTPException(status_code=400, detail="invalid day")
