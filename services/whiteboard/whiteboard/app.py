@@ -55,6 +55,7 @@ def get_tasks(project_id: str):
 
 @app.get("/api/week/{week}", response_model=WeekSnapshot)
 def get_week(week: Week, project_id: str):
+    # todo this function is too big, split this up
     project_id = int(project_id)
     try:
         # Fetch artists linked to the project
@@ -141,15 +142,15 @@ def get_week(week: Week, project_id: str):
             if seq_name:
                 parent_names.add(seq_name)
 
-            asset_item = Item(
+            shot_item = Item(
                 id=shot["id"], name=shot["code"], thumb_url=thumb_url, parent=seq_name, entity_type=EntityType.Shot
             )
 
             if status == "hld":
-                on_hold_list.append(asset_item)
+                on_hold_list.append(shot_item)
                 continue
             if status == "omt":
-                omitted_list.append(asset_item)
+                omitted_list.append(shot_item)
                 continue
 
             # Default placement from delivery date
@@ -163,17 +164,17 @@ def get_week(week: Week, project_id: str):
                     dt = None
 
             wk_day = to_week_and_day(dt, current_monday=monday) if dt else None
-            if asset_item.id in proj_over:
-                wk_day = proj_over[asset_item.id]
+            if shot_item.id in proj_over:
+                wk_day = proj_over[shot_item.id]
 
             if not wk_day:
-                no_due.append(asset_item)
+                no_due.append(shot_item)
                 continue
             wk, day = wk_day
             if wk != week:
                 # Only place into the requested week's board, but still continue loop to build full lists above
                 continue
-            board_items[f"{week}-{day}-shots-1"].append(asset_item)
+            board_items[f"{week}-{day}-shots-1"].append(shot_item)
 
         # Assets classification and placement for requested week
         assets_no_due: List[Item] = []
@@ -190,7 +191,7 @@ def get_week(week: Week, project_id: str):
             if asset_type:
                 asset_types.add(str(asset_type))
             asset_id = asset["id"]
-            asset_item = Item(
+            shot_item = Item(
                 id=asset_id,
                 name=asset.get("code"),
                 thumb_url=thumb_url,
@@ -201,7 +202,7 @@ def get_week(week: Week, project_id: str):
             # Respect on hold/omitted similarly to shots
             if status == "hld":
                 # No special hold/omit boards for assets in UI yet; place into no-due list to keep visible
-                assets_no_due.append(asset_item)
+                assets_no_due.append(shot_item)
                 continue
             if status == "omt":
                 # Skip omitted assets by default
@@ -223,12 +224,12 @@ def get_week(week: Week, project_id: str):
                 wk_day = proj_over[asset_id]
 
             if not wk_day:
-                assets_no_due.append(asset_item)
+                assets_no_due.append(shot_item)
                 continue
             awk, aday = wk_day
             if awk != week:
                 continue
-            board_items[f"{week}-{aday}-assets-1"].append(asset_item)
+            board_items[f"{week}-{aday}-assets-1"].append(shot_item)
 
         shot_ids: Set[int] = set()
         asset_ids: Set[int] = set()
@@ -330,6 +331,7 @@ def get_week(week: Week, project_id: str):
         )
     except Exception as e:
         logger.exception(f"Failed to build project-aware week snapshot {e}")
+        raise HTTPException(status_code=500, detail="Failed to build week snapshot")
 
 
 @app.post("/api/move_item")
@@ -394,48 +396,31 @@ def list_changes(project_id: Optional[str] = None):
     moves = []
     assigns = project_assignments.get(project_id, {})
 
-    try:
-        overrides = moved_positions_by_project.get(project_id, {})
-        if not overrides:
-            return {"moves": moves, "assignments": assigns}
-        # fetch shots involved to get names and current delivery
-        shot_ids = list(overrides.keys())
-        if not shot_ids:
-            return {"moves": moves, "assignments": assigns}
+    overrides = moved_positions_by_project.get(project_id, {})
+    if not overrides:
+        return {"moves": moves, "assignments": assigns}
+    # fetch shots involved to get names and current delivery
+    shot_ids = list(overrides.keys())
+    if not shot_ids:
+        return {"moves": moves, "assignments": assigns}
 
-        # todo need to handle assets as well
-        shots = sg_find_shots_by_ids(shot_ids)
-        by_id = {s["id"]: s for s in shots}
-        for shot_id, (wk, dy) in overrides.items():
-            sh = by_id.get(shot_id, {"code": shot_id, "sg_next_delivery": None, "id": shot_id})
-            from_date = sh.get("sg_next_delivery")
-            to_date = _date_from_week_day(wk, dy).isoformat()
-            moves.append(
-                {
-                    "shot_id": shot_id,
-                    "shot_name": sh.get("code") or f"Shot {shot_id}",
-                    "from_date": from_date,
-                    "to_week": wk,
-                    "to_day": dy,
-                    "to_date": to_date,
-                }
-            )
-
-    except Exception:
-        # If ShotGrid not configured, still show moves based on overrides only
-        overrides = moved_positions_by_project.get(project_id, {})
-        for shot_id, (wk, dy) in overrides.items():
-            to_date = _date_from_week_day(wk, dy).isoformat()
-            moves.append(
-                {
-                    "shot_id": shot_id,
-                    "shot_name": f"Shot {shot_id}",
-                    "from_date": None,
-                    "to_week": wk,
-                    "to_day": dy,
-                    "to_date": to_date,
-                }
-            )
+    # todo need to handle assets as well
+    shots = sg_find_shots_by_ids(shot_ids)
+    by_id = {s["id"]: s for s in shots}
+    for shot_id, (week, day) in overrides.items():
+        sh = by_id.get(shot_id, {"code": shot_id, "sg_next_delivery": None, "id": shot_id})
+        from_date = sh.get("sg_next_delivery")
+        to_date = _date_from_week_day(week, day).isoformat()
+        moves.append(
+            {
+                "shot_id": shot_id,
+                "shot_name": sh.get("code") or f"Shot {shot_id}",
+                "from_date": from_date,
+                "to_week": week,
+                "to_day": day,
+                "to_date": to_date,
+            }
+        )
 
     return {"moves": moves, "assignments": assigns}
 

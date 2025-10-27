@@ -43,17 +43,17 @@
 
 # Tests to do
 for assets:
-- [ ] move an entity on another day
-- [ ] set an entity to no date (right click menu)
+- [ ] move an entity on another day and publish
+- [ ] set an entity to no date (right click menu) and publish
  
 - [ ] create an annotation with a color
 - [ ] change the color
 - [ ] remove the annotation
 
-- [ ] assign an artist
-- [ ] unassign an artist
-- [ ] assign a group
-- [ ] unassign a group
+- [ ] assign an artist and publish
+- [ ] unassign an artist and publish 
+- [ ] assign a group and publish
+- [ ] unassign a group and publish
  
 for shots:
 - [ ] move an entity on another day

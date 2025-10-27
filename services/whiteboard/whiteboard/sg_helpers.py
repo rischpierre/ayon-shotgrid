@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import threading
@@ -113,6 +114,7 @@ def sg_publish_changes(project_id: int, overrides: Dict[int, Tuple[Week, Day]], 
     proj = {"type": "Project", "id": int(project_id)}
     from whiteboard.helpers import _date_from_week_day  # local import to avoid circular
 
+    # todo create 2 functions publish_moves and publish_assignments
     # Moves: update sg_next_delivery for Shots or Assets based on actual entity type
     for sid, (wk, dy) in overrides.items():
         try:
@@ -124,6 +126,7 @@ def sg_publish_changes(project_id: int, overrides: Dict[int, Tuple[Week, Day]], 
             eid = int(sid)
             # Resolve entity type cheaply: check Shot first, then Asset
             ent_type: Optional[str] = None
+            # todo there are a lot of exceptions here
             try:
                 found_shot = sg.find_one("Shot", [["id", "is", eid]], ["id"])  # type: ignore
                 if found_shot:
@@ -143,14 +146,14 @@ def sg_publish_changes(project_id: int, overrides: Dict[int, Tuple[Week, Day]], 
                 try:
                     sg.update("Shot", eid, {"sg_next_delivery": target_date})
                     logger.info(f"Updated Shot {eid} sg_next_delivery -> {target_date}")
-                except Exception:
+                except Exception as e:
                     try:
                         sg.update("Asset", eid, {"sg_next_delivery": target_date})
                         logger.info(f"Updated Asset {eid} sg_next_delivery -> {target_date}")
-                    except Exception:
-                        logger.exception(f"Failed updating sg_next_delivery for id {sid} (Shot/Asset)")
-        except Exception:
-            logger.exception(f"Failed processing move for id {sid}")
+                    except Exception as e:
+                        logger.exception(f"Failed updating sg_next_delivery for id {sid} (Shot/Asset) {e}")
+        except Exception as e:
+            logger.exception(f"Failed processing move for id {sid} {e}")
 
     # Assignments: update existing Task assignees per (artist, task) for each item (shot or asset)
     for item_id, task_list in assigns.items():
@@ -160,6 +163,7 @@ def sg_publish_changes(project_id: int, overrides: Dict[int, Tuple[Week, Day]], 
             assignee_id = int(a.artist_id[2:]) if is_group else int(a.artist_id)
             assignee = {"type": "Group", "id": assignee_id} if is_group else {"type": "HumanUser", "id": assignee_id}
 
+            # todo move this function
             def _update_task_for(entity_type: str) -> bool:
                 try:
                     # Find existing Task by entity and content
@@ -211,13 +215,11 @@ def sg_get_project_annotations(project_id: int) -> Dict[str, Any]:
     if not raw:
         return {}
     try:
-        import json
-
         if isinstance(raw, (dict, list)):
             return raw  # in case the field is a dict via API
         return json.loads(str(raw))
-    except Exception:
-        logger.exception("Failed to parse sg_whiteboard_annotations; returning empty dict")
+    except Exception as e:
+        logger.exception("Failed to parse sg_whiteboard_annotations; returning empty dict {e}")
         return {}
 
 
@@ -225,9 +227,7 @@ def sg_set_project_annotations(project_id: int, data: Dict[str, Any]) -> None:
     """Serialize data to JSON and store in Project.sg_whiteboard_annotations"""
     sg = get_sg_session()
     try:
-        import json
-
         payload = {"sg_whiteboard_annotations": json.dumps(data)}
         sg.update("Project", int(project_id), payload)
-    except Exception:
-        logger.exception("Failed to update sg_whiteboard_annotations")
+    except Exception as e:
+        logger.exception("Failed to update sg_whiteboard_annotations {e}")
