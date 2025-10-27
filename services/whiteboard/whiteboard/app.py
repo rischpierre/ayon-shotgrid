@@ -288,13 +288,13 @@ def get_week(week: Week, project_id: str):
                 else:
                     sg_tasks = sg_find_tasks_for_entities(project_id, EntityType.Asset, list(asset_ids))
 
-                for task in sg_tasks:
-                    entity = task.get("entity") or {}
+                for sg_task in sg_tasks:
+                    entity = sg_task.get("entity") or {}
                     entity_id = entity.get("id") if entity else None
                     if not entity_id or entity_id not in current_ids:
                         continue
 
-                    task_name = task.get("content")
+                    task_name = sg_task.get("content")
 
                     # Build per-shot tasks list
                     if task_name:
@@ -302,7 +302,7 @@ def get_week(week: Week, project_id: str):
                         if task_name not in cur_list:
                             cur_list.append(task_name)
 
-                    assignees = task.get("task_assignees")
+                    assignees = sg_task.get("task_assignees")
                     if not task_name or not assignees:
                         continue
 
@@ -312,14 +312,15 @@ def get_week(week: Week, project_id: str):
                         if not isinstance(assignee, dict):
                             continue
 
-                        id = assignee.get("id")
-                        type_ = (assignee.get("type") or "HumanUser").strip()
-                        if id is None:
-                            continue
-                        aid = f"g:{id}" if type_ == "Group" else str(id)
+                        id = assignee["id"]
 
-                        if not any(x.artist_id == aid and x.task == task_name for x in lst):
-                            lst.append(AssignedTask(artist_id=aid, task=task_name, task_id=str(task.get("id")) if task.get("id") is not None else None))
+                        if not any(x.artist_id == id and x.task == task_name for x in lst):
+                            lst.append(AssignedTask(
+                                artist_is_group=True if assignee["type"] == "Group" else False,
+                                artist_id=id,
+                                task=task_name,
+                                task_id=sg_task["id"],
+                            ))
             except Exception:
                 logger.exception("Failed to prefill assignments from ShotGrid")
 
@@ -359,135 +360,30 @@ def get_week(week: Week, project_id: str):
         logger.exception("Failed to build project-aware week snapshot")
 
 
-@app.post("/api/move")
-def move_item(req: MoveItemRequest):
-    # Move item between boards or reorder within board (optional)
-    if req.to_board_id not in boards:
-        raise HTTPException(status_code=404, detail="Target board not found")
-    # Validate item existence
-    if req.item_id not in items:
-        raise HTTPException(status_code=404, detail="Item not found")
+@app.post("/api/move_item")
+def move_item(req: MoveByWeekDayRequest, project_id: Optional[str] = None):
 
-    # Remove from source board if provided (search across all weeks/days)
-    if req.from_board_id:
-        for _wk, days_map in weeks_days.items():
-            for _d, bmap in days_map.items():
-                if req.from_board_id in bmap:
-                    if req.item_id in bmap[req.from_board_id]:
-                        bmap[req.from_board_id].remove(req.item_id)
-                    break
-
-    # Insert into target board (resolve target week/day)
-    resolved: Optional[Tuple[Week, Day]] = None
-    for wk, days_map in weeks_days.items():
-        for d, bmap in days_map.items():
-            if req.to_board_id in bmap:
-                resolved = (wk, d)
-                lst = bmap[req.to_board_id]
-                idx = req.to_index if req.to_index is not None and 0 <= req.to_index <= len(lst) else len(lst)
-                lst.insert(idx, req.item_id)
-                break
-        if resolved:
-            break
-    if not resolved:
-        raise HTTPException(status_code=400, detail="Target board not found in weeks/days")
-
+    project_id = int(project_id)
+    mp = moved_positions_by_project.setdefault(project_id, {})
+    mp[int(req.item_id)] = (req.to_week, req.to_day)
     return {"ok": True}
-
-@app.post("/api/move_day")
-def move_item_by_day(req: MoveByDayRequest):
-    # Back-compat: move within current week (w0) across days
-    current_board_id: Optional[str] = None
-    current_loc: Optional[Tuple[Week, Day]] = None
-    for wk, days_map in weeks_days.items():
-        for d, bmap in days_map.items():
-            for bid, idlist in bmap.items():
-                if boards[bid].entity_type != req.entity_type:
-                    continue
-                if req.item_id in idlist:
-                    current_board_id = bid
-                    current_loc = (wk, d)
-                    break
-            if current_board_id:
-                break
-        if current_board_id:
-            break
-
-    # Remove from current board if found
-    if current_board_id and current_loc:
-        weeks_days[current_loc[0]][current_loc[1]][current_board_id].remove(req.item_id)
-
-    # Determine target board (first board of that entity_type for the day) in current week (w0)
-    if req.to_day not in weeks_days.get("w0", {}):
-        raise HTTPException(status_code=404, detail="Target day not found")
-    target_board_id = None
-    for bid in weeks_days["w0"][req.to_day].keys():
-        if boards[bid].entity_type == req.entity_type:
-            target_board_id = bid
-            break
-    if not target_board_id:
-        raise HTTPException(status_code=400, detail="No board of requested entity_type on target day")
-
-    lst = weeks_days["w0"][req.to_day][target_board_id]
-    idx = req.to_index if req.to_index is not None and 0 <= req.to_index <= len(lst) else len(lst)
-    lst.insert(idx, req.item_id)
-    return {"ok": True, "to_board_id": target_board_id}
-
-@app.post("/api/move_week_day")
-def move_item_by_week_day(req: MoveByWeekDayRequest, project_id: Optional[str] = None):
-    # If project-aware, just record override and return ok (UI reload will reflect)
-    if project_id:
-        pid = str(project_id)
-        mp = moved_positions_by_project.setdefault(pid, {})
-        mp[req.item_id] = (req.to_week, req.to_day)
-        return {"ok": True}
-
-    # Demo mode: manipulate in-memory weeks_days structure
-    # Remove from any current board of the same entity_type across all weeks/days
-    for _wk, days_map in weeks_days.items():
-        for _d, bmap in days_map.items():
-            for bid, idlist in bmap.items():
-                if boards[bid].entity_type != req.entity_type:
-                    continue
-                if req.item_id in idlist:
-                    idlist.remove(req.item_id)
-                    break
-
-    # Insert into the first board of that entity_type in the target week/day
-    if req.to_week not in weeks_days:
-        raise HTTPException(status_code=404, detail="Target week not found")
-    if req.to_day not in weeks_days[req.to_week]:
-        raise HTTPException(status_code=404, detail="Target day not found")
-
-    target_board_id = None
-    for bid in weeks_days[req.to_week][req.to_day].keys():
-        if boards[bid].entity_type == req.entity_type:
-            target_board_id = bid
-            break
-    if not target_board_id:
-        raise HTTPException(status_code=400, detail="No board of requested entity_type on target day/week")
-
-    lst = weeks_days[req.to_week][req.to_day][target_board_id]
-    idx = req.to_index if req.to_index is not None and 0 <= req.to_index <= len(lst) else len(lst)
-    lst.insert(idx, req.item_id)
-    return {"ok": True, "to_board_id": target_board_id}
 
 @app.post("/api/assign")
 def assign_artist(req: AssignArtistRequest, project_id: str):
-    artist_id, entity_id, entity_type, task = (req["artist_id"], req["entity_id"], req["entity_type"], req["task"])
+    artist_id, artist_is_group, entity_id, entity_type, task = (req["artist_id"], req["artist_is_group"], req["entity_id"], req["entity_type"], req["task"])
 
-    project_id = str(project_id)
+    project_id = int(project_id)
     assign_map = project_assignments.setdefault(project_id, {})
     cur = assign_map.setdefault(req.shot_id, [])
 
     if not any(a.artist_id == req.artist_id and a.task == req.task for a in cur):
-        cur.append(AssignedTask(artist_id=req.artist_id, task=req.task))
+        cur.append(AssignedTask(artist_id=req.artist_id, artist_is_group=artist_is_group, task=req.task))
     return {"ok": True, "shot_id": req.shot_id, "assignments": cur}
 
 @app.post("/api/unassign")
 def unassign_artist(req: AssignArtistRequest, project_id: Optional[str] = None):
     # Remove an assignment if present; prefer per-project store when project_id is provided
-    project_id = str(project_id)
+    project_id = int(project_id)
     pmap = project_assignments.setdefault(project_id, {})
     cur = pmap.get(req.shot_id, [])
 

@@ -42,19 +42,15 @@ class Board(BaseModel):
     entity_type: EntityType
     title: str
 
-class TaskLiteral(str):
-    pass
-
+# todo is this used ?
 Task = str
 
-class Assignment(BaseModel):
-    artist_id: str
-    item_id: str     # must reference a shot item
 
 class AssignedTask(BaseModel):
-    artist_id: str
+    artist_id: int
+    artist_is_group: bool
     task: Task
-    task_id: Optional[str] = None
+    task_id: int
 
 class DaySnapshot(BaseModel):
     day: Day
@@ -79,31 +75,20 @@ class WeekSnapshot(BaseModel):
     tasks_per_shot: Optional[Dict[int, List[str]]] = None
 
 class Project(BaseModel):
-    id: Any
+    id: int
     name: str
 
-class MoveItemRequest(BaseModel):
-    item_id: str
-    from_board_id: Optional[str]
-    to_board_id: str
-    to_index: Optional[int] = None
-
-class MoveByDayRequest(BaseModel):
-    item_id: str
-    kind: Literal["shots", "assets"]
-    to_day: Day
-    to_index: Optional[int] = None
-
 class MoveByWeekDayRequest(BaseModel):
-    item_id: str
-    kind: Literal["shots", "assets"]
+    item_id: int
+    entity_type: EntityType
     to_week: Week
     to_day: Day
     to_index: Optional[int] = None
 
 class AssignArtistRequest(BaseModel):
-    artist_id: str
-    shot_id: str
+    artist_id: int
+    artist_is_group: bool
+    shot_id: int
     task: Task
 
 

@@ -34,8 +34,9 @@ const taskOptions = document.getElementById('taskOptions');
 const taskPickerHeader = document.getElementById('taskPickerHeader');
 
 class PendingAssign {
-    constructor(artist_id, entity_id, entity_type) {
+    constructor(artist_id, artist_is_group, entity_id, entity_type) {
         this.artist_id = String(artist_id);
+        this.artist_is_group = artist_is_group;
         this.entity_id = String(entity_id);
         this.entity_type = entity_type;
     }
@@ -203,10 +204,19 @@ function buildTaskOptions(taskListOverride, entity_type) {
         opt.innerHTML = `<div class="task-swatch" style="background:${colorForTask(t)}"></div><div class="task-label">${label}</div>`;
         opt.addEventListener('click', async () => {
             if (!pendingAssign) return;
+            const pending_assign = pendingAssign; // capture before hiding (hideTaskPicker clears it)
+            const body = {
+                artist_id: pending_assign.artist_id,
+                artist_is_group: pending_assign.artist_is_group,
+                entity_id: pending_assign.entity_id,
+                entity_type: pending_assign.entity_type,
+                task: t
+            }
+
             hideTaskPicker();
             const resp = await fetch(`/api/assign${window.currentProjectId ? `?project_id=${encodeURIComponent(window.currentProjectId)}` : ''}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ artist_id: pendingAssign.artist_id, entity_id: pendingAssign.entity_id, entity_type: pendingAssign.entity_type, task: t })
+                body: JSON.stringify(body)
             });
             if (resp.ok) await loadMode(currentMode);
         });
@@ -214,8 +224,8 @@ function buildTaskOptions(taskListOverride, entity_type) {
     }
 }
 
-function showTaskPicker(x, y, artistId, shotId, entity_type) {
-    pendingAssign = { artist_id: artistId, entity_id: shotId, entity_type: entity_type};
+function showTaskPicker(x, y, artistId, artistIsGroup, shotId, entity_type) {
+    pendingAssign = { artist_id: artistId, artist_is_group: artistIsGroup,  entity_id: shotId, entity_type: entity_type};
 
     const perShot = (entity_type === EntityType.Shot && window.tasksPerShot && window.tasksPerShot[shotId]) ? window.tasksPerShot[shotId] : null;
     buildTaskOptions(perShot, entity_type);
@@ -340,14 +350,16 @@ async function loadMode(mode) {
 
 function renderArtists(artists) {
     artistBar.innerHTML = '';
-    for (const a of artists) {
+    for (const artist of artists) {
         const el = document.createElement('div');
         el.className = 'artist';
         el.draggable = true;
-        el.dataset.artistId = a.id;
-        el.innerHTML = `<img src="${a.thumb_url}" alt="${a.name}" title="${a.name}" />`;
+        el.dataset.artistId = artist.id;
+        el.dataset.artistIsGroup = artist.is_group;
+        el.innerHTML = `<img src="${artist.thumb_url}" alt="${artist.name}" title="${artist.name}" />`;
         el.addEventListener('dragstart', e => {
-            e.dataTransfer.setData('application/artist-id', a.id);
+            e.dataTransfer.setData('application/artist-id', artist.id);
+            e.dataTransfer.setData('application/artist-is-gropu', artist.is_group);
             e.dataTransfer.effectAllowed = 'copy';
         });
         artistBar.appendChild(el);
@@ -719,10 +731,17 @@ function renderWeeks(snapshot) {
                 if (movePayload) {
                     try {
                         const data = JSON.parse(movePayload);
-                        const resp = await fetch(`/api/move_week_day${window.currentProjectId ? `?project_id=${encodeURIComponent(window.currentProjectId)}` : ''}`, {
+                        const body = {
+                            item_id: data.item_id,
+                            entity_type: snapshot.entity_type,
+                            to_week: wk,
+                            to_day: day
+                        }
+                        console.log(body)
+                        const resp = await fetch(`/api/move_item${window.currentProjectId ? `?project_id=${encodeURIComponent(window.currentProjectId)}` : ''}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ item_id: data.item_id, entity_type: data.entity_type, to_week: wk, to_day: day })
+                            body: JSON.stringify(body)
                         });
                         if (resp.ok) {
                             await loadMode(currentMode);
@@ -733,6 +752,7 @@ function renderWeeks(snapshot) {
 
                 // Assigning artists to shots or assets
                 const artistId = e.dataTransfer.getData('application/artist-id');
+                const artistIsGroup = e.dataTransfer.getData('application/artist-is-group');
                 if (!artistId) return;
                 // Assign onto nearest card of current entity_type under cursor (or the first card if none)
                 const card = document.elementFromPoint(e.clientX, e.clientY)?.closest('.card');
@@ -740,7 +760,7 @@ function renderWeeks(snapshot) {
                 if (!targetCard) return;
                 const itemId = targetCard.dataset.itemId;
                 // Instead of assigning immediately, open task picker
-                showTaskPicker(e.clientX, e.clientY, artistId, itemId, snapshot.entity_type);
+                showTaskPicker(e.clientX, e.clientY, artistId, artistIsGroup, itemId, snapshot.entity_type);
             });
 
             grid.appendChild(wrap);
