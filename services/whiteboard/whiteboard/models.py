@@ -97,14 +97,15 @@ class AssignArtistRequest(BaseModel):
 
 
 artists: Dict[str, Artist] = {}
-# week -> day -> board_id -> list[item_id]
-weeks_days: Dict[Week, Dict[Day, Dict[str, List[str]]]] = {}
+
+# todo what is this weeks_days it does not make sense
+weeks_days: Dict[Week, Dict[Day, Dict[str, List[str]]]] = {} # week -> day -> board_id -> list[item_id]
 boards: Dict[str, Board] = {}
-assignments: Dict[int, List[AssignedTask]] = {}  # shot_id -> [AssignedTask, ...]
+assignments: Dict[int, List[AssignedTask]] = {}  # entity_id -> [AssignedTask, ...]
 
 # Per-project overrides and assignments (project-aware mode)
-moved_positions_by_project: Dict[int, Dict[int, Tuple[Week, Day]]] = {}  # project_id -> shot_id -> (week, day)
-project_assignments: Dict[int, Dict[int, List[AssignedTask]]] = {}  # project_id -> shot_id -> [AssignedTask]
+moves_overrides: Dict[int, Dict[EntityType, Dict[int, Tuple[Week, Day]]]] = {}  # project_id -> entity_type -> entity_id -> (week, day)
+assignments_overrides: Dict[int, Dict[EntityType, Dict[int, List[AssignedTask]]]] = {}  # project_id -> entity_type -> entity_id -> [AssignedTask]
 project_unassign_overrides: Dict[int, Dict[int, List[AssignedTask]]] = (
     {}
 )  # project_id -> shot_id -> [AssignedTask] marked for removal

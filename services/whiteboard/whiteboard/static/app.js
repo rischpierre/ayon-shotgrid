@@ -745,7 +745,9 @@ function renderWeeks(snapshot) {
                             await loadMode(currentMode);
                             return;
                         }
-                    } catch {}
+                    } catch (e){
+                        console.error(e, e.stack);
+                    }
                 }
 
                 // Assigning artists to shots or assets

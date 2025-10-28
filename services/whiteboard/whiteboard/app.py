@@ -124,7 +124,7 @@ def get_week(week: Week, project_id: str):
         monday = today - datetime.timedelta(days=(today.weekday()))  # Monday=0
 
         # Place shots occurring in requested week into that week's boards
-        proj_over = moved_positions_by_project.get(project_id, {})
+        project_moves = moves_overrides.get(project_id, {})
         no_due: List[Item] = []
         on_hold_list: List[Item] = []
         omitted_list: List[Item] = []
@@ -164,8 +164,8 @@ def get_week(week: Week, project_id: str):
                     dt = None
 
             wk_day = to_week_and_day(dt, current_monday=monday) if dt else None
-            if shot_item.id in proj_over:
-                wk_day = proj_over[shot_item.id]
+            if shot_item.id in project_moves.get(EntityType.Shot, {}):
+                wk_day = project_moves[EntityType.Shot][shot_item.id]
 
             if not wk_day:
                 no_due.append(shot_item)
@@ -220,8 +220,8 @@ def get_week(week: Week, project_id: str):
             monday = today - datetime.timedelta(days=(datetime.date.today().weekday()))  #
             wk_day = to_week_and_day(adt, monday) if adt else None
 
-            if asset_id in proj_over:
-                wk_day = proj_over[asset_id]
+            if asset_id in project_moves.get(EntityType.Asset, {}):
+                wk_day = project_moves[EntityType.Asset][asset_id]
 
             if not wk_day:
                 assets_no_due.append(shot_item)
@@ -294,7 +294,7 @@ def get_week(week: Week, project_id: str):
                 logger.exception(f"Failed to prefill assignments from ShotGrid: {e}")
 
         # Merge in pending (in-memory) project assignments, without duplicating
-        proj_assign = project_assignments.get(project_id, {})
+        proj_assign = assignments_overrides.get(project_id, {})
         for entity_id, lst in proj_assign.items():
             if entity_id not in current_ids:
                 continue
@@ -335,57 +335,57 @@ def get_week(week: Week, project_id: str):
 
 
 @app.post("/api/move_item")
-def move_item(req: MoveByWeekDayRequest, project_id: Optional[str] = None):
+def move_item(request: MoveByWeekDayRequest, project_id: Optional[str] = None):
 
     project_id = int(project_id)
-    mp = moved_positions_by_project.setdefault(project_id, {})
-    mp[int(req.item_id)] = (req.to_week, req.to_day)
+    mp = moves_overrides.setdefault(project_id, {}).setdefault(request.entity_type, {})
+    mp[int(request.item_id)] = (request.to_week, request.to_day)
     return {"ok": True}
 
 
 @app.post("/api/assign")
-def assign_artist(req: AssignArtistRequest, project_id: str):
+def assign_artist(request: AssignArtistRequest, project_id: str):
 
     project_id = int(project_id)
-    assign_map = project_assignments.setdefault(project_id, {})
-    assignments = assign_map.setdefault(req.shot_id, [])
+    assign_map = assignments_overrides.setdefault(project_id, {}).setdefault(request.entity_type, {})
+    assignments = assign_map.setdefault(request.shot_id, [])
 
-    if not any(a.artist_id == req.artist_id and a.task_name == req.task_name for a in assignments):
+    if not any(a.artist_id == request.artist_id and a.task_name == request.task_name for a in assignments):
         assignments.append(
             AssignedTask(
-                artist_id=req.artist_id,
-                artist_is_group=req.artist_is_group,
-                task_name=req.task_name,
-                task_id=req.task_id,
+                artist_id=request.artist_id,
+                artist_is_group=request.artist_is_group,
+                task_name=request.task_name,
+                task_id=request.task_id,
             )
         )
-    return {"ok": True, "shot_id": req.shot_id, "assignments": assignments}
+    return {"ok": True, "shot_id": request.shot_id, "assignments": assignments}
 
 
 @app.post("/api/unassign")
-def unassign_artist(req: AssignArtistRequest, project_id: Optional[str] = None):
+def unassign_artist(request: AssignArtistRequest, project_id: Optional[str] = None):
     # Remove an assignment if present; prefer per-project store when project_id is provided
     project_id = int(project_id)
-    pmap = project_assignments.setdefault(project_id, {})
-    cur = pmap.get(req.shot_id, [])
+    pmap = assignments_overrides.setdefault(project_id, {}).setdefault(request.entity_type, {})
+    cur = pmap.get(request.shot_id, [])
 
     # Filter out matching entries
-    filtered = [a for a in cur if not (a.artist_id == req.artist_id and a.task_name == req.task_name)]
-    pmap[req.shot_id] = filtered
+    filtered = [a for a in cur if not (a.artist_id == request.artist_id and a.task_name == request.task_name)]
+    pmap[request.shot_id] = filtered
 
     # Record an override so prefilled ShotGrid assignees are hidden in the UI
     ov_map = project_unassign_overrides.setdefault(project_id, {})
-    ov_list = ov_map.setdefault(req.shot_id, [])
-    if not any(a.artist_id == req.artist_id and a.task_name == req.task_name for a in ov_list):
+    ov_list = ov_map.setdefault(request.shot_id, [])
+    if not any(a.artist_id == request.artist_id and a.task_name == request.task_name for a in ov_list):
         ov_list.append(
             AssignedTask(
-                artist_id=req.artist_id,
-                task_name=req.task_name,
-                task_id=req.task_id,
-                artist_is_group=req.artist_is_group,
+                artist_id=request.artist_id,
+                task_name=request.task_name,
+                task_id=request.task_id,
+                artist_is_group=request.artist_is_group,
             )
         )
-    return {"ok": True, "shot_id": req.shot_id, "assignments": filtered}
+    return {"ok": True, "shot_id": request.shot_id, "assignments": filtered}
 
 
 @app.get("/api/changes")
@@ -394,20 +394,20 @@ def list_changes(project_id: Optional[str] = None):
     project_id = int(project_id)
     # Build move list by comparing overrides to current ShotGrid dates
     moves = []
-    assigns = project_assignments.get(project_id, {})
+    assigns = assignments_overrides.get(project_id, {})
 
-    overrides = moved_positions_by_project.get(project_id, {})
-    if not overrides:
+    moves = moves_overrides.get(project_id, {})
+    if not moves:
         return {"moves": moves, "assignments": assigns}
     # fetch shots involved to get names and current delivery
-    shot_ids = list(overrides.keys())
+    shot_ids = list(moves.keys())
     if not shot_ids:
         return {"moves": moves, "assignments": assigns}
 
     # todo need to handle assets as well
     shots = sg_find_shots_by_ids(shot_ids)
     by_id = {s["id"]: s for s in shots}
-    for shot_id, (week, day) in overrides.items():
+    for shot_id, (week, day) in moves.items():
         sh = by_id.get(shot_id, {"code": shot_id, "sg_next_delivery": None, "id": shot_id})
         from_date = sh.get("sg_next_delivery")
         to_date = _date_from_week_day(week, day).isoformat()
@@ -431,19 +431,18 @@ def publish_changes(project_id: Optional[str] = None):
     project_id = int(project_id)
 
     # Prepare data
-    overrides = moved_positions_by_project.get(project_id, {})
-    assigns = project_assignments.get(project_id, {})
+    moves = moves_overrides.get(project_id, {})
+    assigns = assignments_overrides.get(project_id, {})
 
     # Try publishing to ShotGrid; if not configured, treat as success and clear
     try:
-        sg_publish_changes(project_id, overrides, assigns)
+        sg_publish_changes(project_id, moves, assigns)
     except Exception as e:
         logger.exception(f"Failed to publish to ShotGrid; continuing to clear local state: {e}")
-        # If ShotGrid not configured, still clear and return ok to keep demo usable
 
     # Clear pending changes for the project
-    moved_positions_by_project[project_id] = {}
-    project_assignments[project_id] = {}
+    moves_overrides[project_id] = {}
+    assignments_overrides[project_id] = {}
 
     return {"ok": True}
 
