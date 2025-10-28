@@ -104,9 +104,9 @@ def sg_find_tasks_per_entity(project_id: int) -> dict[EntityType, dict[int, Any]
     return result
 
 
-def sg_find_shots_by_ids(shot_ids: Sequence[int]) -> List[Dict[str, Any]]:
+def sg_find_entities_by_ids(entity_type: EntityType, ids: Sequence[int]) -> List[Dict[str, Any]]:
     sg = get_sg_session()
-    return sg.find("Shot", [["id", "in", list(map(int, shot_ids))]], ["code", "sg_next_delivery"], limit=len(shot_ids))
+    return sg.find(entity_type.name, [["id", "in", ids]], ["code", "sg_next_delivery"])
 
 
 def sg_publish_changes(project_id: int, moves: Dict[EntityType, Dict[int, Tuple[Week, Day]]], assigns: Dict[EntityType, Dict[int, List[Any]]]) -> None:

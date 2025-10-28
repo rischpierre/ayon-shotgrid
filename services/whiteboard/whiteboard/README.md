@@ -15,12 +15,12 @@ poetry run playwright install
 ```
 2) Run the E2E test:
 ```
-poetry run pytest -q tests/e2e/test_drag_drop_shot.py
+poetry run pytest -q tests/test_drag_drop_shot.py
 ```
 
 # Tests to do
 for assets:
-- [ ] move an entity on another day and publish
+- [_] move an entity on another day and publish
 - [ ] set an entity to no date (right click menu) and publish
  
 - [ ] create an annotation with a color

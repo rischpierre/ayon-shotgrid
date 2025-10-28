@@ -19,7 +19,6 @@ def test_drag_and_drop_shot_between_days(page: Page, server_url: str):
     expect(thu_list).to_be_visible()
     wed_card.drag_to(thu_list)
 
-    import time; time.sleep(200)
     # Verify move
     expect(page.locator('[data-week="w0"][data-day="thu"] .list .card[data-item-id="1001"]')).to_be_visible()
     expect(page.locator('[data-week="w0"][data-day="wed"] .list .card[data-item-id="1001"]')).to_have_count(0)

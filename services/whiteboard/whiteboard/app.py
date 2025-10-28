@@ -19,7 +19,7 @@ from whiteboard.sg_helpers import (
     sg_list_groups,
     sg_find_project_shots,
     sg_find_project_assets,
-    sg_find_shots_by_ids,
+    sg_find_entities_by_ids,
     sg_publish_changes,
     sg_get_project_annotations,
     sg_set_project_annotations,
@@ -389,40 +389,48 @@ def unassign_artist(request: AssignArtistRequest, project_id: Optional[str] = No
 
 
 @app.get("/api/changes")
-def list_changes(project_id: Optional[str] = None):
+def list_changes(project_id: str):
 
     project_id = int(project_id)
-    # Build move list by comparing overrides to current ShotGrid dates
-    moves = []
     assigns = assignments_overrides.get(project_id, {})
-
     moves = moves_overrides.get(project_id, {})
-    if not moves:
-        return {"moves": moves, "assignments": assigns}
-    # fetch shots involved to get names and current delivery
-    shot_ids = list(moves.keys())
-    if not shot_ids:
+
+    if not moves and not assigns:
         return {"moves": moves, "assignments": assigns}
 
-    # todo need to handle assets as well
-    shots = sg_find_shots_by_ids(shot_ids)
-    by_id = {s["id"]: s for s in shots}
-    for shot_id, (week, day) in moves.items():
-        sh = by_id.get(shot_id, {"code": shot_id, "sg_next_delivery": None, "id": shot_id})
-        from_date = sh.get("sg_next_delivery")
-        to_date = _date_from_week_day(week, day).isoformat()
-        moves.append(
-            {
-                "shot_id": shot_id,
-                "shot_name": sh.get("code") or f"Shot {shot_id}",
-                "from_date": from_date,
-                "to_week": week,
-                "to_day": day,
-                "to_date": to_date,
-            }
-        )
+    shot_ids = list(moves.get(EntityType.Shot, {}).keys())
+    asset_ids = list(moves.get(EntityType.Asset, {}).keys())
 
-    return {"moves": moves, "assignments": assigns}
+    if not shot_ids and not asset_ids:
+        return {"moves": moves, "assignments": assigns}
+
+    shots = sg_find_entities_by_ids(EntityType.Shot, shot_ids)
+    assets = sg_find_entities_by_ids(EntityType.Asset, asset_ids)
+    shot_moves = moves.get(EntityType.Shot, {})
+    asset_moves = moves.get(EntityType.Asset, {})
+
+    entities_by_id = {
+        EntityType.Shot: {s["id"]: s for s in shots},
+        EntityType.Asset: {a["id"]: a for a in assets},
+    }
+    result_moves = []
+    for entity_type, v in moves.items():
+        for entity_id, (week, day) in v.items():
+            entity = entities_by_id[entity_type].get(entity_id)
+            from_date = entity.get("sg_next_delivery")
+            to_date = _date_from_week_day(week, day).isoformat()
+            result_moves.append(
+                {
+                    "shot_id": entity_id,
+                    "shot_name": sh.get("code") or f"Shot {shot_id}",
+                    "from_date": from_date,
+                    "to_week": week,
+                    "to_day": day,
+                    "to_date": to_date,
+                }
+            )
+
+    return {"moves": result_moves, "assignments": assigns}
 
 
 @app.post("/api/publish")
