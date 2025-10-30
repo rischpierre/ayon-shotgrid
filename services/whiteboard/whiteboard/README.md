@@ -35,10 +35,10 @@
 - [x] publish: make batch updates instead
 - [x] remove the loading text appearing when I do a drag and drop
  
-- [ ] the changes are not written correctly
 - [ ] fix publish it does not work
 - [ ] I need to publish also the unassignments and the set to no due date too
- 
+- [ ] currently the changes display the assignments like this: `Assignments: 1 entities with changes`, instead, display all the changes
+
 
 # How to run
 1. build the front-end:

@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Sequence, Tuple
 import ayon_api
 import shotgun_api3
 
-from whiteboard.models import EntityType, Week, Day
+from whiteboard.models import EntityType, Week, Day, AssignedTask
 
 logger = logging.getLogger(__name__)
 
@@ -113,15 +113,24 @@ def sg_find_entities_by_ids(entity_type: EntityType, ids: Sequence[int]) -> List
     return sg.find(entity_type.name, [["id", "in", ids]], ["code", "sg_next_delivery"])
 
 
-def sg_publish_changes(project_id: int, moves: Dict[EntityType, Dict[int, Tuple[Week, Day]]], assigns: Dict[EntityType, Dict[int, List[Any]]]) -> None:
+def sg_publish_changes(project_id: int,
+                       moves: Dict[EntityType, Dict[int, Tuple[Week, Day]]],
+                       assigns: Dict[EntityType, Dict[int, List[Any]]],
+                       unschedules: Dict[EntityType, set[int]],
+                       unassigns: Dict[EntityType, Dict[int, List[AssignedTask]]],
+                       ) -> None:
+
     sg = get_sg_session()
-    proj = {"type": "Project", "id": int(project_id)}
+    project = {"type": "Project", "id": int(project_id)}
     from whiteboard.helpers import date_from_week_day  # local import to avoid circular
 
     batch_data = []
+
+    # moves
     for entity_type, value in moves.items():
         for entity_id, (wk, dy) in value.items():
             target_date = date_from_week_day(wk, dy).isoformat()
+            logger.info(f"Adding move to the batch: {entity_id} -> {target_date}")
             batch_data.append(
                     {
                         "request_type": "update",
@@ -130,10 +139,48 @@ def sg_publish_changes(project_id: int, moves: Dict[EntityType, Dict[int, Tuple[
                         "data": {"sg_next_delivery": target_date},
                     }
             )
-            logger.info(f"Updated {entity_type} {entity_id} sg_next_delivery -> {target_date}")
+
+    # unschedules
+    for entity_type, value in unschedules.items():
+        for entity_id in value:
+            logger.info(f"Adding un-schedule to the batch: {entity_id}")
+            batch_data.append(
+                {
+                    "request_type": "update",
+                    "entity_type": entity_type.name,
+                    "entity_id": entity_id,
+                    "data": {"sg_next_delivery": None},
+                }
+            )
+
+    # unassignments
+    for entity_type, value in unassigns.items():
+        for entity_id, task_list in value.items():
+            for task in task_list:
+                is_group = task.artist_is_group
+                assignee_id = task.artist_id
+                assignee = {"type": "Group", "id": assignee_id} if is_group else {"type": "HumanUser", "id": assignee_id}
+
+                sg_task = sg.find_one("Task", [["project", "is", project], ["id", "is", task.task_id]], ["id", "task_assignees"])
+                if not sg_task:
+                    continue
+
+                already_assigned_list = sg_task.get("task_assignees")
+                for already_assigned in already_assigned_list:
+                    if already_assigned["id"] == assignee_id and already_assigned["type"] == assignee["type"]:
+                        already_assigned_list.remove(assignee)
+
+                logger.info(f"Adding un-assignment to the batch: {task.task_id} -> {assignee}")
+                batch_data.append(
+                    {
+                        "request_type": "update",
+                        "entity_type": "Task",
+                        "entity_id": task.task_id,
+                        "data": {"task_assignees": already_assigned_list}
+                    }
+                )
 
     # Assignments: update existing Task assignees per (artist, task) for each task
-    # todo I need to add unassigns here
     for entity_type, value in assigns.items():
         for item_id, task_list in value.items():
             for task in task_list:
@@ -141,22 +188,23 @@ def sg_publish_changes(project_id: int, moves: Dict[EntityType, Dict[int, Tuple[
                 is_group = task.artist_is_group
                 assignee_id = task.artist_id
                 assignee = {"type": "Group", "id": assignee_id} if is_group else {"type": "HumanUser", "id": assignee_id}
-                found = sg.find_one("Task", [["project", "is", proj], ["id", "is", task.task_id]], ["id", "task_assignees"])
-                if not found:
+                sg_task = sg.find_one("Task", [["project", "is", project], ["id", "is", task.task_id]], ["id", "task_assignees"])
+                if not sg_task:
                     continue
 
-                already_assigned = found.get("task_assignees")
+                already_assigned = sg_task.get("task_assignees", []).append(assignee)
 
+                logger.info(f"Adding assignment to the batch: {task.task_id} -> {assignee}")
                 batch_data.append(
                     {
                         "request_type": "update",
                         "entity_type": "Task",
                         "entity_id": task.task_id,
-                        "data": {"task_assignees": list(already_assigned) + [assignee]}
+                        "data": {"task_assignees": already_assigned}
                     }
                 )
-                logger.info(f"Updated Task {task.task_id} assignees -> {assignee}")
 
+    logger.debug(f"Batch data: {batch_data}")
     if batch_data:
         sg.batch(batch_data)
 

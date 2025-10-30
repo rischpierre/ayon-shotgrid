@@ -105,7 +105,7 @@ assignments: Dict[int, List[AssignedTask]] = {}  # entity_id -> [AssignedTask, .
 # Per-project overrides and assignments (project-aware mode)
 moves_overrides: Dict[int, Dict[EntityType, Dict[int, Tuple[Week, Day]]]] = {}  # project_id -> entity_type -> entity_id -> (week, day)
 assignments_overrides: Dict[int, Dict[EntityType, Dict[int, List[AssignedTask]]]] = {}  # project_id -> entity_type -> entity_id -> [AssignedTask]
-project_unassign_overrides: Dict[int, Dict[EntityType, Dict[int, List[AssignedTask]]]] = {}
+unassign_overrides: Dict[int, Dict[EntityType, Dict[int, List[AssignedTask]]]] = {}
 tasks_per_entity: Dict[EntityType, dict[int, list[Dict[str, Any]]]] = {}
 # Items changed to have no due date project_id -> entityType -> [entity_id]
-no_due_overrides: Dict[int, Dict[EntityType, set[int]]] = {}
+unschedules_overrides: Dict[int, Dict[EntityType, set[int]]] = {}

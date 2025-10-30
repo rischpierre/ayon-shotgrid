@@ -207,7 +207,7 @@ def get_week(week: Week, project_id: str):
 
         # Place shots occurring in requested week into that week's boards
         project_moves = moves_overrides.get(project_id, {})
-        project_no_due = no_due_overrides.get(project_id, {})
+        project_no_due = unschedules_overrides.get(project_id, {})
         no_due: List[Item] = []
         on_hold_list: List[Item] = []
         omitted_list: List[Item] = []
@@ -410,20 +410,25 @@ def get_week(week: Week, project_id: str):
                         cur.append(assigned_task)
 
         # Apply unassignment overrides so UI hides removed assignees immediately
-        overrides = project_unassign_overrides.get(project_id, {})
+        overrides = unassign_overrides.get(project_id, {})
         if overrides:
+            print("toto", overrides)
             for entity_type, v in overrides.items():
                 for entity_id, removed_list in v.items():
-                    if entity_id in v:
-                        existing = assignee_map[entity_type][entity_id]
-                        assignee_map[entity_type][entity_id] = [
-                            x
-                            for x in existing
-                            if not any(
-                                (x.artist_id == r.artist_id and x.task_name == r.task_name)
-                                for r in removed_list
-                            )
-                        ]
+                    if entity_id not in v:
+                        continue
+                    existing = assignee_map[entity_type].get(entity_id)
+                    if not existing:
+                        continue
+
+                    assignee_map[entity_type][entity_id] = [
+                        x
+                        for x in existing
+                        if not any(
+                            (x.artist_id == r.artist_id and x.task_name == r.task_name)
+                            for r in removed_list
+                        )
+                    ]
         return WeekSnapshot(
             week=week,
             days=Days,
@@ -467,7 +472,7 @@ def remove_due_date(payload: Dict[str, Any], project_id: Optional[str] = None):
     entity_id = int(payload.get("item_id"))
 
     entity_type = EntityType[payload.get("entity_type")]
-    overrides = no_due_overrides.setdefault(project_ids, {})
+    overrides = unschedules_overrides.setdefault(project_ids, {})
     ids_overrides = overrides.setdefault(entity_type, set())
     ids_overrides.add(entity_id)
     return {"ok": True}
@@ -515,8 +520,8 @@ def unassign_artist(request: AssignArtistRequest, project_id: Optional[str] = No
     pmap[request.entity_id] = filtered
 
     # Record an override so prefilled ShotGrid assignees are hidden in the UI
-    ov_map = project_unassign_overrides.setdefault(project_id, {})
-    ov_list = ov_map.setdefault(request.entity_id, [])
+    ov_map = unassign_overrides.setdefault(project_id, {})
+    ov_list = ov_map.setdefault(request.entity_type, {}).setdefault(request.entity_id, [])
     if not any(
         a.artist_id == request.artist_id and a.task_name == request.task_name
         for a in ov_list
@@ -596,10 +601,12 @@ def publish_changes(project_id: Optional[str] = None):
     # Prepare data
     moves = moves_overrides.get(project_id, {})
     assigns = assignments_overrides.get(project_id, {})
+    unassigns = unassign_overrides.get(project_id, {})
+    unschedules = unschedules_overrides.get(project_id, {})
 
     # Try publishing to ShotGrid; if not configured, treat as success and clear
     try:
-        sg_publish_changes(project_id, moves, assigns)
+        sg_publish_changes(project_id, moves, assigns, unschedules, unassigns)
     except Exception as e:
         logger.exception(
             f"Failed to publish to ShotGrid; continuing to clear local state: {e}"
