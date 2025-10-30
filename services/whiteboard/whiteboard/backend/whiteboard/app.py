@@ -7,11 +7,18 @@ from typing import Set
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from whiteboard.helpers import identicon_thumb, solid_color_thumb, _date_from_week_day, to_week_and_day
+from whiteboard.helpers import (
+    identicon_thumb,
+    solid_color_thumb,
+    _date_from_week_day,
+    to_week_and_day,
+)
 from whiteboard.models import *
+
 from whiteboard.sg_helpers import (
     sg_list_projects,
     sg_find_tasks_per_entity,
@@ -30,16 +37,73 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Whiteboard")
 
+# Enable CORS for Vite dev server and same-origin
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost",
+        "http://127.0.0.1",
+    ],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Static mount for assets (favicon, css, js)
 root = os.path.dirname(os.path.abspath(__file__))
 static_dir = os.path.join(root, "static")
-app.mount("/static", StaticFiles(directory=static_dir), name="static")
+if os.path.isdir(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+    # Serve built Vite assets under /assets (e.g., /assets/index-*.js)
+    assets_dir = os.path.join(static_dir, "assets")
+    if os.path.isdir(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+    setattr(app.state, "has_static", True)
+else:
+    logger.warning(
+        "Static directory not found at %s; skipping static mounts. Run `npm run build` to generate assets, or use the Vite dev server.",
+        static_dir,
+    )
+    setattr(app.state, "has_static", False)
 
 
 @app.get("/")
 def index():
     path = os.path.join(root, "static", "index.html")
-    return FileResponse(path, media_type="text/html")
+    if getattr(app.state, "has_static", False) and os.path.isfile(path):
+        return FileResponse(path, media_type="text/html")
+    # Fallback helpful message in dev when static bundle is not present
+    return {
+        "message": "Frontend bundle not found. Run the Vite dev server or build the frontend.",
+        "dev": bool(getattr(app.state, "dev", False)),
+        "tips": [
+            "For development: cd whiteboard/frontend && npm run dev (open http://localhost:5173)",
+            "For production: cd whiteboard/frontend && npm run build (assets will appear under backend/whiteboard/static)",
+        ],
+    }
+
+
+# Direct routes for root-level built assets expected by index.html
+@app.get("/styles.css")
+def styles_css():
+    path = os.path.join(static_dir, "styles.css")
+    if os.path.isfile(path):
+        return FileResponse(path, media_type="text/css")
+    raise HTTPException(
+        status_code=404, detail="styles.css not found; run npm run build"
+    )
+
+
+@app.get("/favicon.png")
+def favicon_png():
+    path = os.path.join(static_dir, "favicon.png")
+    if os.path.isfile(path):
+        return FileResponse(path, media_type="image/png")
+    raise HTTPException(
+        status_code=404, detail="favicon.png not found; run npm run build"
+    )
 
 
 @app.get("/api/projects", response_model=List[Project])
@@ -53,6 +117,7 @@ def get_tasks(project_id: str):
     tasks_per_entity = sg_find_tasks_per_entity(int(project_id))
     return tasks_per_entity
 
+
 @app.get("/api/week/{week}", response_model=WeekSnapshot)
 def get_week(week: Week, project_id: str):
     # todo this function is too big, split this up
@@ -61,16 +126,25 @@ def get_week(week: Week, project_id: str):
         # Fetch artists linked to the project
         sg_artists = sg_find_project_artists(project_id)
         proj_artists: List[Artist] = []
-        for asset in sg_artists:
-            img = asset.get("image") or {}
+        for sg_asset in sg_artists:
+            img = sg_asset.get("image") or {}
             thumb_url = img.get("url") if isinstance(img, dict) else img
 
             # deterministic avatar based on name
             if not thumb_url:
-                key = (asset.get("name") or str(asset.get("id") or "user")).strip()
+                key = (
+                    sg_asset.get("name") or str(sg_asset.get("id") or "user")
+                ).strip()
                 thumb_url = identicon_thumb(64, key)
 
-            proj_artists.append(Artist(id=asset["id"], name=asset["name"], thumb_url=thumb_url, is_group=False))
+            proj_artists.append(
+                Artist(
+                    id=sg_asset["id"],
+                    name=sg_asset["name"],
+                    thumb_url=thumb_url,
+                    is_group=False,
+                )
+            )
 
         sg_groups = sg_list_groups()
         for group in sg_groups:
@@ -80,7 +154,9 @@ def get_week(week: Week, project_id: str):
             url = g_thumb.get("url")
             if not url:
                 continue
-            proj_artists.append(Artist(id=group["id"], name=group["code"], thumb_url=url, is_group=True))
+            proj_artists.append(
+                Artist(id=group["id"], name=group["code"], thumb_url=url, is_group=True)
+            )
 
         # Fetch project annotations
         annotations_map: Dict[str, object] = {}
@@ -109,8 +185,14 @@ def get_week(week: Week, project_id: str):
         # Prepare minimal board structure: one shots board (index 1) per day, plus matching empty assets board
         boards_by_day: Dict[Day, List[Board]] = {
             d: [
-                Board(id=f"{week}-{d}-shots-1", entity_type=EntityType.Shot, title="Shots"),
-                Board(id=f"{week}-{d}-assets-1", entity_type=EntityType.Asset, title="Assets"),
+                Board(
+                    id=f"{week}-{d}-shots-1", entity_type=EntityType.Shot, title="Shots"
+                ),
+                Board(
+                    id=f"{week}-{d}-assets-1",
+                    entity_type=EntityType.Asset,
+                    title="Assets",
+                ),
             ]
             for d in Days
         }
@@ -125,10 +207,11 @@ def get_week(week: Week, project_id: str):
 
         # Place shots occurring in requested week into that week's boards
         project_moves = moves_overrides.get(project_id, {})
+        project_no_due = no_due_overrides.get(project_id, {})
         no_due: List[Item] = []
         on_hold_list: List[Item] = []
         omitted_list: List[Item] = []
-        parent_names: Set[str] = set()
+        sequences: Set[str] = set()
         for shot in sg_shots:
             status = shot.get("sg_status_list")
             img = shot.get("image") or {}
@@ -140,10 +223,14 @@ def get_week(week: Week, project_id: str):
             seq_name = shot.get("sg_sequence", {}).get("name")
 
             if seq_name:
-                parent_names.add(seq_name)
+                sequences.add(seq_name)
 
             shot_item = Item(
-                id=shot["id"], name=shot["code"], thumb_url=thumb_url, parent=seq_name, entity_type=EntityType.Shot
+                id=shot["id"],
+                name=shot["code"],
+                thumb_url=thumb_url,
+                parent=seq_name,
+                entity_type=EntityType.Shot,
             )
 
             if status == "hld":
@@ -151,6 +238,11 @@ def get_week(week: Week, project_id: str):
                 continue
             if status == "omt":
                 omitted_list.append(shot_item)
+                continue
+
+            # Explicit override: force into No Due Date
+            if shot_item.id in (project_no_due.get(EntityType.Shot, set()) or set()):
+                no_due.append(shot_item)
                 continue
 
             # Default placement from delivery date
@@ -177,23 +269,24 @@ def get_week(week: Week, project_id: str):
             board_items[f"{week}-{day}-shots-1"].append(shot_item)
 
         # Assets classification and placement for requested week
-        assets_no_due: List[Item] = []
         asset_types: Set[str] = set()
-        for asset in sg_assets:
-            status = asset.get("sg_status_list")
-            img = asset.get("image") or {}
+        for sg_asset in sg_assets:
+            status = sg_asset.get("sg_status_list")
+            img = sg_asset.get("image") or {}
             thumb_url = img.get("url") if isinstance(img, dict) else img
             if not thumb_url:
-                key = str(asset.get("id") or asset.get("code") or "asset")
+                key = str(
+                    sg_asset.get("id") or sg_asset.get("code") or "asset"
+                )
                 thumb_url = solid_color_thumb(96, 64, key)
 
-            asset_type = asset.get("sg_asset_type")
+            asset_type = sg_asset.get("sg_asset_type")
             if asset_type:
                 asset_types.add(str(asset_type))
-            asset_id = asset["id"]
-            shot_item = Item(
+            asset_id = sg_asset["id"]
+            asset_item = Item(
                 id=asset_id,
-                name=asset.get("code"),
+                name=sg_asset.get("code"),
                 thumb_url=thumb_url,
                 parent=asset_type,
                 entity_type=EntityType.Asset,
@@ -202,13 +295,18 @@ def get_week(week: Week, project_id: str):
             # Respect on hold/omitted similarly to shots
             if status == "hld":
                 # No special hold/omit boards for assets in UI yet; place into no-due list to keep visible
-                assets_no_due.append(shot_item)
+                no_due.append(asset_item)
                 continue
             if status == "omt":
                 # Skip omitted assets by default
                 continue
 
-            raw_date = asset.get("sg_next_delivery")
+            # Explicit override for assets: force into No Due Date
+            if asset_id in (project_no_due.get(EntityType.Asset, set()) or set()):
+                no_due.append(asset_item)
+                continue
+
+            raw_date = sg_asset.get("sg_next_delivery")
             adt = None
             if raw_date:
                 try:
@@ -217,19 +315,19 @@ def get_week(week: Week, project_id: str):
                     logger.exception(f"Failed to parse asset next delivery date: {e}")
                     adt = None
 
-            monday = today - datetime.timedelta(days=(datetime.date.today().weekday()))  #
-            wk_day = to_week_and_day(adt, monday) if adt else None
+            # Use the same baseline Monday as shots to avoid any drift between modes
+            wk_day = to_week_and_day(adt, current_monday=monday) if adt else None
 
             if asset_id in project_moves.get(EntityType.Asset, {}):
                 wk_day = project_moves[EntityType.Asset][asset_id]
 
             if not wk_day:
-                assets_no_due.append(shot_item)
+                no_due.append(asset_item)
                 continue
             awk, aday = wk_day
             if awk != week:
                 continue
-            board_items[f"{week}-{aday}-assets-1"].append(shot_item)
+            board_items[f"{week}-{aday}-assets-1"].append(asset_item)
 
         shot_ids: Set[int] = set()
         asset_ids: Set[int] = set()
@@ -240,80 +338,92 @@ def get_week(week: Week, project_id: str):
             for item in board_items.get(f"{week}-{day}-assets-1", []):
                 asset_ids.add(item.id)
 
-        assignee_map: Dict[int, List[AssignedTask]] = {}
+        assignee_map: Dict[EntityType, Dict[int, List[AssignedTask]]] = {EntityType.Shot: {}, EntityType.Asset: {}}
         tasks_map: Dict[int, List[str]] = {}
 
-        current_ids = shot_ids or asset_ids
-        if current_ids:
-            try:
-                if shot_ids:
-                    sg_tasks = [
-                        task for shot_id, task in tasks_per_entity[EntityType.Shot].items() if shot_id in shot_ids
-                    ]
-                else:
-                    sg_tasks = [
-                        task for asset_id, task in tasks_per_entity[EntityType.Asset].items() if asset_id in asset_ids
-                    ]
+        sg_tasks = []
+        current_ids = shot_ids.union(asset_ids)
 
-                for sg_task in sg_tasks:
-                    entity = sg_task.get("entity") or {}
-                    entity_id = entity["id"] if entity else None
-                    if not entity_id or entity_id not in current_ids:
-                        continue
+        if shot_ids:
+            for shot_id, tasks in tasks_per_entity.get(EntityType.Shot, {}).items():
+                if shot_id in shot_ids:
+                    sg_tasks.extend(tasks)
+        else:
+            for asset_id, tasks in tasks_per_entity.get(EntityType.Asset, {}).items():
+                if asset_id in asset_ids:
+                    sg_tasks.extend(tasks)
 
-                    task_name = sg_task.get("content")
+        for sg_task in sg_tasks:
+            sg_entity = sg_task.get("entity") or {}
+            entity_id = sg_entity["id"] if sg_entity else None
+            if not entity_id or entity_id not in current_ids:
+                continue
 
-                    # Build per-shot tasks list
-                    if task_name:
-                        cur_list = tasks_map.setdefault(entity_id, [])
-                        if task_name not in cur_list:
-                            cur_list.append(task_name)
+            task_name = sg_task.get("content")
 
-                    assignees = sg_task.get("task_assignees")
-                    if not task_name or not assignees:
-                        continue
+            # Build per-shot tasks list
+            if task_name:
+                cur_list = tasks_map.setdefault(entity_id, [])
+                if task_name not in cur_list:
+                    cur_list.append(task_name)
 
-                    lst = assignee_map.setdefault(entity_id, [])
+            assignees = sg_task.get("task_assignees")
+            if not task_name or not assignees:
+                continue
 
-                    for assignee in assignees:
-                        if not isinstance(assignee, dict):
-                            continue
+            assigned_tasks = assignee_map.setdefault(EntityType[sg_entity["type"]]).setdefault(entity_id, [])
 
-                        asset_id = assignee["id"]
+            for assignee in assignees:
+                if not isinstance(assignee, dict):
+                    continue
 
-                        if not any(x.artist_id == asset_id and x.task_name == task_name for x in lst):
-                            lst.append(
-                                AssignedTask(
-                                    artist_is_group=True if assignee["type"] == "Group" else False,
-                                    artist_id=asset_id,
-                                    task_name=task_name,
-                                    task_id=sg_task["id"],
-                                )
-                            )
-            except Exception as e:
-                logger.exception(f"Failed to prefill assignments from ShotGrid: {e}")
+                asset_id = assignee["id"]
+
+                if not any(
+                    x.artist_id == asset_id and x.task_name == task_name
+                    for x in assigned_tasks
+                ):
+                    assigned_tasks.append(
+                        AssignedTask(
+                            artist_is_group=(
+                                True if assignee["type"] == "Group" else False
+                            ),
+                            artist_id=asset_id,
+                            task_name=task_name,
+                            task_id=sg_task["id"],
+                        )
+                    )
 
         # Merge in pending (in-memory) project assignments, without duplicating
         proj_assign = assignments_overrides.get(project_id, {})
-        for entity_id, lst in proj_assign.items():
-            if entity_id not in current_ids:
-                continue
-            cur = assignee_map.setdefault(entity_id, [])
-            for asset in lst:
-                if not any(x.artist_id == asset.artist_id and x.task_name == asset.task_name for x in cur):
-                    cur.append(asset)
+        for entity_type, v in proj_assign.items():
+            for entity_id, assigned_tasks in v.items():
+                if entity_id not in current_ids:
+                    continue
+                cur = assignee_map.setdefault(entity_type, {}).setdefault(entity_id, [])
+                for assigned_task in assigned_tasks:
+                    if not any(
+                        x.artist_id == assigned_task.artist_id
+                        and x.task_name == assigned_task.task_name
+                        for x in cur
+                    ):
+                        cur.append(assigned_task)
 
         # Apply unassignment overrides so UI hides removed assignees immediately
         overrides = project_unassign_overrides.get(project_id, {})
         if overrides:
-            for entity_id, removed_list in overrides.items():
-                if entity_id in assignee_map:
-                    existing = assignee_map[entity_id]
-                    assignee_map[entity_id] = [
-                        x
-                        for x in existing
-                        if not any((x.artist_id == r.artist_id and x.task_name == r.task_name) for r in removed_list)
-                    ]
+            for entity_type, v in overrides.items():
+                for entity_id, removed_list in v.items():
+                    if entity_id in v:
+                        existing = assignee_map[entity_type][entity_id]
+                        assignee_map[entity_type][entity_id] = [
+                            x
+                            for x in existing
+                            if not any(
+                                (x.artist_id == r.artist_id and x.task_name == r.task_name)
+                                for r in removed_list
+                            )
+                        ]
         return WeekSnapshot(
             week=week,
             days=Days,
@@ -321,13 +431,21 @@ def get_week(week: Week, project_id: str):
             board_items=board_items,
             artists=proj_artists,
             assignments=assignee_map,
-            no_due_date=sorted(no_due, key=lambda x: x.name.lower()) if no_due else None,
-            parents=sorted(parent_names) or sorted(asset_types),
-            on_hold=sorted(on_hold_list, key=lambda x: x.name.lower()) if on_hold_list else None,
-            omitted=sorted(omitted_list, key=lambda x: x.name.lower()) if omitted_list else None,
+            no_due_date=(
+                sorted(no_due, key=lambda x: x.name.lower()) if no_due else None
+            ),
+            parents={EntityType.Shot: sorted(sequences), EntityType.Asset: sorted(asset_types)},
+            on_hold=(
+                sorted(on_hold_list, key=lambda x: x.name.lower())
+                if on_hold_list
+                else None
+            ),
+            omitted=(
+                sorted(omitted_list, key=lambda x: x.name.lower())
+                if omitted_list
+                else None
+            ),
             annotations=annotations_map or None,
-            assets_no_due_date=sorted(assets_no_due, key=lambda x: x.name.lower()) if assets_no_due else None,
-            tasks_per_shot=tasks_map or None,
         )
     except Exception as e:
         logger.exception(f"Failed to build project-aware week snapshot {e}")
@@ -343,14 +461,31 @@ def move_item(request: MoveByWeekDayRequest, project_id: Optional[str] = None):
     return {"ok": True}
 
 
+@app.post("/api/remove_due_date")
+def remove_due_date(payload: Dict[str, Any], project_id: Optional[str] = None):
+    project_ids = int(project_id)
+    entity_id = int(payload.get("item_id"))
+
+    entity_type = EntityType[payload.get("entity_type")]
+    overrides = no_due_overrides.setdefault(project_ids, {})
+    ids_overrides = overrides.setdefault(entity_type, set())
+    ids_overrides.add(entity_id)
+    return {"ok": True}
+
+
 @app.post("/api/assign")
 def assign_artist(request: AssignArtistRequest, project_id: str):
 
     project_id = int(project_id)
-    assign_map = assignments_overrides.setdefault(project_id, {}).setdefault(request.entity_type, {})
-    assignments = assign_map.setdefault(request.shot_id, [])
+    assign_map = assignments_overrides.setdefault(project_id, {}).setdefault(
+        request.entity_type, {}
+    )
+    assignments = assign_map.setdefault(request.entity_id, [])
 
-    if not any(a.artist_id == request.artist_id and a.task_name == request.task_name for a in assignments):
+    if not any(
+        assignment.artist_id == request.artist_id and assignment.task_name == request.task_name
+        for assignment in assignments
+    ):
         assignments.append(
             AssignedTask(
                 artist_id=request.artist_id,
@@ -359,24 +494,33 @@ def assign_artist(request: AssignArtistRequest, project_id: str):
                 task_id=request.task_id,
             )
         )
-    return {"ok": True, "shot_id": request.shot_id, "assignments": assignments}
+    return {"ok": True, "shot_id": request.entity_id, "assignments": assignments}
 
 
 @app.post("/api/unassign")
 def unassign_artist(request: AssignArtistRequest, project_id: Optional[str] = None):
     # Remove an assignment if present; prefer per-project store when project_id is provided
     project_id = int(project_id)
-    pmap = assignments_overrides.setdefault(project_id, {}).setdefault(request.entity_type, {})
-    cur = pmap.get(request.shot_id, [])
+    pmap = assignments_overrides.setdefault(project_id, {}).setdefault(
+        request.entity_type, {}
+    )
+    cur = pmap.get(request.entity_id, [])
 
     # Filter out matching entries
-    filtered = [a for a in cur if not (a.artist_id == request.artist_id and a.task_name == request.task_name)]
-    pmap[request.shot_id] = filtered
+    filtered = [
+        a
+        for a in cur
+        if not (a.artist_id == request.artist_id and a.task_name == request.task_name)
+    ]
+    pmap[request.entity_id] = filtered
 
     # Record an override so prefilled ShotGrid assignees are hidden in the UI
     ov_map = project_unassign_overrides.setdefault(project_id, {})
-    ov_list = ov_map.setdefault(request.shot_id, [])
-    if not any(a.artist_id == request.artist_id and a.task_name == request.task_name for a in ov_list):
+    ov_list = ov_map.setdefault(request.entity_id, [])
+    if not any(
+        a.artist_id == request.artist_id and a.task_name == request.task_name
+        for a in ov_list
+    ):
         ov_list.append(
             AssignedTask(
                 artist_id=request.artist_id,
@@ -385,7 +529,7 @@ def unassign_artist(request: AssignArtistRequest, project_id: Optional[str] = No
                 artist_is_group=request.artist_is_group,
             )
         )
-    return {"ok": True, "shot_id": request.shot_id, "assignments": filtered}
+    return {"ok": True, "entity_id": request.entity_id, "assignments": filtered}
 
 
 @app.get("/api/changes")
@@ -416,16 +560,27 @@ def list_changes(project_id: str):
     result_moves = []
     for entity_type, v in moves.items():
         for entity_id, (week, day) in v.items():
-            entity = entities_by_id[entity_type].get(entity_id)
-            from_date = entity.get("sg_next_delivery")
-            to_date = _date_from_week_day(week, day).isoformat()
+            entity = entities_by_id.get(entity_type, {}).get(entity_id)
+            code = None
+            from_date = None
+            if isinstance(entity, dict):
+                code = entity.get("code")
+                from_date = entity.get("sg_next_delivery")
+
+            try:
+                to_date = _date_from_week_day(week, day).isoformat()
+            except Exception:
+                # Fallback: leave to_date None if helper fails
+                to_date = None
+
             result_moves.append(
                 {
                     "shot_id": entity_id,
-                    "shot_name": sh.get("code") or f"Shot {shot_id}",
+                    "shot_name": code
+                    or f"{getattr(entity_type, 'name', str(entity_type))} {entity_id}",
                     "from_date": from_date,
-                    "to_week": week,
-                    "to_day": day,
+                    "to_week": week.value,
+                    "to_day": day.value,
                     "to_date": to_date,
                 }
             )
@@ -446,7 +601,9 @@ def publish_changes(project_id: Optional[str] = None):
     try:
         sg_publish_changes(project_id, moves, assigns)
     except Exception as e:
-        logger.exception(f"Failed to publish to ShotGrid; continuing to clear local state: {e}")
+        logger.exception(
+            f"Failed to publish to ShotGrid; continuing to clear local state: {e}"
+        )
 
     # Clear pending changes for the project
     moves_overrides[project_id] = {}
@@ -485,42 +642,37 @@ def get_annotations(project_id: Optional[str] = None):
 def set_annotation(payload: Dict[str, str], project_id: Optional[str] = None):
     if not project_id:
         raise HTTPException(status_code=400, detail="project_id required")
-    week = payload.get("week")
-    day = payload.get("day")
+    raw_week = payload.get("week")
+    raw_day = payload.get("day")
     text = payload.get("text", "")
     color = payload.get("color", "#c7cbe0")
-    if week not in (Week.w0, Week.w1, Week.w2, Week.w3):
-        raise HTTPException(status_code=400, detail="invalid week")
-    if day not in ("mon", "tue", "wed", "thu", "fri"):
-        raise HTTPException(status_code=400, detail="invalid day")
-    key = f"{week}/{day}"
+
+    key = f"{raw_week}/{raw_day}"
     try:
         data = sg_get_project_annotations(int(project_id))
         if not isinstance(data, dict):
             data = {}
-        # If text is empty/whitespace, remove the annotation entry entirely
-        if not str(text).strip():
+
+        # remove annotation if text is empty
+        if not text.strip():
             if key in data:
                 try:
                     del data[key]
                 except Exception:
                     data[key] = None  # fallback no-op
         else:
-            data[key] = {"text": str(text), "color": str(color) or "#c7cbe0"}
+            data[key] = {"text": text, "color": color}
+
         sg_set_project_annotations(int(project_id), data)
         # Normalize output like GET (ensure {text, color})
         out: Dict[str, Dict[str, str]] = {}
-        for k, v in (data or {}).items():
-            if isinstance(v, dict):
-                text = str(v.get("text", ""))
-                color = str(v.get("color", "#c7cbe0"))
-            elif isinstance(v, str):
-                text = v
-                color = "#c7cbe0"
-            else:
-                text = str(v)
-                color = "#c7cbe0"
-            out[str(k)] = {"text": text, "color": color}
+        for k, v in data.items():
+
+            text = v.get("text", "")
+            color = v.get("color", "#c7cbe0")
+
+            out[k] = {"text": text, "color": color}
+
         return {"ok": True, "annotations": out}
     except Exception:
         logger.exception("Failed to save annotation to ShotGrid")
@@ -528,19 +680,18 @@ def set_annotation(payload: Dict[str, str], project_id: Optional[str] = None):
 
 
 def service_main() -> int:
-    # Configure logging
+
     log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
     logging.basicConfig(
-        level=getattr(logging, log_level, logging.INFO), format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+        level=getattr(logging, log_level, logging.INFO),
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
-    logger.info("Running Whiteboard server")
-    host = os.environ.get("WHITEBOARD_SERVER_HOST")
-    port = os.environ.get("WHITEBOARD_SERVER_PORT")
-    assert host, "WHITEBOARD_SERVER_HOST env var not set"
-    assert port, "WHITEBOARD_SERVER_PORT env var not set"
-    uvicorn.run(app, host=host, port=int(port))
+
+    host = os.environ.get("WHITEBOARD_SERVER_HOST", "127.0.0.1")
+    port = int(os.environ.get("WHITEBOARD_SERVER_PORT", "8000"))
+    uvicorn.run(app, host=host, port=port)
     return 0
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="localhost", port=8000)
+    service_main()

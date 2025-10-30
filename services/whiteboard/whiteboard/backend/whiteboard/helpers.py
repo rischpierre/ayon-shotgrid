@@ -61,7 +61,7 @@ def _date_from_week_day(week: Week, day: Day) -> datetime.date:
     monday = _current_monday()
     week_id = int(week[1])  # 'w0' -> 0
     day_idx_map = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4}
-    return monday + datetime.timedelta(days=week_id * 7 + day_idx_map[day])
+    return monday + datetime.timedelta(days=week_id * 7 + day_idx_map[day.value])
 
 
 def to_week_and_day(dt: datetime.date, current_monday: datetime.date) -> Optional[Tuple[Week, Day]]:

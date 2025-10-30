@@ -1,22 +1,44 @@
 # TODO
-- [ ] add button to remove due date (use a menu to remove the due date from the item)
-- [ ] get tasks per entity instead of getting a sample for all the shots and assets in the project
-
-- [ ] update the 0.0.0-prod addon version so I can deploy the whiteboard on the prod version
+- [x] make the manual tests
+- [x] get tasks per entity instead of getting a sample for all the shots and assets in the project
+- [x] move the assignees to the right of the day cards
+- [x] the thumbnails for the assingnees should have an outline color corresponding to the color of the task
+- [x] add annotations back, there is no menu showing up on the day cards currently
+- [x] add button to remove due date (use a menu to remove the due date from the item)
+- [x] make a brighter color on the current day
+- [x] the days on the day cards should be in the format of Thu, 25
+- [x] add a filter for the shots by their sequence name and for the assets use their asset_type, the filter should be a combo box on the top of the board
+- [x] the combobox filter should be on the left side of the no due date board
+- [x] the combobox filter should filter only the shots in the no due date board
+- [x] is there a black formatter for js ?
+- [x] make sure there is no more string literal for Shot or Asset on the frontend, we need to use EntityType.Shot or EntityType.Asset for that
+- [x] I tried to build the frontend with npm run build, it created files in backend/static but when I run the backend with python -m whiteboard --dev and when I go to the browser it is blank. I have errors on the terminal too:
+- [x] test to build the front with npm build to see if it works and how the built code looks like
+- [x] I want to have a context menu popping up when I right-click on the item card, with an `Unschedule` action, instead of the confirmation dialog we had previously (no window.confirm)
+- [x] I want to have a context menu popping up when I click or right-click on an assigned artist avatar, with an `Unassign` action (no window.prompt)
+- [x] The shots on the No Due Date board are fixed width and flow left-to-right with wrapping; the same layout is applied to the Omitted and On Hold boards
+- [x] find a better way to mock the imports of the sg_helpers, currently I just forced the import of sg_helpers_mocked
+- [x] on the day boad and for the annotations, we need to have a right click context menu instead of the confirmation dialog we had previously (no window.confirm)
+- [x] create more assets on the mocked sg 
+- [x] bugfix on the asset tab, when I unschedule an asset it does not go to the no due date board 
+- [x] the no due date title should be aligned to the left of the no due date board
+- [x] the assets boards don't look the same as the shot boards
+- [x] currently on the no due date board, the shots are layout in column first, I want them in row first
+- [x] there is no asset type filter on the asset tab
+- [x] all the entity cards (shots and assets) should have a fixed width and height regardless of where they are on the boards
+- [x] the asset type filter on the assets tabs should be in the no due date board only, it should only affect the assets inside this board
+- [x] remove app_deprecated.js when the react migration is done
  
-- [ ] make the manual tests
+- [ ] check that the assets work the same as the shots
+- [ ] get a screenshot on how the original app looked like
 
-
-# Playwright tests
-1) Install Playwright for Python (dev dependencies):
-```
-poetry add -D playwright pytest-playwright
-poetry run playwright install
-```
-2) Run the E2E test:
-```
-poetry run pytest -q tests/test_drag_drop_shot.py
-```
+# How to run
+1. build the front-end:
+   `npm install   # only first time`
+   `npm run build `
+2. run the backend  
+   `export WHITEBOARD_SG_DEV_MODE=1`  -> in order to use sg mocked data
+   `python -m whiteboard`
 
 # Tests to do
 for assets:

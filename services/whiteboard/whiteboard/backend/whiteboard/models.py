@@ -24,7 +24,7 @@ class Week(Enum):
     w3 = "w3"  # three weeks from now
 
 
-Weeks = [Week.w0, Week.w1, Week.w2, Week.w3]
+Weeks: List[Week] = [Week.w0, Week.w1, Week.w2, Week.w3]
 
 
 class EntityType(Enum):
@@ -65,14 +65,12 @@ class WeekSnapshot(BaseModel):
     boards: Dict[Day, List[Board]]
     board_items: Dict[str, List[Item]]  # board_id -> items for all days in week
     artists: List[Artist]
-    assignments: Dict[int, List[AssignedTask]]
+    assignments: Dict[EntityType, Dict[int, List[AssignedTask]]] = None
     no_due_date: Optional[List[Item]] = None
-    parents: Optional[List[str]] = None
+    parents: Dict[EntityType, List[str]] = None
     on_hold: Optional[List[Item]] = None
     omitted: Optional[List[Item]] = None
     annotations: Optional[Dict[str, Any]] = None
-    assets_no_due_date: Optional[List[Item]] = None
-    tasks_per_shot: Optional[Dict[int, List[str]]] = None
 
 
 class Project(BaseModel):
@@ -91,7 +89,8 @@ class MoveByWeekDayRequest(BaseModel):
 class AssignArtistRequest(BaseModel):
     artist_id: int
     artist_is_group: bool
-    shot_id: int
+    entity_id: int
+    entity_type: EntityType
     task_name: str
     task_id: int
 
@@ -106,7 +105,7 @@ assignments: Dict[int, List[AssignedTask]] = {}  # entity_id -> [AssignedTask, .
 # Per-project overrides and assignments (project-aware mode)
 moves_overrides: Dict[int, Dict[EntityType, Dict[int, Tuple[Week, Day]]]] = {}  # project_id -> entity_type -> entity_id -> (week, day)
 assignments_overrides: Dict[int, Dict[EntityType, Dict[int, List[AssignedTask]]]] = {}  # project_id -> entity_type -> entity_id -> [AssignedTask]
-project_unassign_overrides: Dict[int, Dict[int, List[AssignedTask]]] = (
-    {}
-)  # project_id -> shot_id -> [AssignedTask] marked for removal
-tasks_per_entity: Dict[EntityType, dict[int, Any]] = {}
+project_unassign_overrides: Dict[int, Dict[EntityType, Dict[int, List[AssignedTask]]]] = {}
+tasks_per_entity: Dict[EntityType, dict[int, list[Dict[str, Any]]]] = {}
+# Items changed to have no due date project_id -> entityType -> [entity_id]
+no_due_overrides: Dict[int, Dict[EntityType, set[int]]] = {}

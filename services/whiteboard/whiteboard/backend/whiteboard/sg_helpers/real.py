@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import threading
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Sequence, Tuple
 
 import ayon_api
 import shotgun_api3
@@ -92,7 +92,7 @@ def sg_find_project_assets(project_id: int) -> List[Dict[str, Any]]:
     return sg.find("Asset", a_filters, a_fields, order=[{"field_name": "code", "direction": "asc"}])
 
 
-def sg_find_tasks_per_entity(project_id: int) -> dict[EntityType, dict[int, Any]]:
+def sg_find_tasks_per_entity(project_id: int) -> dict[EntityType, dict[int, list[Dict[str, Any]]]]:
 
     sg = get_sg_session()
     task_fields = ["id", "content", "entity", "task_assignees"]
@@ -100,7 +100,9 @@ def sg_find_tasks_per_entity(project_id: int) -> dict[EntityType, dict[int, Any]
     result = {EntityType.Shot: {}, EntityType.Asset: {}}
     for task in tasks:
         # enityType -> enity_id -> task
-        result[EntityType[task["entity"]["type"]]][task["entity"]["id"]] = task
+        entity_type = task["entity"]["type"]
+        entity_id = task["entity"]["id"]
+        result[EntityType[entity_type]].setdefault(entity_id, []).append(task)
     return result
 
 
@@ -171,3 +173,4 @@ def sg_set_project_annotations(project_id: int, data: Dict[str, Any]) -> None:
         sg.update("Project", int(project_id), payload)
     except Exception as e:
         logger.exception("Failed to update sg_whiteboard_annotations {e}")
+

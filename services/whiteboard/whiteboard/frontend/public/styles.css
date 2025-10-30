@@ -6,6 +6,8 @@
     --chip: #232848;
     --ok: #2ecc71;
     --bad: #ff6b6b;
+    --card-w: 220px;
+    --card-h: 64px;
 }
 body {
     margin: 0;
@@ -38,8 +40,8 @@ header {
     min-height: 220px;
     display: flex; flex-direction: column;
 }
-.board.current-day { background: #1a1f3e; border-color: #3a4a9e; box-shadow: 0 0 0 1px rgba(106,169,255,0.15) inset; }
-.board.current-day h3 { background: rgba(106,169,255,0.08); }
+.board.current-day { background: #222a5a; border-color: #6aa9ff; box-shadow: 0 0 0 2px rgba(106,169,255,0.35) inset, 0 0 0 1px rgba(106,169,255,0.15); }
+.board.current-day h3 { background: rgba(106,169,255,0.16); color: #ffffff; }
 .board h3 {
     margin: 0; padding: 10px 12px; font-size: 14px; color: #cbd3ea; border-bottom: 1px solid #24294d;
     display:flex; align-items:center; justify-content:space-between;
@@ -52,7 +54,11 @@ header {
 }
 .card {
     background: #1c2140; border: 1px solid #2a2f58; border-radius: 8px; padding: 8px;
-    display: grid; grid-template-columns: 96px 1fr; gap: 8px; align-items: center;
+    display: grid; grid-template-columns: 96px 1fr auto; gap: 8px; align-items: center;
+    width: var(--card-w);
+    height: var(--card-h);
+    box-sizing: border-box;
+    overflow: hidden;
 }
 .thumb {
     width: 96px; height: 64px; background: #11152b; border-radius: 6px; overflow: hidden; display: grid; place-items: center;
@@ -107,3 +113,15 @@ footer { padding: 10px 16px; color: var(--muted); font-size: 12px; }
 .context-menu { position: fixed; z-index: 15; background:#0f1330; border:1px solid #2a2f58; border-radius:8px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); display:none; min-width: 160px; }
 .context-menu .item { padding:8px 12px; font-size:13px; color:#e7e9ef; cursor:pointer; }
 .context-menu .item:hover { background:#1b2042; }
+
+/* Compact shot cards (~50% height vs default) */
+.card.card-shot { padding: 5px 6px; grid-template-columns: 80px 1fr auto; gap: 6px; }
+.card.card-shot .thumb { width: 80px; height: 40px; }
+.card.card-shot .title { font-size: 12px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card.card-shot .assignees { margin-top: 4px; }
+
+/* Make asset cards visually consistent with shot cards */
+.card.card-asset { padding: 5px 6px; grid-template-columns: 80px 1fr auto; gap: 6px; }
+.card.card-asset .thumb { width: 80px; height: 40px; }
+.card.card-asset .title { font-size: 12px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card.card-asset .assignees { margin-top: 4px; }
