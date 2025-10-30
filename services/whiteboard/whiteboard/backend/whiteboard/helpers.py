@@ -52,16 +52,21 @@ def identicon_thumb(size: int, key: str) -> str:
     return _svg_data_uri(svg)
 
 
-def _current_monday() -> datetime.date:
+def date_from_week_day(week: Week, day: Day) -> datetime.date:
+    """
+    Computes and returns the date corresponding to a specific week and day.
+
+    This function calculates the date using the given week and day identifiers. The computation
+    bases itself on the current week's Monday date and utilizes indices of the provided week and
+    day to determine the correct date.
+    """
     today = datetime.date.today()
-    return today - datetime.timedelta(days=today.weekday())  # Monday=0
+    monday = today - datetime.timedelta(days=today.weekday())  # Monday=0
 
+    week_id = Weeks.index(Week(week))  # w0 -> 0 , w1 -> 1, etc.
+    day_id = Days.index(Day(day))
 
-def _date_from_week_day(week: Week, day: Day) -> datetime.date:
-    monday = _current_monday()
-    week_id = int(week[1])  # 'w0' -> 0
-    day_idx_map = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4}
-    return monday + datetime.timedelta(days=week_id * 7 + day_idx_map[day.value])
+    return monday + datetime.timedelta(days=week_id * 7 + day_id)
 
 
 def to_week_and_day(dt: datetime.date, current_monday: datetime.date) -> Optional[Tuple[Week, Day]]:

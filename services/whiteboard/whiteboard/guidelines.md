@@ -120,3 +120,7 @@ IMPORTANT: Always-Update Rule
 - 2025-10-29 19:03: Bugfix: Asset tab weekday alignment fixed. Backend now uses the same baseline Monday for shots and assets when mapping due dates to week/day, preventing a one-day shift in Assets. No API changes.
 - 2025-10-29 19:15: UI: Moved the Asset type filter into the No Due Date board header (left side). The filter now only affects items in the No Due Date board; weekday boards are unaffected. Removed the Assets filter from the weekday sections. No backend changes.
 - 2025-10-29 19:12: UI: All entity cards (shots and assets) now have a fixed width and height across all boards for visual consistency. Implemented via CSS variables --card-w and --card-h; removed inline width overrides. No API changes.
+- 2025-10-30: Docker: Migrated to a multi-stage Dockerfile. Stage 1 builds the React frontend with Vite (Node 20 alpine) and emits assets into `backend/whiteboard/static`; Stage 2 installs Python deps with Poetry and copies the built static into `/service/whiteboard/static`. Run with `python -m whiteboard`. No API changes.
+
+
+- 2025-10-30 (later): Docker: Kept single-stage Python image and minimally added Node.js and npm steps (`npm ci` + `npm run build`) to bake the React frontend into `backend/whiteboard/static` during image build. Reverts the earlier multi-stage change. No API changes.

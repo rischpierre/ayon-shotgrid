@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from whiteboard.helpers import (
     identicon_thumb,
     solid_color_thumb,
-    _date_from_week_day,
+    date_from_week_day,
     to_week_and_day,
 )
 from whiteboard.models import *
@@ -568,7 +568,7 @@ def list_changes(project_id: str):
                 from_date = entity.get("sg_next_delivery")
 
             try:
-                to_date = _date_from_week_day(week, day).isoformat()
+                to_date = date_from_week_day(week, day).isoformat()
             except Exception:
                 # Fallback: leave to_date None if helper fails
                 to_date = None

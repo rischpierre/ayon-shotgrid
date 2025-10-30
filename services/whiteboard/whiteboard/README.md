@@ -29,8 +29,14 @@
 - [x] the asset type filter on the assets tabs should be in the no due date board only, it should only affect the assets inside this board
 - [x] remove app_deprecated.js when the react migration is done
  
-- [ ] check that the assets work the same as the shots
-- [ ] get a screenshot on how the original app looked like
+- [ ] make shots and assets cards a bit bigger on their height like 3px
+- [ ] make the boards a bit bigger on their height like 20px
+- [ ] if there are more than 5 shots on a day, the shots should be in a scrollable container
+- [ ] the changes are not written correctly
+- [ ] fix publish it does not work
+- [ ] update the Dockerfile with npm install and npm build 
+- [ ] publish: make batch updates instead 
+ 
 
 # How to run
 1. build the front-end:
