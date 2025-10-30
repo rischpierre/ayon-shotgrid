@@ -146,6 +146,9 @@ export default function WeekGrid({snapshot, onDropArtist, onMoveItem, onSetAnnot
                     </h3>
                     <div
                         className="list"
+                        style={ (col.boards.reduce((acc, b) => acc + (board_items?.[b.id]?.length || 0), 0) > 5)
+                            ? { maxHeight: `calc(var(--card-h) * 5 + 8px * 4)`, overflowY: 'auto' }
+                            : { maxHeight: 'none', overflowY: 'visible' } }
                         onDragOver={handleColDragOver}
                         onDrop={(e) => {
                             try {

@@ -133,3 +133,5 @@ IMPORTANT: Always-Update Rule
 
 
 - 2025-10-30 10:14: UI bugfix: Prevented Shot cards from shrinking when a day has more than 5 items by setting `.board .list .card { flex-shrink: 0; }`. Weekday Shot columns now strictly keep fixed card height; overflow items are accessible via a vertical scrollbar. No API changes.
+
+- 2025-10-30 10:16: UI: Enlarged thumbnails and avatars. Card thumbnails: default 96×73→104×73; compact Shot/Asset 80×40→88×46. Artist avatars: 48→52 px. Assignee avatars: 28→32 px. No API changes.
