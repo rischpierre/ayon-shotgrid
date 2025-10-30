@@ -163,7 +163,10 @@ export default function ContentShell() {
                 <ArtistBar artists={allArtists}/>
             </div>
             <section id="weeks">
-                {loading && <div style={{color: '#9aa3b2', padding: '8px 0'}}>Loading…</div>}
+                {/* Show loading only on first load when no weeks are present */}
+                {(loading && (!weeks || Object.keys(weeks).length === 0)) && (
+                    <div style={{color: '#9aa3b2', padding: '8px 0'}}>Loading…</div>
+                )}
                 {error &&
                     <div style={{color: '#ff6b6b', padding: '8px 0'}}>Error: {String(error.message || error)}</div>}
                 {/* Full-width No Due Date above */}

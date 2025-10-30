@@ -1,6 +1,6 @@
 # Whiteboard – Working Guidelines
 
-Last updated: 2025-10-30 09:40 (updated)
+Last updated: 2025-10-30 10:06 (updated)
 Owner: team
 
 IMPORTANT: Always-Update Rule
@@ -127,3 +127,9 @@ IMPORTANT: Always-Update Rule
 
 - 2025-10-30 09:40: UI sizing tweak: increased entity card height by 3px (`--card-h` 64px→67px) and board min-height by 20px (220px→240px). Adjusted day list max-height cap to 440px to match. No API changes.
 - 2025-10-30 09:40 (later): UI: Day columns now become scrollable when a day has more than 5 Shot cards. Assets unaffected. Implemented via conditional max-height on the day list. No API changes.
+- 2025-10-30 10:05: UI: Fixed-day scroll behavior finalized. Cards keep fixed height; weekday day lists scroll only when there are more than 5 Shot cards. Removed default `.board .list` max-height/overflow to prevent premature scroll; scrolling is now controlled inline in `WeekGrid.jsx` for Shots only. No API changes.
+
+- 2025-10-30 10:03: UI: Suppressed transient “Loading…” text during drag-and-drop by only showing the loading banner on initial load (when no weeks are present). No API changes.
+
+
+- 2025-10-30 10:14: UI bugfix: Prevented Shot cards from shrinking when a day has more than 5 items by setting `.board .list .card { flex-shrink: 0; }`. Weekday Shot columns now strictly keep fixed card height; overflow items are accessible via a vertical scrollbar. No API changes.

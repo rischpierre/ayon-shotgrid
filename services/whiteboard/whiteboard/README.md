@@ -28,14 +28,16 @@
 - [x] all the entity cards (shots and assets) should have a fixed width and height regardless of where they are on the boards
 - [x] the asset type filter on the assets tabs should be in the no due date board only, it should only affect the assets inside this board
 - [x] remove app_deprecated.js when the react migration is done
+- [x] make shots and assets cards a bit bigger on their height like 3px (done: --card-h 64px -> 67px)
+- [x] make the boards a bit bigger on their height like 20px (done: min-height 220px -> 240px; list max-height 420px -> 440px)
+- [x] if there are more than 5 shots on a day, the shots should be in a scrollable container
+- [x] update the Dockerfile with npm install and npm build
+- [x] publish: make batch updates instead
+- [x] remove the loading text appearing when I do a drag and drop
  
-- [ ] make shots and assets cards a bit bigger on their height like 3px
-- [ ] make the boards a bit bigger on their height like 20px
-- [ ] if there are more than 5 shots on a day, the shots should be in a scrollable container
 - [ ] the changes are not written correctly
 - [ ] fix publish it does not work
-- [ ] update the Dockerfile with npm install and npm build 
-- [ ] publish: make batch updates instead 
+- [ ] I need to publish also the unassignments and the set to no due date too
  
 
 # How to run
