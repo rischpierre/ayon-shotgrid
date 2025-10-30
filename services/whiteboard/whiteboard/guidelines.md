@@ -1,6 +1,6 @@
 # Whiteboard – Working Guidelines
 
-Last updated: 2025-10-29 19:15 (updated)
+Last updated: 2025-10-30 09:40 (updated)
 Owner: team
 
 IMPORTANT: Always-Update Rule
@@ -124,3 +124,6 @@ IMPORTANT: Always-Update Rule
 
 
 - 2025-10-30 (later): Docker: Kept single-stage Python image and minimally added Node.js and npm steps (`npm ci` + `npm run build`) to bake the React frontend into `backend/whiteboard/static` during image build. Reverts the earlier multi-stage change. No API changes.
+
+- 2025-10-30 09:40: UI sizing tweak: increased entity card height by 3px (`--card-h` 64px→67px) and board min-height by 20px (220px→240px). Adjusted day list max-height cap to 440px to match. No API changes.
+- 2025-10-30 09:40 (later): UI: Day columns now become scrollable when a day has more than 5 Shot cards. Assets unaffected. Implemented via conditional max-height on the day list. No API changes.

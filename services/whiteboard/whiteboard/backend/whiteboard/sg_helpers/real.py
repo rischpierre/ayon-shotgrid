@@ -118,15 +118,22 @@ def sg_publish_changes(project_id: int, moves: Dict[EntityType, Dict[int, Tuple[
     proj = {"type": "Project", "id": int(project_id)}
     from whiteboard.helpers import date_from_week_day  # local import to avoid circular
 
-    # todo do a batch update instead here
+    batch_data = []
     for entity_type, value in moves.items():
         for entity_id, (wk, dy) in value.items():
             target_date = date_from_week_day(wk, dy).isoformat()
-
-            sg.update(entity_type.name, entity_id, {"sg_next_delivery": target_date})
+            batch_data.append(
+                    {
+                        "request_type": "update",
+                        "entity_type": entity_type.name,
+                        "entity_id": entity_id,
+                        "data": {"sg_next_delivery": target_date},
+                    }
+            )
             logger.info(f"Updated {entity_type} {entity_id} sg_next_delivery -> {target_date}")
 
-    # Assignments: update existing Task assignees per (artist, task) for each item (shot or asset)
+    # Assignments: update existing Task assignees per (artist, task) for each task
+    # todo I need to add unassigns here
     for entity_type, value in assigns.items():
         for item_id, task_list in value.items():
             for task in task_list:
@@ -140,11 +147,18 @@ def sg_publish_changes(project_id: int, moves: Dict[EntityType, Dict[int, Tuple[
 
                 already_assigned = found.get("task_assignees")
 
-                    # any([a for a in found.get("task_assignees") if a["id"] == task.artist_id]))
+                batch_data.append(
+                    {
+                        "request_type": "update",
+                        "entity_type": "Task",
+                        "entity_id": task.task_id,
+                        "data": {"task_assignees": list(already_assigned) + [assignee]}
+                    }
+                )
+                logger.info(f"Updated Task {task.task_id} assignees -> {assignee}")
 
-                if not already_assigned:
-                    sg.update("Task", task.task_id, {"task_assignees": list(already_assigned) + [assignee]})
-
+    if batch_data:
+        sg.batch(batch_data)
 
 
 def sg_get_project_annotations(project_id: int) -> Dict[str, Any]:
@@ -173,4 +187,3 @@ def sg_set_project_annotations(project_id: int, data: Dict[str, Any]) -> None:
         sg.update("Project", int(project_id), payload)
     except Exception as e:
         logger.exception("Failed to update sg_whiteboard_annotations {e}")
-
