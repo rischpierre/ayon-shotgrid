@@ -19,7 +19,7 @@ RUN python -m ensurepip
 RUN python -m pip install --no-cache --upgrade pip setuptools poetry pip-autoremove && ln -sf pip3 /usr/bin/pip
 
 RUN mkdir /service
-COPY whiteboard /service
+COPY whiteboard/whiteboard /service
 
 # Install dependencies with poetry
 WORKDIR /service/backend
@@ -27,7 +27,7 @@ RUN poetry config virtualenvs.create false
 RUN poetry install --no-interaction --no-ansi --only main
 
 WORKDIR /service/frontend
-RUN npm ci --no-audit --no-fund
+RUN npm ci --no-audit --no-fund  # ci -> clean install
 RUN npm run build
 
 # Remove unnecessary packages to make the image smaller
