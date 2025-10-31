@@ -4,7 +4,7 @@ import datetime
 import logging
 import os
 import time
-from typing import Set
+from typing import Set, List, Dict
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -635,54 +635,97 @@ def list_changes(project_id: str):
     project_id = int(project_id)
     assigns = assignments_overrides.get(project_id, {})
     moves = moves_overrides.get(project_id, {})
+    unassigns = unassign_overrides.get(project_id, {})
+    unschedules = unschedules_overrides.get(project_id, {})
 
-    if not moves and not assigns:
-        return {"moves": moves, "assignments": assigns}
+    # If absolutely nothing is pending, return empty normalized structures
+    if not moves and not assigns and not unassigns and not unschedules:
+        return {"moves": [], "assignments": assigns, "unschedules": [], "unassigns": []}
 
-    shot_ids = list(moves.get(EntityType.Shot, {}).keys())
-    asset_ids = list(moves.get(EntityType.Asset, {}).keys())
+    # Collect IDs we may need to resolve names for
+    shot_ids = set(moves.get(EntityType.Shot, {}).keys())
+    asset_ids = set(moves.get(EntityType.Asset, {}).keys())
 
-    if not shot_ids and not asset_ids:
-        return {"moves": moves, "assignments": assigns}
+    # Include unscheduled entity ids
+    for etype, ids in (unschedules or {}).items():
+        if etype == EntityType.Shot:
+            shot_ids.update(ids or [])
+        elif etype == EntityType.Asset:
+            asset_ids.update(ids or [])
 
-    shots = sg_find_entities_by_ids(EntityType.Shot, shot_ids)
-    assets = sg_find_entities_by_ids(EntityType.Asset, asset_ids)
-    shot_moves = moves.get(EntityType.Shot, {})
-    asset_moves = moves.get(EntityType.Asset, {})
+    # Include unassigned entity ids
+    for etype, by_entity in (unassigns or {}).items():
+        if etype == EntityType.Shot:
+            shot_ids.update((by_entity or {}).keys())
+        elif etype == EntityType.Asset:
+            asset_ids.update((by_entity or {}).keys())
+
+    # Resolve entity records for display
+    shots = sg_find_entities_by_ids(EntityType.Shot, list(shot_ids)) if shot_ids else []
+    assets = sg_find_entities_by_ids(EntityType.Asset, list(asset_ids)) if asset_ids else []
 
     entities_by_id = {
-        EntityType.Shot: {s["id"]: s for s in shots},
-        EntityType.Asset: {a["id"]: a for a in assets},
+        EntityType.Shot: {s.get("id"): s for s in shots},
+        EntityType.Asset: {a.get("id"): a for a in assets},
     }
-    result_moves = []
-    for entity_type, v in moves.items():
-        for entity_id, (week, day) in v.items():
-            entity = entities_by_id.get(entity_type, {}).get(entity_id)
-            code = None
-            from_date = None
-            if isinstance(entity, dict):
-                code = entity.get("code")
-                from_date = entity.get("sg_next_delivery")
 
+    # Normalize moves list with friendly names and dates
+    result_moves: List[Dict[str, object]] = []
+    for entity_type, v in (moves or {}).items():
+        for entity_id, (week, day) in (v or {}).items():
+            entity = entities_by_id.get(entity_type, {}).get(entity_id)
+            code = entity.get("code") if isinstance(entity, dict) else None
+            from_date = entity.get("sg_next_delivery") if isinstance(entity, dict) else None
             try:
                 to_date = date_from_week_day(week, day).isoformat()
             except Exception:
-                # Fallback: leave to_date None if helper fails
                 to_date = None
+            result_moves.append({
+                "entity_type": entity_type.value,
+                "entity_id": entity_id,
+                "name": code or f"{getattr(entity_type, 'name', str(entity_type))} {entity_id}",
+                "from_date": from_date,
+                "to_week": week.value,
+                "to_day": day.value,
+                "to_date": to_date,
+            })
 
-            result_moves.append(
-                {
-                    "shot_id": entity_id,
-                    "shot_name": code
-                    or f"{getattr(entity_type, 'name', str(entity_type))} {entity_id}",
-                    "from_date": from_date,
-                    "to_week": week.value,
-                    "to_day": day.value,
-                    "to_date": to_date,
-                }
-            )
+    # Normalize unschedules list
+    result_unschedules: List[Dict[str, object]] = []
+    for entity_type, ids in (unschedules or {}).items():
+        for entity_id in (ids or set()):
+            entity = entities_by_id.get(entity_type, {}).get(entity_id)
+            code = entity.get("code") if isinstance(entity, dict) else None
+            result_unschedules.append({
+                "entity_type": entity_type.value,
+                "entity_id": entity_id,
+                "name": code or f"{getattr(entity_type, 'name', str(entity_type))} {entity_id}",
+            })
 
-    return {"moves": result_moves, "assignments": assigns}
+    # Normalize unassigns list
+    result_unassigns: List[Dict[str, object]] = []
+    for entity_type, by_entity in (unassigns or {}).items():
+        for entity_id, removed_list in (by_entity or {}).items():
+            entity = entities_by_id.get(entity_type, {}).get(entity_id)
+            code = entity.get("code") if isinstance(entity, dict) else None
+            for r in (removed_list or []):
+                # r is AssignedTask
+                result_unassigns.append({
+                    "entity_type": entity_type.value,
+                    "entity_id": entity_id,
+                    "name": code or f"{getattr(entity_type, 'name', str(entity_type))} {entity_id}",
+                    "task_name": getattr(r, 'task_name', None),
+                    "task_id": getattr(r, 'task_id', None),
+                    "artist_id": getattr(r, 'artist_id', None),
+                    "artist_is_group": getattr(r, 'artist_is_group', False),
+                })
+
+    return {
+        "moves": result_moves,
+        "assignments": assigns,
+        "unschedules": result_unschedules,
+        "unassigns": result_unassigns,
+    }
 
 
 @app.post("/api/publish")

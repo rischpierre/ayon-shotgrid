@@ -1,6 +1,6 @@
 # Whiteboard – Working Guidelines
 
-Last updated: 2025-10-31 08:17 (updated)
+Last updated: 2025-10-31 09:45 (updated)
 Owner: team
 
 IMPORTANT: Always-Update Rule
@@ -143,3 +143,4 @@ IMPORTANT: Always-Update Rule
 
 - 2025-10-31 08:05 (later): UI: Publish modal now lists each assignment change explicitly instead of a single summary line. No API changes.
 - 2025-10-31 08:17: UI: Fixed overlap on entity cards by restructuring the card grid: labels are pinned to the top and assignee avatars are anchored to the bottom (no overlap). No API changes.
+- 2025-10-31 09:45: API/UI: /api/changes now returns four sections: moves[], assignments{}, unschedules[], and unassigns[]. Publish modal displays unschedules and unassigns explicitly. Documentation updated.

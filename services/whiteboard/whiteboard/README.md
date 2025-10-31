@@ -43,6 +43,15 @@
 - [x] on the get_week there is a call to find shots and assets, this function takes time, cache it up for 5 seconds
 - [x] split api/week, it is too big
 - [x] bugfix: on hold and omit assets are not displayed in their respective boards like the shots, update the classify function in app.py
+- [x] unassings and unschedules are not displayed in the changes
+ 
+- [ ] bugfix: assets assigns are not shoing up on the cards 
+ 
+- [ ] update the url when project is set and enitytype tab is set like: ?project=353?entity_type=Shot
+
+
+# features for the future 
+- [ ] add the feature to schedule a shot from the on hold or omit: it should schedule it and ask for the new status to set  
  
 # How to run
 1. build the front-end:

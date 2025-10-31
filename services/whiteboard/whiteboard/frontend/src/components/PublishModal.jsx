@@ -6,7 +6,7 @@ import usePublish from '@/features/usePublish.js';
 
 export default function PublishModal() {
     const [open, setOpen] = useState(false);
-    const [changes, setChanges] = useState(null); // {moves, assignments}
+    const [changes, setChanges] = useState(null); // {moves[], assignments{}, unschedules[], unassigns[]}
     const {projectId} = useProject();
     const {publish, submitting, error} = usePublish();
 
@@ -14,10 +14,10 @@ export default function PublishModal() {
         if (!projectId) return;
         try {
             const data = await getChanges(projectId);
-            setChanges(data || {moves: {}, assignments: {}});
+            setChanges(data || {moves: [], assignments: {}, unschedules: [], unassigns: []});
         } catch (e) {
             console.error('Failed to load changes', e);
-            setChanges({moves: {}, assignments: {}});
+            setChanges({moves: [], assignments: {}, unschedules: [], unassigns: []});
         }
     }, [projectId]);
 
@@ -31,9 +31,11 @@ export default function PublishModal() {
         if (open) loadChanges();
     }, [open, loadChanges]);
 
-    const hasMoves = !!(changes && (Array.isArray(changes.moves) ? changes.moves.length > 0 : (changes.moves && Object.keys(changes.moves).length > 0)));
+    const hasMoves = !!(changes && Array.isArray(changes.moves) && changes.moves.length > 0);
     const hasAssigns = !!(changes && changes.assignments && Object.keys(changes.assignments).length);
-    const hasChanges = hasMoves || hasAssigns;
+    const hasUnschedules = !!(changes && Array.isArray(changes.unschedules) && changes.unschedules.length > 0);
+    const hasUnassigns = !!(changes && Array.isArray(changes.unassigns) && changes.unassigns.length > 0);
+    const hasChanges = hasMoves || hasAssigns || hasUnschedules || hasUnassigns;
     const style = useMemo(() => ({display: open ? 'flex' : 'none'}), [open]);
 
     return (
@@ -52,7 +54,7 @@ export default function PublishModal() {
                         <div className="changes-list">
                             {Array.isArray(changes.moves) ? changes.moves.map((m, i) => (
                                 <div key={`m-${i}`} className="change-item">
-                                    Move {m.shot_name || m.shot_id} → {String(m.to_week)}/{String(m.to_day)} ({m.to_date})
+                                    Move {m.name || `${m.entity_type} ${m.entity_id}`} → {String(m.to_week)}/{String(m.to_day)} ({m.to_date || ''})
                                 </div>
                             )) : null}
                             {/* assignments is a nested structure; list each change */}
@@ -64,6 +66,18 @@ export default function PublishModal() {
                                         </div>
                                     ))
                                 ))
+                            ))}
+                            {/* unschedules: list each unscheduled entity */}
+                            {Array.isArray(changes.unschedules) && changes.unschedules.map((u, i) => (
+                                <div key={`u-${i}`} className="change-item">
+                                    Unschedule {u.entity_type} {u.name || u.entity_id}
+                                </div>
+                            ))}
+                            {/* unassigns: list each removed assignment */}
+                            {Array.isArray(changes.unassigns) && changes.unassigns.map((r, i) => (
+                                <div key={`r-${i}`} className="change-item">
+                                    Unassign {r.entity_type} {r.name || r.entity_id}: {r.task_name} → {r.artist_is_group ? 'Group' : 'Artist'} {r.artist_id}
+                                </div>
                             ))}
                         </div>
                     ))}

@@ -192,7 +192,8 @@ def sg_publish_changes(project_id: int,
                 if not sg_task:
                     continue
 
-                already_assigned = sg_task.get("task_assignees", []).append(assignee)
+                already_assigned = sg_task.get("task_assignees", [])
+                already_assigned.append(assignee)
 
                 logger.info(f"Adding assignment to the batch: {task.task_id} -> {assignee}")
                 batch_data.append(
