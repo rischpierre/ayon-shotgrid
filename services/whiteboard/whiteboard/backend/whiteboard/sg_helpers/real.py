@@ -99,7 +99,9 @@ def sg_find_tasks_per_entity(project_id: int) -> dict[EntityType, dict[int, list
     tasks = sg.find("Task", [["project.Project.id", "is", project_id]], task_fields)
     result = {EntityType.Shot: {}, EntityType.Asset: {}}
     for task in tasks:
-        # enityType -> enity_id -> task
+        if not task.get("entity"):
+            continue
+
         entity_type = task["entity"]["type"]
         entity_id = task["entity"]["id"]
         result[EntityType[entity_type]].setdefault(entity_id, []).append(task)
