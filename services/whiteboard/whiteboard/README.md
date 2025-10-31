@@ -40,11 +40,9 @@
 - [x] make card entities 30% wider everywhere (shots and assets)
 - [x] currently the changes display the assignments like this: `Assignments: 1 entities with changes`, instead, display all the changes
 - [x] on the shots and assets cards, the artists thumbnails are overlapping the labels of the entities, make the artists thumbnails aligned on the bottom and the label on the top so there is no overlap
- 
-- [ ] on the api/week there is a call to find shots and assets, I need to cache this up, it takes too much time
-- [ ] split api/week, it is too big
- 
-- [ ] bugfix: on hold and omit assets are not working
+- [x] on the get_week there is a call to find shots and assets, this function takes time, cache it up for 5 seconds
+- [x] split api/week, it is too big
+- [x] bugfix: on hold and omit assets are not displayed in their respective boards like the shots, update the classify function in app.py
  
 # How to run
 1. build the front-end:
