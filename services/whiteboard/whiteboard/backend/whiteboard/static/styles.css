@@ -1,0 +1,128 @@
+:root {
+    --bg: #0f1222;
+    --panel: #171a2e;
+    --accent: #6aa9ff;
+    --muted: #9aa3b2;
+    --chip: #232848;
+    --ok: #2ecc71;
+    --bad: #ff6b6b;
+    --card-w: 286px;
+    --card-h: 73px;
+}
+body {
+    margin: 0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    color: #e7e9ef;
+    background: var(--bg);
+}
+header {
+    padding: 12px 16px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid #222641;
+    background: #121631;
+    position: sticky; top: 0; z-index: 1;
+}
+.mode-tabs button {
+    background: transparent; color: #c7cbe0; border: none;
+    padding: 8px 10px; border-bottom: 2px solid transparent; cursor: pointer;
+}
+.mode-tabs button.active { border-color: var(--accent); color: #fff; }
+.boards {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(calc(var(--card-w) + 24px), 1fr));
+    gap: 12px;
+    padding: 12px 16px;
+}
+.board {
+    background: var(--panel);
+    border: 1px solid #24294d;
+    border-radius: 10px;
+    min-height: 300px;
+    display: flex; flex-direction: column;
+}
+.board.current-day { background: #222a5a; border-color: #6aa9ff; box-shadow: 0 0 0 2px rgba(106,169,255,0.35) inset, 0 0 0 1px rgba(106,169,255,0.15); }
+.board.current-day h3 { background: rgba(106,169,255,0.16); color: #ffffff; }
+.board h3 {
+    margin: 0; padding: 10px 12px; font-size: 14px; color: #cbd3ea; border-bottom: 1px solid #24294d;
+    display:flex; align-items:center; justify-content:space-between;
+}
+.board .list {
+    padding: 10px; display: flex; flex-direction: column; gap: 8px; flex: 1;
+    min-height: 160px;
+}
+/* Prevent cards from shrinking when the list overflows; keep fixed height */
+.board .list .card { flex-shrink: 0; }
+.card {
+    background: #1c2140; border: 1px solid #2a2f58; border-radius: 8px; padding: 8px;
+    display: grid; grid-template-columns: 104px 1fr; grid-template-rows: auto 1fr; grid-template-areas: "thumb title" "thumb assignees"; gap: 8px; align-items: start;
+    width: var(--card-w);
+    height: var(--card-h);
+    box-sizing: border-box;
+    overflow: hidden;
+}
+.thumb {
+    grid-area: thumb;
+    width: 104px; height: 73px; background: #11152b; border-radius: 6px; overflow: hidden; display: grid; place-items: center;
+}
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.title { grid-area: title; font-size: 13px; color: #e3e8ff; }
+.assignees { grid-area: assignees; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; justify-content: flex-end; align-self: end; }
+.artist-bar {
+    display: flex; gap: 8px; padding: 10px 16px; border-bottom: 1px solid #24294d; background: #121631; align-items: center; flex-wrap: wrap;
+}
+.artist {
+    width: 52px; height: 52px; border-radius: 50%; overflow: hidden; border: 2px solid #2a2f58; cursor: grab; background: var(--chip);
+}
+.artist img { width: 100%; height: 100%; object-fit: cover; }
+.assignee {
+    width: 38px; height: 38px; border-radius: 50%; overflow: hidden; border: 3px solid #2a2f58; box-sizing: border-box;
+}
+.assignee img { width: 100%; height: 100%; object-fit: cover; }
+.drop-ok { outline: 2px dashed var(--ok); }
+.drop-bad { outline: 2px dashed var(--bad); }
+footer { padding: 10px 16px; color: var(--muted); font-size: 12px; }
+
+/* Task picker overlay */
+.task-picker {
+    position: fixed; z-index: 10; background: #0f1330; border: 1px solid #2a2f58; border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4); width: 240px; user-select: none; display: none;
+}
+.task-picker header {
+    padding: 8px 10px; font-size: 13px; color: #cbd3ea; border-bottom: 1px solid #24294d; cursor: move; background:#151a3a; border-top-left-radius:8px; border-top-right-radius:8px;
+}
+.task-picker .options { display: grid; grid-template-columns: 1fr; gap: 8px; padding: 10px; }
+.task-option { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 6px; background: #1b2042; cursor: pointer; border: 1px solid transparent; }
+.task-option:hover { border-color: #3a4080; }
+.task-swatch { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); }
+.task-label { font-size: 13px; }
+.modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 20;
+}
+.modal .dialog {
+    background: #0f1330; border:1px solid #2a2f58; border-radius:10px; width: 560px; max-width: 92vw; color:#e7e9ef; box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+}
+.modal header { display:flex; align-items:center; justify-content: space-between; }
+.dialog header h3 { margin:0; font-size:16px; }
+.dialog .body { max-height: 60vh; overflow:auto; padding: 10px 12px; }
+.dialog footer { display:flex; justify-content: flex-end; gap:8px; padding: 10px 12px; border-top:1px solid #24294d; }
+.btn { background:#1b2042; color:#e7e9ef; border:1px solid #2a2f58; border-radius:6px; padding:6px 10px; cursor:pointer; }
+.btn.primary { background: var(--accent); color:#0b0f2a; border-color: var(--accent); }
+.changes-list { display:grid; gap:8px; }
+.change-item { background:#13183a; border:1px solid #2a2f58; border-radius:8px; padding:8px; }
+
+/* Context menu for assignees */
+.context-menu { position: fixed; z-index: 15; background:#0f1330; border:1px solid #2a2f58; border-radius:8px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); display:none; min-width: 160px; }
+.context-menu .item { padding:8px 12px; font-size:13px; color:#e7e9ef; cursor:pointer; }
+.context-menu .item:hover { background:#1b2042; }
+
+/* Compact shot cards (~50% height vs default) */
+.card.card-shot { padding: 5px 6px; grid-template-columns: 88px 1fr; gap: 6px; }
+.card.card-shot .thumb { width: 88px; height: 46px; }
+.card.card-shot .title { font-size: 12px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card.card-shot .assignees { margin-top: 4px; }
+
+/* Make asset cards visually consistent with shot cards */
+.card.card-asset { padding: 5px 6px; grid-template-columns: 88px 1fr; gap: 6px; }
+.card.card-asset .thumb { width: 88px; height: 46px; }
+.card.card-asset .title { font-size: 12px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card.card-asset .assignees { margin-top: 4px; }
