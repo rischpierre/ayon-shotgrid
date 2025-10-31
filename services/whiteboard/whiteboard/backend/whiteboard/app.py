@@ -335,14 +335,13 @@ def _build_tasks_and_assignees_for_current(
     tasks_map: Dict[int, List[str]] = {}
 
     sg_tasks: List[dict] = []
-    if shot_ids:
-        for shot_id, tasks in tasks_per_entity.get(EntityType.Shot, {}).items():
-            if shot_id in shot_ids:
-                sg_tasks.extend(tasks)
-    else:
-        for asset_id, tasks in tasks_per_entity.get(EntityType.Asset, {}).items():
-            if asset_id in asset_ids:
-                sg_tasks.extend(tasks)
+    # Collect tasks for both shots and assets present in the current snapshot
+    for shot_id, tasks in tasks_per_entity.get(EntityType.Shot, {}).items():
+        if shot_id in shot_ids:
+            sg_tasks.extend(tasks)
+    for asset_id, tasks in tasks_per_entity.get(EntityType.Asset, {}).items():
+        if asset_id in asset_ids:
+            sg_tasks.extend(tasks)
 
     for sg_task in sg_tasks:
         sg_entity = sg_task.get("entity") or {}

@@ -12,26 +12,23 @@ ENV SG_URL="https://apavatn.shotgrid.autodesk.com"
 ENV WHITEBOARD_SERVER_HOST="0.0.0.0"
 ENV WHITEBOARD_SERVER_PORT="45140"
 
-# Install python/pip
+# installs
+RUN apk add --no-cache nodejs npm
 RUN apk add --update --no-cache git curl build-base libffi-dev
 RUN python -m ensurepip
 RUN python -m pip install --no-cache --upgrade pip setuptools poetry pip-autoremove && ln -sf pip3 /usr/bin/pip
 
-# Create Working directory `/service` and copy `transmitter`
 RUN mkdir /service
-COPY whiteboard/pyproject.toml /service/pyproject.toml
-WORKDIR /service
+COPY whiteboard /service
 
 # Install dependencies with poetry
+WORKDIR /service/backend
 RUN poetry config virtualenvs.create false
 RUN poetry install --no-interaction --no-ansi --only main
 
-# Install Node.js and build the frontend (minimal change)
-RUN apk add --no-cache nodejs npm
-# Copy full source tree so Vite outDir resolves correctly to ../backend/whiteboard/static
-COPY whiteboard /service/whiteboard-src
-RUN cd /service/whiteboard-src/frontend && npm ci --no-audit --no-fund
-RUN cd /service/whiteboard-src/frontend && npm run build
+WORKDIR /service/frontend
+RUN npm ci --no-audit --no-fund
+RUN npm run build
 
 # Remove unnecessary packages to make the image smaller
 RUN apk del git curl build-base libffi-dev nodejs npm
@@ -39,18 +36,10 @@ RUN python -m pip cache purge
 RUN pip-autoremove -y setuptools poetry
 RUN python -m pip uninstall -y pip pip-autoremove
 
-# Create a group and user: ayonuser
 RUN addgroup -S ayonuser && adduser -SH ayonuser -G ayonuser
-
 RUN chown ayonuser:ayonuser -R /service
 RUN chmod 777 -R /service
 
-COPY whiteboard/whiteboard /service/whiteboard
-# Copy built frontend assets into runtime static dir
-RUN mkdir -p /service/whiteboard/static \
- && cp -r /service/whiteboard-src/backend/whiteboard/static/* /service/whiteboard/static/
-
-# Tell docker that all future commands should run as the appuser user
 USER ayonuser
 
 CMD ["python", "-m", "whiteboard"]

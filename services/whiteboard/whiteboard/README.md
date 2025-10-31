@@ -44,10 +44,8 @@
 - [x] split api/week, it is too big
 - [x] bugfix: on hold and omit assets are not displayed in their respective boards like the shots, update the classify function in app.py
 - [x] unassings and unschedules are not displayed in the changes
- 
-- [ ] bugfix: assets assigns are not shoing up on the cards 
- 
-- [ ] update the url when project is set and enitytype tab is set like: ?project=353?entity_type=Shot
+- [x] bugfix: assets artists assigns are not shoing up on the cards 
+- [x] update the url when project is set and entity type tab is set like: ?project=353&entity_type=Shot
 
 
 # features for the future 
