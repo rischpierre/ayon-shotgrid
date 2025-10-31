@@ -204,7 +204,7 @@ def sg_publish_changes(project_id: int,
                     }
                 )
 
-    logger.debug(f"Batch data: {batch_data}")
+    logger.info(f"Batch data: {batch_data}")
     if batch_data:
         sg.batch(batch_data)
 

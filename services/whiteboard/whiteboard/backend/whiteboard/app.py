@@ -459,7 +459,6 @@ def get_week(week: Week, project_id: str):
 
 @app.post("/api/move_item")
 def move_item(request: MoveByWeekDayRequest, project_id: Optional[str] = None):
-
     project_id = int(project_id)
     mp = moves_overrides.setdefault(project_id, {}).setdefault(request.entity_type, {})
     mp[int(request.item_id)] = (request.to_week, request.to_day)
@@ -615,6 +614,8 @@ def publish_changes(project_id: Optional[str] = None):
     # Clear pending changes for the project
     moves_overrides[project_id] = {}
     assignments_overrides[project_id] = {}
+    unassign_overrides[project_id] = {}
+    unschedules_overrides[project_id] = {}
 
     return {"ok": True}
 

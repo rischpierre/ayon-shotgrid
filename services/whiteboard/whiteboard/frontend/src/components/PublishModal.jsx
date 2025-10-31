@@ -31,7 +31,9 @@ export default function PublishModal() {
         if (open) loadChanges();
     }, [open, loadChanges]);
 
-    const hasChanges = !!(changes && ((changes.moves && Object.keys(changes.moves).length) || (changes.assignments && Object.keys(changes.assignments).length)));
+    const hasMoves = !!(changes && (Array.isArray(changes.moves) ? changes.moves.length > 0 : (changes.moves && Object.keys(changes.moves).length > 0)));
+    const hasAssigns = !!(changes && changes.assignments && Object.keys(changes.assignments).length);
+    const hasChanges = hasMoves || hasAssigns;
     const style = useMemo(() => ({display: open ? 'flex' : 'none'}), [open]);
 
     return (
@@ -53,12 +55,16 @@ export default function PublishModal() {
                                     Move {m.shot_name || m.shot_id} → {String(m.to_week)}/{String(m.to_day)} ({m.to_date})
                                 </div>
                             )) : null}
-                            {/* assignments is a nested structure; show summary counts */}
-                            {changes.assignments && (
-                                <div className="change-item">
-                                    Assignments: {Object.keys(changes.assignments).length} entities with changes
-                                </div>
-                            )}
+                            {/* assignments is a nested structure; list each change */}
+                            {changes.assignments && Object.entries(changes.assignments).map(([etype, byEntity]) => (
+                                Object.entries(byEntity || {}).map(([entityId, tasks]) => (
+                                    (Array.isArray(tasks) ? tasks : []).map((t, i) => (
+                                        <div key={`a-${etype}-${entityId}-${t.task_id}-${t.artist_id}-${i}`} className="change-item">
+                                            Assign {etype} {entityId}: {t.task_name} → {t.artist_is_group ? 'Group' : 'Artist'} {t.artist_id}
+                                        </div>
+                                    ))
+                                ))
+                            ))}
                         </div>
                     ))}
                     {error && <div style={{color: '#ff6b6b', marginTop: 8}}>Publish

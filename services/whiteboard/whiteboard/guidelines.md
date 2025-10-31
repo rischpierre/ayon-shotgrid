@@ -1,6 +1,6 @@
 # Whiteboard – Working Guidelines
 
-Last updated: 2025-10-30 10:06 (updated)
+Last updated: 2025-10-31 08:17 (updated)
 Owner: team
 
 IMPORTANT: Always-Update Rule
@@ -135,3 +135,11 @@ IMPORTANT: Always-Update Rule
 - 2025-10-30 10:14: UI bugfix: Prevented Shot cards from shrinking when a day has more than 5 items by setting `.board .list .card { flex-shrink: 0; }`. Weekday Shot columns now strictly keep fixed card height; overflow items are accessible via a vertical scrollbar. No API changes.
 
 - 2025-10-30 10:16: UI: Enlarged thumbnails and avatars. Card thumbnails: default 96×73→104×73; compact Shot/Asset 80×40→88×46. Artist avatars: 48→52 px. Assignee avatars: 28→32 px. No API changes.
+
+- 2025-10-31 08:05: UI: Assigned artist avatars (assignees on cards) increased by ~20% for readability (32px→38px). No API changes.
+
+- 2025-10-31 08:05 (later): UI: Entity cards (shots and assets) are 30% wider by increasing `--card-w` 220px→286px; adjusted board grid min column to track the card width. No API changes.
+
+
+- 2025-10-31 08:05 (later): UI: Publish modal now lists each assignment change explicitly instead of a single summary line. No API changes.
+- 2025-10-31 08:17: UI: Fixed overlap on entity cards by restructuring the card grid: labels are pinned to the top and assignee avatars are anchored to the bottom (no overlap). No API changes.

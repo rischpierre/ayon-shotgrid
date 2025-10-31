@@ -34,12 +34,18 @@
 - [x] update the Dockerfile with npm install and npm build
 - [x] publish: make batch updates instead
 - [x] remove the loading text appearing when I do a drag and drop
+- [x] fix publish it does not work
+- [x] I need to publish also the unassignments and the set to no due date too
+- [x] make artists icons 20% bigger when they are assigned on cards
+- [x] make card entities 30% wider everywhere (shots and assets)
+- [x] currently the changes display the assignments like this: `Assignments: 1 entities with changes`, instead, display all the changes
+- [x] on the shots and assets cards, the artists thumbnails are overlapping the labels of the entities, make the artists thumbnails aligned on the bottom and the label on the top so there is no overlap
  
-- [ ] fix publish it does not work
-- [ ] I need to publish also the unassignments and the set to no due date too
-- [ ] currently the changes display the assignments like this: `Assignments: 1 entities with changes`, instead, display all the changes
-
-
+- [ ] on the api/week there is a call to find shots and assets, I need to cache this up, it takes too much time
+- [ ] split api/week, it is too big
+ 
+- [ ] bugfix: on hold and omit assets are not working
+ 
 # How to run
 1. build the front-end:
    `npm install   # only first time`
