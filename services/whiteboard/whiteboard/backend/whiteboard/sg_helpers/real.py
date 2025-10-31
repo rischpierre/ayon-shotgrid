@@ -158,8 +158,8 @@ def sg_publish_changes(project_id: int,
         for entity_id, task_list in value.items():
             for task in task_list:
                 is_group = task.artist_is_group
-                assignee_id = task.artist_id
-                assignee = {"type": "Group", "id": assignee_id} if is_group else {"type": "HumanUser", "id": assignee_id}
+                to_unassign_id = task.artist_id
+                artist_to_unassign = {"type": "Group", "id": to_unassign_id} if is_group else {"type": "HumanUser", "id": to_unassign_id}
 
                 sg_task = sg.find_one("Task", [["project", "is", project], ["id", "is", task.task_id]], ["id", "task_assignees"])
                 if not sg_task:
@@ -167,10 +167,10 @@ def sg_publish_changes(project_id: int,
 
                 already_assigned_list = sg_task.get("task_assignees")
                 for already_assigned in already_assigned_list:
-                    if already_assigned["id"] == assignee_id and already_assigned["type"] == assignee["type"]:
-                        already_assigned_list.remove(assignee)
+                    if already_assigned["id"] == to_unassign_id and already_assigned["type"] == artist_to_unassign["type"]:
+                        already_assigned_list.remove(already_assigned)
 
-                logger.info(f"Adding un-assignment to the batch: {task.task_id} -> {assignee}")
+                logger.info(f"Adding un-assignment to the batch: {task.task_id} -> {artist_to_unassign}")
                 batch_data.append(
                     {
                         "request_type": "update",
