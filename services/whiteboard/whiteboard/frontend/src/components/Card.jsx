@@ -42,7 +42,7 @@ export default function Card({item, onDropArtist, assignees = [], onRemoveDueDat
         }
     }, [item, onDropArtist]);
 
-    const avatarSize = 16;
+    const avatarSize = 18;
     const avatarRadius = Math.round(avatarSize / 2);
 
     // Context menu state
@@ -137,7 +137,7 @@ export default function Card({item, onDropArtist, assignees = [], onRemoveDueDat
                                     height: avatarSize,
                                     borderRadius: avatarRadius,
                                     objectFit: 'cover',
-                                    border: `2px solid ${clr}`,
+                                    border: `3px solid ${clr}`,
                                     boxShadow: `0 0 0 2px rgba(0,0,0,0.4)`,
                                     cursor: 'pointer',
                                 }}
