@@ -91,6 +91,7 @@ class AyonShotgridHub:
         custom_attribs_map=None,
         custom_attribs_types=None,
         sg_enabled_entities=None,
+        sg_connection_events=None,  # sg connection with a api user that generates events
     ):
         try:
             self.settings = ayon_api.get_service_addon_settings(project_name)
@@ -107,6 +108,7 @@ class AyonShotgridHub:
                 raise
 
         self._sg = sg_connection
+        self._sg_events = sg_connection_events
 
         self._ay_project = None
         self._sg_project = None
@@ -753,6 +755,11 @@ class AyonShotgridHub:
             return
 
         note_links = self._get_note_links(entity_dict)
+        task = None
+        for entity in note_links:
+            if entity["type"] == "Task":
+                task = entity
+                break
 
         addressings_to, content =self._get_addressings_to(
             activity["body"], sg_user_id_by_user_name)
@@ -764,6 +771,9 @@ class AyonShotgridHub:
             "content": content,
             "addressings_to": addressings_to
         }
+        if task:
+            data["tasks"] = [task]
+
         comment_type = activity["activityData"].get("comment_type")
         if comment_type:
             data["sg_note_type"] = comment_type
@@ -771,8 +781,12 @@ class AyonShotgridHub:
         if author_sg_id:
             data["user"] = {"type": "HumanUser", "id": author_sg_id}
 
-        # Create the note
-        result = self._sg.create("Note", data)
+        # Create the note with event generation enabled
+        # This will ensure that the users will receive the event in their inbox
+        if self._sg_events:
+            result = self._sg_events.create("Note", data)
+        else:
+            result = self._sg.create("Note", data)
 
         note_id = result["id"]
 
@@ -797,7 +811,6 @@ class AyonShotgridHub:
             self._sg.upload("Note", note_id, tmp_file)
             self.log.info(f"Uploaded AYON attachment {atchmt['filename']} to SG.")
             os.remove(tmp_file)
-
 
     def _get_addressings_to(self, content, sg_user_id_by_user_name):
         """ Extract and generate the list of ShotGrid (SG) `addressings_to`
@@ -868,11 +881,20 @@ class AyonShotgridHub:
 
         sg_entity = None
         if sg_id and sg_type:
-            sg_entity = self._sg.find_one(
-                sg_type, [["id", "is", int(sg_id)]], ["entity"])
+            if sg_type == "Version":
+                sg_entity = self._sg.find_one(
+                    sg_type, [["id", "is", int(sg_id)]], ["entity", "sg_task"])
+            else:
+                sg_entity = self._sg.find_one(
+                    sg_type, [["id", "is", int(sg_id)]], ["entity"])
+
         if sg_entity:
             note_links = [{"type": sg_type, "id": sg_entity["id"]}]
             parent = sg_entity.get("entity")
             if parent:
                 note_links.append(parent)
+            task = sg_entity.get("sg_task")
+            if task:
+                note_links.append({"type": "Task", "id": task["id"]})
+
         return note_links
