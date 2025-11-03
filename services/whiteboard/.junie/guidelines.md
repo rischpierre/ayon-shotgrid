@@ -147,3 +147,7 @@ IMPORTANT: Always-Update Rule
 
 - 2025-10-31 10:09: Bugfix: Asset assignees not showing on cards. Backend now collects tasks for both Shots and Assets when building week snapshots (fixed if/else to aggregate both). No API shape changes.
 - 2025-10-31 10:09: UI: URL query now syncs with current selection: `?project=<id>&entity_type=<Shot|Asset>`. Deep links supported; no API changes.
+
+- 2025-11-03 12:43: UI: Task Picker now uses ShotGrid Step colors for task swatches (via task.step_color from backend). Falls back to deterministic palette when color is unavailable. No API changes.
+
+- 2025-11-03 12:44: UI: Increased assigned artist avatar size on Shot and Asset cards by 4px (38px→42px) for readability. No API changes.

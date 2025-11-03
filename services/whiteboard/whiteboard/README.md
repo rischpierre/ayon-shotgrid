@@ -46,9 +46,10 @@
 - [x] unassings and unschedules are not displayed in the changes
 - [x] bugfix: assets artists assigns are not shoing up on the cards 
 - [x] update the url when project is set and entity type tab is set like: ?project=353&entity_type=Shot
-- [ ] Use the step colors of the task for the tasks colors
+- [x] Use the step colors of the task for the tasks colors
   - make a query of all the pipeline steps in shotgrid: sg.find("Step", ... fields=["color"])
   - when doing the task query, get the step and get the color from the step list
+  - normalize SG step color values to valid CSS (e.g., '#rrggbb') so outlines render reliably
 - [x] When I leave the web page open, in the morning the day and the board is not updated with the current day and date, what to do about this ?
 
 # features for the future 

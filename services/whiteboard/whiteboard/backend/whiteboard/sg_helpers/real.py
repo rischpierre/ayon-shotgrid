@@ -92,22 +92,30 @@ def sg_find_project_assets(project_id: int) -> List[Dict[str, Any]]:
     return sg.find("Asset", a_filters, a_fields, order=[{"field_name": "code", "direction": "asc"}])
 
 
+def _normalize_step_color(value: Any) -> str | None:
+    if ',' in value:
+        parts = value.split(',')
+        if len(parts) == 3:
+            r, g, b = (max(0, min(255, int(p))) for p in parts)
+            return f"#{r:02x}{g:02x}{b:02x}"
+    return f"#9c9c9c"
+
 def sg_find_tasks_per_entity(project_id: int) -> dict[EntityType, dict[int, list[Dict[str, Any]]]]:
 
     sg = get_sg_session()
     # Fetch all steps and their colors once
     step_list = sg.find("Step", [], ["id", "code", "color"])  # color used for task display
-    step_color_by_id = {s.get("id"): s.get("color") for s in (step_list or [])}
+    step_color_by_id = {s.get("id"): _normalize_step_color(s.get("color")) for s in (step_list or [])}
 
     # Include step field on Task so we can map color
     task_fields = ["id", "content", "entity", "task_assignees", "step"]
     tasks = sg.find("Task", [["project.Project.id", "is", project_id]], task_fields)
     # Attach step_color to each task for downstream use
-    for t in tasks:
-        st = t.get("step") or {}
-        sid = st.get("id") if isinstance(st, dict) else None
-        if sid in step_color_by_id:
-            t["step_color"] = step_color_by_id.get(sid)
+    for task in tasks:
+        step = task.get("step") or {}
+        step_id = step.get("id") if isinstance(step, dict) else None
+        if step_id in step_color_by_id:
+            task["step_color"] = step_color_by_id.get(step_id)
 
     result = {EntityType.Shot: {}, EntityType.Asset: {}}
     for task in tasks:

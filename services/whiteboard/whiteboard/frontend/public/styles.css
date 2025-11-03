@@ -75,7 +75,7 @@ header {
 }
 .artist img { width: 100%; height: 100%; object-fit: cover; }
 .assignee {
-    width: 38px; height: 38px; border-radius: 50%; overflow: hidden; border: 3px solid #2a2f58; box-sizing: border-box;
+    width: 42px; height: 42px; border-radius: 50%; overflow: hidden; border: 3px solid #2a2f58; box-sizing: border-box;
 }
 .assignee img { width: 100%; height: 100%; object-fit: cover; }
 .drop-ok { outline: 2px dashed var(--ok); }

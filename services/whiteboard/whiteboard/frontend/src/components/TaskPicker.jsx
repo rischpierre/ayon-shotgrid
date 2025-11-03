@@ -46,7 +46,7 @@ export default function TaskPicker({tasks = [], openAt = null, title = 'Choose t
                         setVisible(false);
                         onClose?.();
                     }}>
-                        <span className="task-swatch" style={{background: colorForTask(t.content || t)}}/>
+                        <span className="task-swatch" style={{background: (t.color || colorForTask(t.content || t))}}/>
                         <span className="task-label">{t.content || t}</span>
                     </div>
                 ))}

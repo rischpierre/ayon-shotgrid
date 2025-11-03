@@ -79,8 +79,8 @@ export default function ContentShell() {
     const taskOptions = useMemo(() => {
         if (!pending || !tasksMap) return [];
         const list = tasksMap[mode]?.[pending.entity_id] || [];
-        // Normalize to {id, name}
-        return (Array.isArray(list) ? list : []).map(t => ({id: t.id, content: t.content}));
+        // Normalize to {id, content, color}
+        return (Array.isArray(list) ? list : []).map(t => ({id: t.id, content: t.content, color: t.step_color}));
     }, [pending, tasksMap]);
 
     const onPickTask = useCallback(async (task) => {
