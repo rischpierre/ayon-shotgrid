@@ -119,7 +119,7 @@ export default function Card({item, onDropArtist, assignees = [], onRemoveDueDat
                 <div className="assignees"
                      style={{display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'flex-end'}}>
                     {assignees.map((assignee, idx) => {
-                        const clr = colorForTask(assignee.task_name);
+                        const clr = assignee.color || colorForTask(assignee.task_name);
                         const onAvatarClick = (e) => {
                             e.preventDefault();
                             e.stopPropagation();

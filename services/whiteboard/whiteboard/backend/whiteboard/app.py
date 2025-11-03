@@ -378,6 +378,7 @@ def _build_tasks_and_assignees_for_current(
                         artist_id=artist_id,
                         task_name=task_name,
                         task_id=sg_task["id"],
+                        color=sg_task.get("step_color"),
                     )
                 )
 

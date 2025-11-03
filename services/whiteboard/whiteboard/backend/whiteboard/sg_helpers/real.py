@@ -95,8 +95,20 @@ def sg_find_project_assets(project_id: int) -> List[Dict[str, Any]]:
 def sg_find_tasks_per_entity(project_id: int) -> dict[EntityType, dict[int, list[Dict[str, Any]]]]:
 
     sg = get_sg_session()
-    task_fields = ["id", "content", "entity", "task_assignees"]
+    # Fetch all steps and their colors once
+    step_list = sg.find("Step", [], ["id", "code", "color"])  # color used for task display
+    step_color_by_id = {s.get("id"): s.get("color") for s in (step_list or [])}
+
+    # Include step field on Task so we can map color
+    task_fields = ["id", "content", "entity", "task_assignees", "step"]
     tasks = sg.find("Task", [["project.Project.id", "is", project_id]], task_fields)
+    # Attach step_color to each task for downstream use
+    for t in tasks:
+        st = t.get("step") or {}
+        sid = st.get("id") if isinstance(st, dict) else None
+        if sid in step_color_by_id:
+            t["step_color"] = step_color_by_id.get(sid)
+
     result = {EntityType.Shot: {}, EntityType.Asset: {}}
     for task in tasks:
         if not task.get("entity"):

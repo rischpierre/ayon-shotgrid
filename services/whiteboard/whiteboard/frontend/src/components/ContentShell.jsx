@@ -8,6 +8,8 @@ import {useProject} from '@/context/ProjectContext.jsx';
 import {useMode} from '@/context/ModeContext.jsx';
 import {assign, moveItem, setAnnotations, removeDueDate, unassign} from '@/api';
 import {EntityType, weekOrder} from '@/constants';
+import useMidnightRollover from '@/hooks/useMidnightRollover.js';
+import useVisibilityRefresh from '@/hooks/useVisibilityRefresh.js';
 
 export default function ContentShell() {
     const {weeks, loading, error, tasksMap, reload} = useMultiWeekData();
@@ -156,6 +158,15 @@ export default function ContentShell() {
         if (!filterParent) return noDue;
         return noDue.filter(it => it.parent === filterParent);
     }, [noDue, filterParent]);
+
+    // Auto-refresh logic: reload on midnight rollover and when tab becomes visible
+    useMidnightRollover(() => {
+        // Re-fetch weeks/tasks so the UI reflects the new day
+        reload();
+    });
+    useVisibilityRefresh(() => {
+        reload();
+    });
 
     return (
         <>

@@ -58,6 +58,7 @@ class AssignedTask(BaseModel):
     artist_is_group: bool
     task_name: str
     task_id: int
+    color: Optional[str] = None
 
 class WeekSnapshot(BaseModel):
     week: Week
