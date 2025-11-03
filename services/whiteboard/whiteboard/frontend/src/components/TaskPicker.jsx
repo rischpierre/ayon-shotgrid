@@ -1,5 +1,4 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {colorForTask} from '@/utils';
 
 export default function TaskPicker({tasks = [], openAt = null, title = 'Choose task', onPick, onClose}) {
     const [visible, setVisible] = useState(false);
@@ -40,14 +39,14 @@ export default function TaskPicker({tasks = [], openAt = null, title = 'Choose t
             <div className="options">
                 {tasks.length === 0 ? (
                     <div style={{color: '#9aa3b2'}}>No tasks available.</div>
-                ) : tasks.map(t => (
-                    <div key={t.id || t} className="task-option" onClick={() => {
-                        onPick?.(t);
+                ) : tasks.map(task => (
+                    <div key={task.id || task} className="task-option" onClick={() => {
+                        onPick?.(task);
                         setVisible(false);
                         onClose?.();
                     }}>
-                        <span className="task-swatch" style={{background: (t.color || colorForTask(t.content || t))}}/>
-                        <span className="task-label">{t.content || t}</span>
+                        <span className="task-swatch" style={{background: task.color}}/>
+                        <span className="task-label">{task.content}</span>
                     </div>
                 ))}
             </div>

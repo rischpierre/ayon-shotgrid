@@ -1,5 +1,4 @@
 import React, {useCallback, useMemo, useState, useEffect} from 'react';
-import {colorForTask} from '@/utils';
 import {EntityType} from '@/constants';
 
 export default function Card({item, onDropArtist, assignees = [], onRemoveDueDate, onUnassign}) {
@@ -119,7 +118,7 @@ export default function Card({item, onDropArtist, assignees = [], onRemoveDueDat
                 <div className="assignees"
                      style={{display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'flex-end'}}>
                     {assignees.map((assignee, idx) => {
-                        const clr = assignee.color || colorForTask(assignee.task_name);
+                        const clr = assignee.color;
                         const onAvatarClick = (e) => {
                             e.preventDefault();
                             e.stopPropagation();
