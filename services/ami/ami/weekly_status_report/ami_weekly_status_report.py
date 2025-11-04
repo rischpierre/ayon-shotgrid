@@ -7,7 +7,7 @@ import corder
 
 from ami import ami_base
 # todo get this lib from somewhere else
-from path_templates import StringTemplate
+from ami.weekly_status_report.path_templates import StringTemplate
 
 
 class AMIWeeklyStatusReport(ami_base.AmiBase):

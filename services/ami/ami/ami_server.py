@@ -1,5 +1,4 @@
-import importlib
-from logging import getLogger
+import logging
 import json
 import os
 import signal
@@ -14,7 +13,13 @@ from urllib.parse import parse_qs, urlparse
 import ayon_api
 from shotgun_api3 import Shotgun
 
-logger = getLogger(__file__)
+logging.basicConfig(
+    level=os.environ.get("LOGLEVEL") or os.environ.get("PYTHON_LOG_LEVEL") or logging.DEBUG,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    stream=sys.stdout,
+)
+
+logger = logging.getLogger(__file__)
 
 SIGNAL_RESPONSE_SENT = -2
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
@@ -224,7 +229,7 @@ class AmiRequestHandler(BaseHTTPRequestHandler):
             raise Exception("Invalid action value")
 
         try:
-            module = importlib.import_module(f"ami.{action}")
+            module = sys.modules.get(action)
 
             # Find the first class defined in the module that has a callable main()
             ami_class = None
