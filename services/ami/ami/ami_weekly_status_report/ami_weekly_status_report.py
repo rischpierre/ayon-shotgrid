@@ -7,7 +7,7 @@ import corder
 
 from ami import ami_base
 # todo get this lib from somewhere else
-from ami.weekly_status_report.path_templates import StringTemplate
+from ami.ami_weekly_status_report.path_templates import StringTemplate
 
 
 class AMIWeeklyStatusReport(ami_base.AmiBase):
@@ -15,6 +15,9 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
     def __init__(self, sg_session: Any, data: Dict[str, Any]) -> None:
         super().__init__(sg_session, data)
         self.template = self.get_template()
+
+    def parameters(self):
+        return []
 
     def get_template(self):
         path = os.path.dirname(__file__) + "/template.xlsx"

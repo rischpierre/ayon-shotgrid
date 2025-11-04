@@ -229,7 +229,10 @@ class AmiRequestHandler(BaseHTTPRequestHandler):
             raise Exception("Invalid action value")
 
         try:
-            module = sys.modules.get(action)
+            module_name = f"ami.{action}.{action}"
+            module = sys.modules.get(module_name)
+            if not module:
+                raise Exception(f"Action module not found: {module_name}")
 
             # Find the first class defined in the module that has a callable main()
             ami_class = None

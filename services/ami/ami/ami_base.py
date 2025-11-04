@@ -18,8 +18,13 @@ class AmiBase:
         """
         self.sg_session: Any = sg_session
         self.data: Dict[str, Any] = data
-        self.selected_ids: Optional[Union[str, list, dict]] = data.get("selected_ids")
-        self.project_id: int = int(data.get("project_id"))
+        self.selected_ids: list[int] = [int(x) for x in data.get("selected_ids").split(",")]
+        self.entity_type: str = data.get("entity_type")
+        if self.entity_type == "Project":
+            self.project_id: int = self.selected_ids[0]
+        else:
+            self.project_id = int(data.get("project_id"))
+
 
     def main(self):
         raise NotImplementedError
