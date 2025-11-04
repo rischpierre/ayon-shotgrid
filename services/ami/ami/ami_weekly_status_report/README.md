@@ -4,12 +4,12 @@
 - [x] get the fields from the template for shots
 - [x] make a shot and asset tab and fill them up
 - [x] start filling up the overview
-- [ ] reoganize the ami code with core and the amis, 
-- [ ] prepare the questions for the meeting
-    - [ ] filter the shots and assets with updated date ? (meeting) 
+- [x] reoganize the ami code with core and the amis, 
+- [x] make the ami to work on project entity
 - [ ] do I need to put ami_server.py somewhere because it seems to be related to the create delivery only
-- [ ] make the ami to work on project entity
-- [ ] how to download the resulting template from the browser ? 
+- [ ] how to download the resulting template from the browser
+- [ ] for each ami, we need to have a custom html page
+- [ ] add the possibility to upload a xlsx file on the custom page
 
 
 # How it works
