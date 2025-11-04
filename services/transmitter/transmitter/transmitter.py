@@ -29,6 +29,7 @@ from utils import get_logger
 class ShotgridTransmitter:
     log = get_logger(__file__)
     _sg: shotgun_api3.Shotgun = None
+    _sg_event: shotgun_api3.Shotgun = None
 
     def __init__(self):
         """ Ensure both AYON and Shotgrid connections are available.
@@ -69,6 +70,9 @@ class ShotgridTransmitter:
                     "Shotgrid API Key not found. Make sure to set it in the "
                     "Addon System settings."
                 )
+
+            self.sg_api_key_events = ayon_api.get_secret("flow_script_key_events").get("value")
+            self.sg_script_name_events = ayon_api.get_secret("flow_script_name_events").get("value")
 
             self.sg_script_name = service_settings["script_name"]
             if not self.sg_script_name:
@@ -114,6 +118,30 @@ class ShotgridTransmitter:
         except Exception as e:
             self.log.error("Unable to get Addon settings from the server.")
             raise e
+
+    def get_sg_connection_events(self):
+        """ Get the sg session made just to generate events on entity creation. """
+
+        if self._sg_event is None:
+            try:
+                self._sg_event = shotgun_api3.Shotgun(
+                    self.sg_url,
+                    script_name=self.sg_script_name_events,
+                    api_key=self.sg_api_key_events,
+                    http_proxy="proxy-srv.eu.rvx.is:3128"
+                )
+            except Exception as e:
+                self.log.error("Unable to create Shotgrid Session for the events")
+                raise e
+
+        try:
+            self._sg_event.connect()
+
+        except Exception as e:
+            self.log.error("Unable to connect to Shotgrid for the events.")
+            raise e
+
+        return self._sg_event
 
     def get_sg_connection(self):
         """Ensure we can talk to AYON and Shotgrid.
@@ -283,6 +311,7 @@ class ShotgridTransmitter:
                 custom_attribs_map=self.custom_attribs_map,
                 custom_attribs_types=self.custom_attribs_types,
                 sg_enabled_entities=self.sg_enabled_entities,
+                sg_connection_events=self.get_sg_connection_events(),
             )
 
             # Do not cache the hub object
