@@ -1,4 +1,5 @@
 import importlib
+from logging import getLogger
 import json
 import os
 import signal
@@ -13,9 +14,7 @@ from urllib.parse import parse_qs, urlparse
 import ayon_api
 from shotgun_api3 import Shotgun
 
-from utils import get_logger
-logger = get_logger(__file__)
-
+logger = getLogger(__file__)
 
 SIGNAL_RESPONSE_SENT = -2
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")

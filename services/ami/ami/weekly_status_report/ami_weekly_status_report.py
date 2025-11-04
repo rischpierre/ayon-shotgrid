@@ -95,7 +95,7 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
         return out_shots
 
     def export_file(self):
-        out_file = "ami/report.xlsx"
+        out_file = os.path.dirname(__file__) + "/report.xlsx"
         print(f"Export excel file {out_file}")
         self.template.write(out_file)
 
