@@ -10,6 +10,7 @@
 - [ ] how to download the resulting template from the browser
 - [ ] for each ami, we need to have a custom html page
 - [ ] add the possibility to upload a xlsx file on the custom page
+- [ ] convert ami_server.py and the html templates in templates folder to use fastapi instead I want the code to be simple and easy to read
 
 
 # How it works
