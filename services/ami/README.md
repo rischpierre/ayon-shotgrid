@@ -8,9 +8,10 @@
 - [x] make the ami to work on project entity
 - [x] convert ami_server.py and the html templates in templates folder to use fastapi instead I want the code to be simple and easy to read
 - [x] test to run the ami server again with the migration to the fastapi
-- [ ] how to download the resulting template from the browser
-- [ ] for each ami, we need to have a custom html page
+- [x] how to download the resulting template from the browser
+- [x] for each AMI I want to be able to customize the parameters page and the result page
 - [ ] add the possibility to upload a xlsx file on the custom page
+ 
 
 
 # How it works

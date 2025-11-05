@@ -8,6 +8,7 @@ import ayon_api
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.templating import Jinja2Templates
+from jinja2 import ChoiceLoader, FileSystemLoader
 from shotgun_api3 import Shotgun
 
 logging.basicConfig(
@@ -19,7 +20,17 @@ logging.basicConfig(
 logger = logging.getLogger(__file__)
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
+AMI_BASE_DIR = os.path.dirname(__file__)
+
+ami_loaders = []
+for entry in os.listdir(AMI_BASE_DIR):
+    entry_path = os.path.join(AMI_BASE_DIR, entry)
+    if os.path.isdir(entry_path) and entry.startswith("ami_"):
+        ami_loaders.append(FileSystemLoader(entry_path))
+
+loader = ChoiceLoader([FileSystemLoader(TEMPLATES_DIR)] + ami_loaders)
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
+templates.env.loader = loader
 
 app = FastAPI(title="ShotGrid AMI Server")
 
@@ -125,7 +136,7 @@ def execute_ami(data: Dict[str, Any]) -> tuple[int, Optional[tuple]]:
             parameters = params_fn()
 
         if parameters and not data.get("__form_submitted"):
-            return -1, (action, parameters, data)
+            return -1, (action, parameters, data, instance)
 
         if parameters and data.get("__form_submitted"):
             for p in parameters:
@@ -133,7 +144,7 @@ def execute_ami(data: Dict[str, Any]) -> tuple[int, Optional[tuple]]:
                 if field_key in data:
                     p.set(data.get(field_key))
 
-        return instance.main(), None
+        return instance.main(), instance
 
     except Exception as e:
         logger.exception(e)
@@ -186,17 +197,6 @@ def build_parameters_form(action: str, parameters: list, original: Dict[str, Any
         "submit_label": "Send",
     }
 
-
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
-
-
-@app.get("/favicon.ico")
-async def favicon():
-    return JSONResponse(content={}, status_code=204)
-
-
 @app.get("/download/report")
 async def download_report():
     report_path = os.path.join(os.path.dirname(__file__), "ami_weekly_status_report", "report.xlsx")
@@ -207,15 +207,6 @@ async def download_report():
         filename="weekly_status_report.xlsx",
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
-
-@app.get("/", response_class=HTMLResponse)
-@app.get("/ami", response_class=HTMLResponse)
-async def get_ami(request: Request):
-    data = dict(request.query_params)
-    context = build_result_page(data, success=True)
-    return templates.TemplateResponse("page.html", {"request": request, **context})
-
 
 @app.post("/", response_class=HTMLResponse)
 @app.post("/ami", response_class=HTMLResponse)
@@ -237,13 +228,25 @@ async def post_ami(request: Request):
         result, params_data = execute_ami(data)
         
         if result == -1 and params_data:
-            action, parameters, original = params_data
+            action, parameters, original, instance = params_data
             context = build_parameters_form(action, parameters, original)
-            return templates.TemplateResponse("parameters.html", {"request": request, **context})
+            
+            custom_template = None
+            if hasattr(instance, "get_request_page_template"):
+                custom_template = instance.get_request_page_template()
+            
+            template_name = custom_template if custom_template else "request_page.html"
+            return templates.TemplateResponse(template_name, {"request": request, **context})
         
         if result == 0:
             context = build_result_page(data, success=True)
-            return templates.TemplateResponse("page.html", {"request": request, **context})
+            
+            custom_template = None
+            if params_data and hasattr(params_data, "get_result_page_template"):
+                custom_template = params_data.get_result_page_template()
+            
+            template_name = custom_template if custom_template else "result_page.html"
+            return templates.TemplateResponse(template_name, {"request": request, **context})
         else:
             context = render_page(
                 title="500 Internal Server Error",
@@ -252,7 +255,7 @@ async def post_ami(request: Request):
                 lines=[],
                 echo=data,
             )
-            return templates.TemplateResponse("page.html", {"request": request, **context}, status_code=500)
+            return templates.TemplateResponse("result_page.html", {"request": request, **context}, status_code=500)
     
     except Exception as e:
         logger.exception(e)
@@ -263,7 +266,7 @@ async def post_ami(request: Request):
             lines=[],
             echo=data,
         )
-        return templates.TemplateResponse("page.html", {"request": request, **context}, status_code=500)
+        return templates.TemplateResponse("result_page.html", {"request": request, **context}, status_code=500)
 
 
 def service_main() -> int:

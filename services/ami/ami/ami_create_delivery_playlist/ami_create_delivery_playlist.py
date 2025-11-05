@@ -43,6 +43,10 @@ class AMICreateDeliveryPlaylist(ami_base.AmiBase):
         """Expose the configurable parameters for this action."""
         return [self.playlist_param]
 
+    def get_request_page_template(self):
+        """Return custom parameters template."""
+        return "request_page.html"
+
     def main(self) -> int:
         """Create a playlist containing the selected versions."""
         if not self.selected_ids:

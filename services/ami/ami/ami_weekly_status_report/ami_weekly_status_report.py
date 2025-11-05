@@ -19,6 +19,9 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
     def parameters(self):
         return []
 
+    def get_result_page_template(self):
+        return "result_page.html"
+
     def get_template(self):
         path = os.path.dirname(__file__) + "/template.xlsx"
         crd = corder.Corder(path)
