@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 
 import ayon_api
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from shotgun_api3 import Shotgun
 
@@ -85,7 +85,13 @@ def build_result_page(data: Dict[str, Any], success: bool) -> Dict[str, Any]:
     ]
     title = "Action Submitted" if success else "Action Failed"
     message = "Action received and processed." if success else "There was a problem processing your request."
-    return render_page(title=title, success=success, message=message, lines=lines, echo=data)
+    
+    result = render_page(title=title, success=success, message=message, lines=lines, echo=data)
+    
+    if success and action_name == "ami_weekly_status_report":
+        result["download_url"] = "/download/report"
+    
+    return result
 
 
 def execute_ami(data: Dict[str, Any]) -> tuple[int, Optional[tuple]]:
@@ -189,6 +195,18 @@ async def health():
 @app.get("/favicon.ico")
 async def favicon():
     return JSONResponse(content={}, status_code=204)
+
+
+@app.get("/download/report")
+async def download_report():
+    report_path = os.path.join(os.path.dirname(__file__), "ami_weekly_status_report", "report.xlsx")
+    if not os.path.exists(report_path):
+        return JSONResponse(content={"error": "Report file not found"}, status_code=404)
+    return FileResponse(
+        path=report_path,
+        filename="weekly_status_report.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 
 @app.get("/", response_class=HTMLResponse)

@@ -133,6 +133,7 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
         self.fill_assets( assets)
 
         self.export_file()
+        return 0
 
 
 if __name__ == "__main__":
