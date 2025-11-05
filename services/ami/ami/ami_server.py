@@ -219,8 +219,8 @@ async def download_report():
         headers={"Content-Disposition": "attachment; filename=weekly_status_report.xlsx"}
     )
 
-@app.post("/", response_class=HTMLResponse)
-@app.post("/ami", response_class=HTMLResponse)
+@app.post("/")
+@app.post("/ami")
 async def post_ami(request: Request):
     form_data = await request.form()
     data = {}
@@ -257,6 +257,15 @@ async def post_ami(request: Request):
         if result == -1 and params_data:
             action, parameters, original, instance = params_data
             context = build_parameters_form(action, parameters, original)
+            
+            # Merge additional context from AMI instance if available
+            if hasattr(instance, "get_request_page_context"):
+                try:
+                    ami_context = instance.get_request_page_context()
+                    if ami_context:
+                        context.update(ami_context)
+                except Exception as e:
+                    logger.error(f"Error getting request page context: {e}")
             
             custom_template = None
             if hasattr(instance, "get_request_page_template"):

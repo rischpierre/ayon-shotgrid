@@ -25,6 +25,31 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
     def get_result_page_template(self):
         return "result_page.html"
 
+    def get_project_template_info(self):
+        """Fetch the project's default WSR template from ShotGrid."""
+        try:
+            project = self.sg_session.find_one(
+                "Project",
+                [["id", "is", self.project_id]],
+                ["sg_wsr_template"]
+            )
+            if project and project.get("sg_wsr_template"):
+                template_data = project["sg_wsr_template"]
+                return {
+                    "exists": True,
+                    "name": template_data.get("name", "Unknown"),
+                    "url": template_data.get("url", "")
+                }
+        except Exception as e:
+            print(f"Error fetching project template: {e}")
+        return {"exists": False, "name": None, "url": None}
+
+    def get_request_page_context(self):
+        """Provide additional context for the request page."""
+        return {
+            "project_template": self.get_project_template_info()
+        }
+
     def get_template(self):
         template_file = self.data.get("template_file")
         if template_file and os.path.exists(template_file):

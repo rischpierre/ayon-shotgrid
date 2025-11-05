@@ -10,6 +10,21 @@ It is a web server that listens to the requests made from shotgrid
 
 # changelog
 
+## 2025-11-05 - Display Project Template from ShotGrid on Request Page
+- Added get_project_template_info() method to AMIWeeklyStatusReport to fetch sg_wsr_template field from Project entity
+- Added get_request_page_context() method to AMIWeeklyStatusReport to provide template info to request page
+- Modified ami_server.py post_ami() to check for get_request_page_context() method and merge AMI context with template context
+- Updated request_page.html for weekly status report to display green info box when project template exists
+- Info box shows "Project Template Found" with the template name from ShotGrid
+- Template info is fetched via ShotGrid API using sg_session.find_one() with sg_wsr_template field
+
+## 2025-11-05 - Fixed Content-Length Error in POST /ami Endpoint
+- Removed `response_class=HTMLResponse` from POST endpoint decorators in ami_server.py
+- The issue was caused by FastAPI's HTMLResponse class interfering with TemplateResponse's internal encoding and Content-Length calculation
+- TemplateResponse already handles response encoding and headers properly, so forcing HTMLResponse caused a mismatch
+- This fixes the "Too much data for declared Content-Length" error that occurred when returning HTML responses from the weekly status report AMI
+- Error was appearing in uvicorn logs during h11 protocol handling when sending response body
+
 ## 2025-11-05 - Fixed Content-Length Error in Download Report Endpoint
 - Modified /download/report endpoint in ami_server.py to use Response instead of FileResponse
 - Changed to read entire file content into memory before creating response

@@ -12,6 +12,14 @@
         <h1 style="font-size:18px;margin:0;">{{ heading }}</h1>
       </div>
       <div style="padding:18px 20px;">
+        {% if project_template and project_template.exists %}
+        <div style="margin-bottom:16px;padding:12px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:8px;">
+          <p style="margin:0;color:#86efac;font-size:14px;">
+            ✅ <strong>Project Template Found</strong><br>
+            There is already a template configured on the project: <strong>{{ project_template.name }}</strong>
+          </p>
+        </div>
+        {% endif %}
         <div style="margin-bottom:16px;padding:12px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;">
           <p style="margin:0;color:#93c5fd;font-size:14px;">
             📊 <strong>Excel Template Upload</strong><br>
