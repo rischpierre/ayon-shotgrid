@@ -45,13 +45,12 @@ class AMICreateDeliveryPlaylist(ami_base.AmiBase):
 
     def main(self) -> int:
         """Create a playlist containing the selected versions."""
-        versions_ids = [int(x) for x in self.selected_ids.split(",")]  # type: ignore[union-attr]
-        if not versions_ids:
+        if not self.selected_ids:
             raise Exception("Found no selected versions")
 
         versions = self.sg_session.find(
             "Version",
-            [["id", "in", versions_ids]],
+            [["id", "in", self.selected_ids]],
             ["code", "sg_path_to_movie"]
         )
 

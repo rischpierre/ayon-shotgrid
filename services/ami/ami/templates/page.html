@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>$title</title>
+<title>{{ title }}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   :root {
-    --bg: #0f172a;        /* slate-900 */
-    --panel: #0b1220;     /* darker panel */
-    --text: #e5e7eb;      /* gray-200 */
-    --muted: #9ca3af;     /* gray-400 */
+    --bg: #0f172a;
+    --panel: #0b1220;
+    --text: #e5e7eb;
+    --muted: #9ca3af;
   }
   html, body { height: 100%; }
   body {
@@ -33,8 +33,7 @@
   }
   .badge {
     display: inline-block; padding: 6px 10px; font-weight: 600;
-    color: white; background: $badge_color; border-radius: 999px;
-    border: 1px solid $border_color; letter-spacing: 0.25px;
+    color: white; border-radius: 999px; letter-spacing: 0.25px;
   }
   h1 { font-size: 18px; margin: 0; }
   .content { padding: 18px 20px 8px 20px; }
@@ -59,18 +58,18 @@
   <div class="wrap">
     <div class="card">
       <div class="header">
-        <span class="badge">$badge_label</span>
-        <h1>$title</h1>
+        <span class="badge" style="background: {{ badge_color }}; border: 1px solid {{ border_color }};">{{ badge_label }}</span>
+        <h1>{{ title }}</h1>
       </div>
       <div class="content">
-        <p class="message">$message</p>
+        <p class="message">{{ message }}</p>
         <ul class="details">
-          $items_html
+          {{ items_html|safe }}
         </ul>
-        <pre>$safe_pre</pre>
+        <pre>{{ safe_pre }}</pre>
       </div>
       <div class="footer">
-        $footer_text
+        {{ footer_text }}
       </div>
     </div>
   </div>

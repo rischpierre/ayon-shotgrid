@@ -6,11 +6,11 @@
 - [x] start filling up the overview
 - [x] reoganize the ami code with core and the amis, 
 - [x] make the ami to work on project entity
-- [ ] do I need to put ami_server.py somewhere because it seems to be related to the create delivery only
+- [x] convert ami_server.py and the html templates in templates folder to use fastapi instead I want the code to be simple and easy to read
+- [x] test to run the ami server again with the migration to the fastapi
 - [ ] how to download the resulting template from the browser
 - [ ] for each ami, we need to have a custom html page
 - [ ] add the possibility to upload a xlsx file on the custom page
-- [ ] convert ami_server.py and the html templates in templates folder to use fastapi instead I want the code to be simple and easy to read
 
 
 # How it works
