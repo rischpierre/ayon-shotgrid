@@ -1,4 +1,5 @@
 import os
+import argparse
 from typing import Any, Dict
 from typing import Literal
 
@@ -15,6 +16,7 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
     def __init__(self, sg_session: Any, data: Dict[str, Any]) -> None:
         super().__init__(sg_session, data)
         self.template = self.get_template()
+        self.out_file = data.get("out_file")
 
     def parameters(self):
         return []
@@ -133,7 +135,10 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
         return out_shots
 
     def export_file(self):
-        out_file = os.path.dirname(__file__) + "/report.xlsx"
+        if self.out_file:
+            out_file = self.out_file
+        else:
+            out_file = os.path.dirname(__file__) + "/report.xlsx"
         print(f"Export excel file {out_file}")
         self.template.write(out_file)
 
@@ -173,6 +178,26 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
 
 if __name__ == "__main__":
     from ami.ami_server import get_sg_session
-    # Zero_Flow project
-    data = {"selected_ids": [353], "project_id": 353}
-    AMIWeeklyStatusReport(get_sg_session(), data).main()
+    
+    parser = argparse.ArgumentParser(description="Generate Weekly Status Report")
+    parser.add_argument("--project_name", help="Name of the project in ShotGrid")
+    parser.add_argument("--out_file", help="Output file path for the generated report")
+    parser.add_argument("--template", help="Path to the Excel template file")
+    args = parser.parse_args()
+    
+    sg_session = get_sg_session()
+    
+    project = sg_session.find_one("Project", [["name", "is", args.project_name]], ["id"])
+    if not project:
+        print(f"Error: Project '{args.project_name}' not found in ShotGrid")
+        exit(1)
+    
+    project_id = project["id"]
+    data = {
+        "selected_ids": str(project_id),
+        "project_id": project_id,
+        "template_file": args.template,
+        "out_file": args.out_file
+    }
+    
+    AMIWeeklyStatusReport(sg_session, data).main()
