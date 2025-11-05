@@ -11,7 +11,7 @@
 - [x] how to download the resulting template from the browser
 - [x] for each AMI I want to be able to customize the parameters page and the result page
 - [ ] add the possibility to upload a xlsx file on the custom page
- 
+- [ ] get the excel template from shotgrid on the project enity under the field sg_wsr_template 
 
 
 # How it works

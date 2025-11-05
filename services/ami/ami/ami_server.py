@@ -28,7 +28,7 @@ for entry in os.listdir(AMI_BASE_DIR):
     if os.path.isdir(entry_path) and entry.startswith("ami_"):
         ami_loaders.append(FileSystemLoader(entry_path))
 
-loader = ChoiceLoader([FileSystemLoader(TEMPLATES_DIR)] + ami_loaders)
+loader = ChoiceLoader(ami_loaders + [FileSystemLoader(TEMPLATES_DIR)])
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 templates.env.loader = loader
 
@@ -135,8 +135,10 @@ def execute_ami(data: Dict[str, Any]) -> tuple[int, Optional[tuple]]:
         if callable(params_fn):
             parameters = params_fn()
 
-        if parameters and not data.get("__form_submitted"):
-            return -1, (action, parameters, data, instance)
+        has_custom_request_page = hasattr(instance, "get_request_page_template")
+        
+        if (parameters or has_custom_request_page) and not data.get("__form_submitted"):
+            return -1, (action, parameters or [], data, instance)
 
         if parameters and data.get("__form_submitted"):
             for p in parameters:
@@ -197,22 +199,47 @@ def build_parameters_form(action: str, parameters: list, original: Dict[str, Any
         "submit_label": "Send",
     }
 
+@app.get("/favicon.ico")
+async def favicon():
+    return JSONResponse(content=None, status_code=204)
+
 @app.get("/download/report")
 async def download_report():
     report_path = os.path.join(os.path.dirname(__file__), "ami_weekly_status_report", "report.xlsx")
     if not os.path.exists(report_path):
         return JSONResponse(content={"error": "Report file not found"}, status_code=404)
-    return FileResponse(
-        path=report_path,
-        filename="weekly_status_report.xlsx",
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    
+    with open(report_path, "rb") as f:
+        content = f.read()
+    
+    from fastapi.responses import Response
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=weekly_status_report.xlsx"}
     )
 
 @app.post("/", response_class=HTMLResponse)
 @app.post("/ami", response_class=HTMLResponse)
 async def post_ami(request: Request):
     form_data = await request.form()
-    data = {key: value for key, value in form_data.items()}
+    data = {}
+    
+    for key, value in form_data.items():
+        if hasattr(value, 'file'):
+            upload_file = value
+            if upload_file.filename:
+                temp_dir = os.path.join(os.path.dirname(__file__), "ami_weekly_status_report")
+                file_path = os.path.join(temp_dir, "uploaded_template.xlsx")
+                
+                with open(file_path, "wb") as f:
+                    content = await upload_file.read()
+                    f.write(content)
+                
+                data[key] = file_path
+                logger.info(f"Uploaded file saved to: {file_path}")
+        else:
+            data[key] = value
     
     query_params = dict(request.query_params)
     if query_params:
