@@ -14,7 +14,8 @@
 - [ ] fix error too much data for declared content-length
  
 - [x] get the default excel template from shotgrid on the project enity under the field sg_wsr_template and display on the request page that there is already a template on the project, and give its name
-- [ ] modify jan's template to use corder, and compare it until I have the same result as he had
+- [x] modify jan's template to use corder, and compare it until I have the same result as he had
+- [ ] I need to create an ami per project, it will be easier to manage
 
 
 # How it works
