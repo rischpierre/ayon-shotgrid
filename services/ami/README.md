@@ -17,9 +17,10 @@
 - [x] fix the HB excel generation
 - [x] add autofilter to the first line
 - [x] udpate the dockerfile to add the corder repo
-- [ ] fix traceback when generating the file
-- [ ] check if the custom template is correctly used when uploaded
-- [ ] make a mp4 for the demo
+- [x] check if the custom template is correctly used when uploaded
+- [x] try to deploy
+- [x] make a gif for the demo
+- [ ] fix traceback when generating: Too much data for declared Content-Length (not a blocking issue)
 
 
 # How it works

@@ -231,7 +231,7 @@ async def favicon():
 
 @app.get("/download/report")
 async def download_report():
-    report_path = os.path.join(os.path.dirname(__file__), "ami_weekly_status_report", "report.xlsx")
+    report_path = "/tmp/ami_weekly_status_report_report.xlsx"
     if not os.path.exists(report_path):
         return JSONResponse(content={"error": "Report file not found"}, status_code=404)
     
@@ -255,8 +255,7 @@ async def post_ami(request: Request):
         if hasattr(value, 'file'):
             upload_file = value
             if upload_file.filename:
-                temp_dir = os.path.join(os.path.dirname(__file__), "ami_weekly_status_report")
-                file_path = os.path.join(temp_dir, "uploaded_template.xlsx")
+                file_path = "/tmp/uploaded_template.xlsx"
                 
                 with open(file_path, "wb") as f:
                     content = await upload_file.read()

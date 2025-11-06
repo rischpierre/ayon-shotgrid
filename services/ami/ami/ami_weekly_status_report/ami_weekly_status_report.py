@@ -75,16 +75,16 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
             if template_info.get("exists") and template_info.get("url"):
                 try:
                     template_url = template_info["url"]
-                    sg_template_path = os.path.join(os.path.dirname(__file__), "sg_template.xlsx")
+                    sg_template_path = "/tmp/sg_template.xlsx"
                     urllib.request.urlretrieve(template_url, sg_template_path)
                     path = sg_template_path
                     print(f"Downloaded template from ShotGrid: {template_info['name']}")
                 except Exception as e:
                     print(f"Failed to download template from ShotGrid: {e}")
-                    path = os.path.dirname(__file__) + "/template.xlsx"
+                    path = os.path.dirname(__file__) + "/template_examples/template.xlsx"
             else:
                 # Priority 3: Fall back to default template
-                path = os.path.dirname(__file__) + "/template.xlsx"
+                path = os.path.dirname(__file__) + "/template_examples/template.xlsx"
         
         crd = corder.Corder(path)
         crd.parse_replacements()
@@ -148,6 +148,6 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
         if self.out_file:
             out_file = self.out_file
         else:
-            out_file = os.path.dirname(__file__) + "/report.xlsx"
+            out_file = "/tmp/ami_weekly_status_report_report.xlsx"
         print(f"Export excel file {out_file}")
         self.template.write(out_file)
