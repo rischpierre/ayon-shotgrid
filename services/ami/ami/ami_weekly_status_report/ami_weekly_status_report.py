@@ -1,5 +1,4 @@
 import os
-import argparse
 from typing import Any, Dict
 from typing import Literal
 
@@ -72,32 +71,14 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
     def get_assets(self, fields):
         return self.sg_session.find("Asset", filters=[["project.Project.id", "is", self.project_id]], fields=fields)
 
-    def fill_shots(self, shots):
+    def fill_entities(self, entity_type: Literal["shot", "asset"], entities: list[Dict[str, Any]]):
         rows = []
-        rng = self.template.range("shot")  # or your range type as defined in the template
-        for shot in shots:
+        rng = self.template.range(entity_type)
+        for entity in entities:
 
             row = {}
             for tag in rng.tags:
-                rendered = StringTemplate(tag).format(shot)
-                # If your StringTemplate returns an object with .missing_keys/.invalid_types, handle as needed
-                value = "" if getattr(rendered, "missing_keys", []) or getattr(rendered, "invalid_types", []) else str(
-                    rendered)
-
-                row[tag] = value
-            rows.append(row)
-
-        rng.set_replacement_values(rows)
-        self.template.fill()
-
-    def fill_assets(self, assets):
-        rows = []
-        rng = self.template.range("asset")  # or your range type as defined in the template
-        for asset in assets:
-
-            row = {}
-            for tag in rng.tags:
-                rendered = StringTemplate(tag).format(asset)
+                rendered = StringTemplate(tag).format(entity)
                 # If your StringTemplate returns an object with .missing_keys/.invalid_types, handle as needed
                 value = "" if getattr(rendered, "missing_keys", []) or getattr(rendered, "invalid_types", []) else str(
                     rendered)
@@ -141,63 +122,3 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
             out_file = os.path.dirname(__file__) + "/report.xlsx"
         print(f"Export excel file {out_file}")
         self.template.write(out_file)
-
-    def fill_overview(self):
-
-        data = {
-            "date": "toto",
-            "week_ending": "todo",
-        }
-
-        for tag in self.template.tags:
-            rendered = StringTemplate(tag).format(data)
-            # If your StringTemplate returns an object with .missing_keys/.invalid_types, handle as needed
-            value = "" if getattr(rendered, "missing_keys", []) or getattr(rendered, "invalid_types", []) else str(
-                rendered)
-
-            self.template.replacements[tag].set_value(str(value))
-
-        self.template.fill()
-
-    def main(self):
-        shot_fields = self.get_fields("shot")
-        asset_fields = self.get_fields("asset")
-        shots = self.get_shots(shot_fields)
-        shots = self.get_dates_per_pipeline_step(shots)
-
-        assets = self.get_assets(asset_fields)
-
-        self.fill_overview()
-
-        self.fill_shots( shots)
-        self.fill_assets( assets)
-
-        self.export_file()
-        return 0
-
-
-if __name__ == "__main__":
-    from ami.ami_server import get_sg_session
-    
-    parser = argparse.ArgumentParser(description="Generate Weekly Status Report")
-    parser.add_argument("--project_name", help="Name of the project in ShotGrid")
-    parser.add_argument("--out_file", help="Output file path for the generated report")
-    parser.add_argument("--template", help="Path to the Excel template file")
-    args = parser.parse_args()
-    
-    sg_session = get_sg_session()
-    
-    project = sg_session.find_one("Project", [["name", "is", args.project_name]], ["id"])
-    if not project:
-        print(f"Error: Project '{args.project_name}' not found in ShotGrid")
-        exit(1)
-    
-    project_id = project["id"]
-    data = {
-        "selected_ids": str(project_id),
-        "project_id": project_id,
-        "template_file": args.template,
-        "out_file": args.out_file
-    }
-    
-    AMIWeeklyStatusReport(sg_session, data).main()

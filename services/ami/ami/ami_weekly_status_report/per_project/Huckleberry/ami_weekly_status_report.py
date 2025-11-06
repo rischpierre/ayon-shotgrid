@@ -19,10 +19,9 @@ class AMIWeeklyStatusReportCompleteChaos(AMIWeeklyStatusReport):
 
         assets = self.get_assets(asset_fields)
 
-        self.fill_overview()
 
-        self.fill_shots( shots)
-        self.fill_assets( assets)
+        self.fill_entities("shot", shots)
+        self.fill_entities("asset", assets)
 
         self.export_file()
         return 0
