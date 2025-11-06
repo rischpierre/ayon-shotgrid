@@ -11,11 +11,12 @@
 - [x] how to download the resulting template from the browser
 - [x] for each AMI I want to be able to customize the parameters page and the result page
 - [x] add the possibility to upload a xlsx file on the custom page
-- [ ] fix error too much data for declared content-length
- 
 - [x] get the default excel template from shotgrid on the project enity under the field sg_wsr_template and display on the request page that there is already a template on the project, and give its name
 - [x] modify jan's template to use corder, and compare it until I have the same result as he had
-- [ ] I need to create an ami per project, it will be easier to manage
+- [x] I need to create an ami per project, it will be easier to manage
+- [ ] fix the HB excel generation
+- [ ] add autofilter to the first line
+- 
 
 
 # How it works

@@ -15,17 +15,15 @@ class AMIWeeklyStatusReportCompleteChaos(AMIWeeklyStatusReport):
         shot_fields = self.get_fields("shot")
         asset_fields = self.get_fields("asset")
         shots = self.get_shots(shot_fields)
-        shots = self.get_dates_per_pipeline_step(shots)
 
         assets = self.get_assets(asset_fields)
 
-        self.fill_overview()
-
-        self.fill_shots( shots)
-        self.fill_assets( assets)
+        self.fill_shots(shots)
+        self.fill_assets(assets)
 
         self.export_file()
         return 0
+
 
 
 if __name__ == "__main__":
@@ -52,4 +50,4 @@ if __name__ == "__main__":
         "out_file": args.out_file
     }
     
-    AMIWeeklyStatusReport(sg_session, data).main()
+    AMIWeeklyStatusReportCompleteChaos(sg_session, data).main()
