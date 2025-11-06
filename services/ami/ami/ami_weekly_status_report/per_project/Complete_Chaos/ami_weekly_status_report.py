@@ -12,6 +12,16 @@ class AMIWeeklyStatusReportCompleteChaos(AMIWeeklyStatusReport):
         self.template = self.get_template()
         self.out_file = data.get("out_file")
 
+        self.client_to_internal_status_map = {
+            "TURNED OVER": ["wtg", "start"],
+            "IN PROGRESS": ["ip", "lay", "1pass", "swip"],
+            "HOLD": ["hld"],
+            "OMIT": ["omt"],
+            "CBB": ["cb"],
+            "FINAL": ["4k", "intc", "tcok", "stfnl", "pdi", "dinote"],
+            "FINAL TECH CHECKED": ["fin"],
+        }
+
     def main(self):
         shot_fields = self.get_fields("shot")
         asset_fields = self.get_fields("asset")
@@ -20,6 +30,9 @@ class AMIWeeklyStatusReportCompleteChaos(AMIWeeklyStatusReport):
 
         shots, assets = self._fill_additionnal_fields(shots, assets)
         shots, assets = self._format_fields(shots, assets)
+
+        assets = self.translate_client_statuses(assets)
+        shots = self.translate_client_statuses(shots)
 
         self.fill_entities("shot", shots)
         self.fill_entities("asset", assets)

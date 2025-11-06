@@ -14,9 +14,11 @@
 - [x] get the default excel template from shotgrid on the project enity under the field sg_wsr_template and display on the request page that there is already a template on the project, and give its name
 - [x] modify jan's template to use corder, and compare it until I have the same result as he had
 - [x] I need to create an ami per project, it will be easier to manage
-- [ ] fix the HB excel generation
-- [ ] add autofilter to the first line
-- 
+- [x] fix the HB excel generation
+- [x] add autofilter to the first line
+- [ ] udpate the dockerfile to add the corder repo
+- [ ] make a gif for the demo
+- [ ] the xlxs template is not the correct one for CC
 
 
 # How it works

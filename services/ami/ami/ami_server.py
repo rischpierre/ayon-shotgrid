@@ -130,31 +130,30 @@ def execute_ami(data: Dict[str, Any]) -> tuple[int, Optional[tuple]]:
         sg = get_sg_session()
         
         # Check for project-specific override
-        project_id = data.get("project_id")
-        if project_id:
-            try:
-                project = sg.find_one("Project", [["id", "is", project_id]], ["name"])
-                if project:
-                    project_name = project["name"].replace(" ", "_")
-                    per_project_module_name = f"ami.{action}.per_project.{project_name}.{action}"
-                    
-                    # Try to import the project-specific module
-                    try:
-                        import importlib
-                        per_project_module = importlib.import_module(per_project_module_name)
-                        
-                        # Find the project-specific class
-                        for name, obj in per_project_module.__dict__.items():
-                            if isinstance(obj, type) and hasattr(obj, "main") and callable(getattr(obj, "main")):
-                                if obj != ami_class:  # Make sure it's not the base class
-                                    ami_class = obj
-                                    logger.info(f"Using project-specific AMI class: {name} for project {project_name}")
-                                    break
-                    except ImportError:
-                        logger.debug(f"No project-specific override found for {project_name}, using base class")
-            except Exception as e:
-                logger.warning(f"Could not check for project-specific override: {e}")
-        
+        if data["entity_type"] == "Project":
+            project_id = int(data["selected_ids"].split(",")[0] or 0)
+        else:
+            project_id = data.get("project_id")
+
+        project = sg.find_one("Project", [["id", "is", project_id]], ["name"])
+        project_name = project["name"]
+        per_project_module_name = f"ami.{action}.per_project.{project_name}.{action}"
+
+        # Try to import the project-specific module
+        try:
+            import importlib
+            per_project_module = importlib.import_module(per_project_module_name)
+
+            # Find the project-specific class
+            for name, obj in per_project_module.__dict__.items():
+                if isinstance(obj, type) and hasattr(obj, "main") and callable(getattr(obj, "main")):
+                    if obj != ami_class:  # Make sure it's not the base class
+                        ami_class = obj
+                        logger.info(f"Using project-specific AMI class: {name} for project {project_name}")
+                        break
+        except ImportError:
+            logger.debug(f"No project-specific override found for {project_name}, using base class")
+
         instance = ami_class(sg, data)
 
         params_fn = getattr(instance, "parameters", None)

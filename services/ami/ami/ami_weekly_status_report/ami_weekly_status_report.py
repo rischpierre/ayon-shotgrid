@@ -16,6 +16,7 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
         super().__init__(sg_session, data)
         self.template = self.get_template()
         self.out_file = data.get("out_file")
+        self.client_to_internal_status_map = {}
 
     def parameters(self):
         return []
@@ -25,6 +26,19 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
 
     def get_result_page_template(self):
         return "result_page.html"
+
+    def translate_client_statuses(self, entities):
+        if not self.client_to_internal_status_map:
+            return entities
+
+        internal_to_client_status_map = {code: status for status, codes in
+                                         self.client_to_internal_status_map.items() for code in codes}
+        for entity in entities:
+            if "sg_status_list" in entity:
+                entity["sg_status_list"] = internal_to_client_status_map.get(entity["sg_status_list"],
+                                                                             entity["sg_status_list"])
+
+        return entities
 
     def get_project_template_info(self):
         """Fetch the project's default WSR template from ShotGrid."""
