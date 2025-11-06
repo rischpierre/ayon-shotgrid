@@ -16,7 +16,7 @@
 - [x] I need to create an ami per project, it will be easier to manage
 - [x] fix the HB excel generation
 - [x] add autofilter to the first line
-- [ ] udpate the dockerfile to add the corder repo
+- [x] udpate the dockerfile to add the corder repo
 - [ ] make a gif for the demo
 - [ ] the xlxs template is not the correct one for CC
 

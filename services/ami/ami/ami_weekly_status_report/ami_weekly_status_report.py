@@ -1,12 +1,11 @@
 import os
+import urllib.request
 from typing import Any, Dict
 from typing import Literal
 
-# todo move corder here
 import corder
 
 from ami import ami_base
-# todo get this lib from somewhere else
 from ami.ami_weekly_status_report.path_templates import StringTemplate
 
 
@@ -22,10 +21,10 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
         return []
 
     def get_request_page_template(self):
-        return "request_page.html"
+        return "html_pages/request_page.html"
 
     def get_result_page_template(self):
-        return "result_page.html"
+        return "html_pages/result_page.html"
 
     def translate_client_statuses(self, entities):
         if not self.client_to_internal_status_map:
@@ -66,11 +65,27 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
         }
 
     def get_template(self):
+        # Priority 1: Check for uploaded template file
         template_file = self.data.get("template_file")
         if template_file and os.path.exists(template_file):
             path = template_file
         else:
-            path = os.path.dirname(__file__) + "/template.xlsx"
+            # Priority 2: Download template from ShotGrid if available
+            template_info = self.get_project_template_info()
+            if template_info.get("exists") and template_info.get("url"):
+                try:
+                    template_url = template_info["url"]
+                    sg_template_path = os.path.join(os.path.dirname(__file__), "sg_template.xlsx")
+                    urllib.request.urlretrieve(template_url, sg_template_path)
+                    path = sg_template_path
+                    print(f"Downloaded template from ShotGrid: {template_info['name']}")
+                except Exception as e:
+                    print(f"Failed to download template from ShotGrid: {e}")
+                    path = os.path.dirname(__file__) + "/template.xlsx"
+            else:
+                # Priority 3: Fall back to default template
+                path = os.path.dirname(__file__) + "/template.xlsx"
+        
         crd = corder.Corder(path)
         crd.parse_replacements()
         return crd

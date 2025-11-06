@@ -10,6 +10,19 @@ It is a web server that listens to the requests made from shotgrid
 
 # changelog
 
+## 2025-11-06 - Added Corder Repository to Dockerfile
+- Added git clone step in Dockerfile to clone corder repository from https://gitlab.eu.rvx.is/pipeline/corder.git
+- Repository is cloned to /service/corder directory
+- Clone step occurs after poetry install but before git package is removed
+- Corder is used by ami_weekly_status_report for Excel template manipulation
+
+## 2025-11-06 - Fixed Weekly Status Report to Use ShotGrid Template
+- Modified get_template() method in AMIWeeklyStatusReport to download and use the template from sg_wsr_template field
+- Added urllib.request import to download template file from ShotGrid URL
+- Template priority order is now: 1) uploaded file, 2) ShotGrid sg_wsr_template, 3) default template.xlsx
+- Downloaded ShotGrid template is cached as sg_template.xlsx in ami_weekly_status_report directory
+- Previously, the sg_wsr_template field was only being fetched and displayed but not actually used for report generation
+
 ## 2025-11-05 - Display Project Template from ShotGrid on Request Page
 - Added get_project_template_info() method to AMIWeeklyStatusReport to fetch sg_wsr_template field from Project entity
 - Added get_request_page_context() method to AMIWeeklyStatusReport to provide template info to request page
