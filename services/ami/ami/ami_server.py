@@ -1,92 +1,38 @@
-import importlib
+import logging
 import json
 import os
-import signal
 import sys
-import threading
-from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from string import Template
-from typing import Any, Dict, Optional, Tuple
-from urllib.parse import parse_qs, urlparse
+from typing import Any, Dict, Optional
 
 import ayon_api
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi.templating import Jinja2Templates
+from jinja2 import ChoiceLoader, FileSystemLoader
 from shotgun_api3 import Shotgun
 
-from utils import get_logger
-logger = get_logger(__file__)
+logging.basicConfig(
+    level=os.environ.get("LOGLEVEL") or os.environ.get("PYTHON_LOG_LEVEL") or logging.DEBUG,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    stream=sys.stdout,
+)
 
+logger = logging.getLogger(__file__)
 
-SIGNAL_RESPONSE_SENT = -2
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
+AMI_BASE_DIR = os.path.dirname(__file__)
 
+ami_loaders = []
+for entry in os.listdir(AMI_BASE_DIR):
+    entry_path = os.path.join(AMI_BASE_DIR, entry)
+    if os.path.isdir(entry_path) and entry.startswith("ami_"):
+        ami_loaders.append(FileSystemLoader(entry_path))
 
-def _load_template(name: str) -> str:
-    path = os.path.join(TEMPLATES_DIR, name)
-    with open(path, "r", encoding="utf-8") as f:
-        return f.read()
+loader = ChoiceLoader(ami_loaders + [FileSystemLoader(TEMPLATES_DIR)])
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
+templates.env.loader = loader
 
-
-def _content_length(handler: BaseHTTPRequestHandler) -> int:
-    try:
-        return int(handler.headers.get("Content-Length") or "0")
-    except ValueError:
-        return 0
-
-
-def drain_request_body(handler: BaseHTTPRequestHandler, max_bytes: int = 2 * 1024 * 1024) -> None:
-    remaining = _content_length(handler)
-    if remaining <= 0:
-        return
-    to_read = min(remaining, max_bytes)
-    try:
-        _ = handler.rfile.read(to_read)
-    except Exception:
-        pass
-
-
-def read_form_body(handler: BaseHTTPRequestHandler, max_bytes: int = 2 * 1024 * 1024) -> Tuple[
-    Optional[Dict[str, Any]], Optional[str]]:
-    length = _content_length(handler)
-    if length < 0:
-        return None, "Invalid Content-Length header"
-    if length == 0:
-        return {}, None
-    if length > max_bytes:
-        drain_request_body(handler)
-        return None, f"Payload too large: {length} > {max_bytes} bytes"
-
-    raw = handler.rfile.read(length)
-    try:
-        parsed = parse_qs(raw.decode("utf-8"), keep_blank_values=True)
-        normalized: Dict[str, Any] = {k: (v[0] if len(v) == 1 else v) for k, v in parsed.items()}
-        return normalized, None
-    except Exception as exc:
-        return None, f"Invalid form data: {exc}"
-
-
-def _render_html_page(title: str, success: bool, message: str, lines: list[str], echo: Dict[str, Any]) -> bytes:
-    badge_color = "#16a34a" if success else "#dc2626"
-    border_color = "#22c55e" if success else "#f87171"
-    badge_label = "Success" if success else "Error"
-    footer_text = "ShotGrid AMI Prototype • All good." if success else "ShotGrid AMI Prototype • Please review and retry."
-    safe_pre = json.dumps(echo, ensure_ascii=False, indent=2)
-    items_html = "".join(f"<li>{line}</li>" for line in lines)
-
-    template_text = _load_template("page.html")
-    html = Template(template_text).safe_substitute(
-        {
-            "title": title,
-            "badge_color": badge_color,
-            "border_color": border_color,
-            "badge_label": badge_label,
-            "message": message,
-            "items_html": items_html,
-            "safe_pre": safe_pre,
-            "footer_text": footer_text,
-        }
-    )
-    return html.encode("utf-8")
+app = FastAPI(title="ShotGrid AMI Server")
 
 
 def get_sg_session():
@@ -111,284 +57,287 @@ def get_sg_session():
     return Shotgun(sg_url, script_name=script_name, api_key=script_key, http_proxy=proxy_url)
 
 
-class AmiRequestHandler(BaseHTTPRequestHandler):
-    server_version = "ProtoAmiServer/0.3"
-    protocol_version = "HTTP/1.1"
+def render_page(
+    title: str,
+    success: bool,
+    message: str,
+    lines: list[str],
+    echo: Dict[str, Any]
+) -> Dict[str, Any]:
+    badge_color = "#16a34a" if success else "#dc2626"
+    border_color = "#22c55e" if success else "#f87171"
+    badge_label = "Success" if success else "Error"
+    footer_text = "ShotGrid AMI Prototype • All good." if success else "ShotGrid AMI Prototype • Please review and retry."
+    safe_pre = json.dumps(echo, ensure_ascii=False, indent=2)
+    items_html = "".join(f"<li>{line}</li>" for line in lines)
 
-    def log_message(self, fmt: str, *args: Any) -> None:
-        logger.info("%s - %s", self.address_string(), fmt % args)
+    return {
+        "title": title,
+        "badge_color": badge_color,
+        "border_color": border_color,
+        "badge_label": badge_label,
+        "message": message,
+        "items_html": items_html,
+        "safe_pre": safe_pre,
+        "footer_text": footer_text,
+    }
 
-    def _apply_cors(self) -> None:
-        origin = self.headers.get("Origin") or "*"
-        self.send_header("Access-Control-Allow-Origin", origin)
-        self.send_header("Vary", "Origin")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-SG-Signature")
-        self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-        self.send_header("Access-Control-Max-Age", "600")
 
-    def do_OPTIONS(self) -> None:
-        self.send_response(HTTPStatus.NO_CONTENT)
-        self._apply_cors()
-        self.end_headers()
+def build_result_page(data: Dict[str, Any], success: bool) -> Dict[str, Any]:
+    action_name = data.get("action") or "unknown_action"
+    if isinstance(action_name, list):
+        action_name = action_name[0] if action_name else "unknown_action"
 
-    def do_GET(self) -> None:
-        parsed = urlparse(self.path)
-        path = parsed.path.rstrip("/") or "/"
-        if path == "/health":
-            payload = {"status": "ok"}
-            body = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
-            self.send_response(HTTPStatus.OK)
-            self._apply_cors()
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-            return
+    lines = [
+        f"Action: {action_name}",
+        f"User: {data.get('user_id', 'unknown')}",
+        f"Entity ids: {data.get('selected_ids', '')}",
+        f"Project: {data.get('project_name', '')}",
+    ]
+    title = "Action Submitted" if success else "Action Failed"
+    message = "Action received and processed." if success else "There was a problem processing your request."
+    
+    result = render_page(title=title, success=success, message=message, lines=lines, echo=data)
+    
+    if success and action_name == "ami_weekly_status_report":
+        result["download_url"] = "/download/report"
+    
+    return result
 
-        if path == "/favicon.ico":
-            self.send_response(HTTPStatus.NO_CONTENT)
-            self._apply_cors()
-            self.end_headers()
-            return
 
-        if path in ("/", "/ami"):
-            query_data = parse_qs(parsed.query, keep_blank_values=True)
-            data: Dict[str, Any] = {k: (v[0] if len(v) == 1 else v) for k, v in query_data.items()}
-            content = self._build_html_for_result(data, success=True)
-            self._send_html(HTTPStatus.OK, content)
-            return
+def execute_ami(data: Dict[str, Any]) -> tuple[int, Optional[tuple]]:
+    logger.debug(data)
+    action = data.get("action")
+    
+    if not isinstance(action, str) or not action.strip():
+        raise Exception("Invalid action value")
 
-        body = json.dumps({"error": "Not found"}, ensure_ascii=False, indent=2).encode("utf-8")
-        self.send_response(HTTPStatus.NOT_FOUND)
-        self._apply_cors()
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+    try:
+        module_name = f"ami.{action}.{action}"
+        module = sys.modules.get(module_name)
+        if not module:
+            raise Exception(f"Action module not found: {module_name}")
 
-    def do_POST(self) -> None:
-        parsed = urlparse(self.path)
-        path = parsed.path.rstrip("/") or "/"
+        ami_class = None
+        for name, obj in module.__dict__.items():
+            if isinstance(obj, type) and hasattr(obj, "main") and callable(getattr(obj, "main")):
+                ami_class = obj
+                break
 
-        if path not in ("/ami", "/"):
-            drain_request_body(self)
-            self._send_html_error(path, HTTPStatus.NOT_FOUND, "Unknown endpoint")
-            return
+        if not ami_class:
+            raise Exception("No class with main() found in ami.%s", action)
 
-        ctype = (self.headers.get("Content-Type") or "").lower()
-
-        if "application/json" in ctype:
-            raise RuntimeError("JSON is not supported yet")
+        sg = get_sg_session()
+        
+        # Check for project-specific override
+        if data["entity_type"] == "Project":
+            project_id = int(data["selected_ids"].split(",")[0] or 0)
         else:
-            data, err = read_form_body(self)
+            project_id = data.get("project_id")
 
-        if err is not None:
-            drain_request_body(self)
-            self._send_html_error(path, HTTPStatus.BAD_REQUEST, err, echo=data or {})
-            return
+        project = sg.find_one("Project", [["id", "is", project_id]], ["name"])
+        project_name = project["name"]
+        per_project_module_name = f"ami.{action}.per_project.{project_name}.{action}"
 
-        # Merge query params into the payload so ?action=... is available for POST too
-        query_data_raw = parse_qs(parsed.query, keep_blank_values=True)
-        query_data: Dict[str, Any] = {k: (v[0] if len(v) == 1 else v) for k, v in query_data_raw.items()}
-        if query_data:
-            # URL params take precedence over body for clarity and explicitness
-            merged = dict(data or {})
-            merged.update(query_data)
-            data = merged
-
+        # Try to import the project-specific module
         try:
-            preview = json.dumps(data or {}, ensure_ascii=False)[:2000]
-            logger.debug("AMI payload: %s%s", preview, " …" if len(preview) == 2000 else "")
-        except Exception:
-            logger.debug("AMI payload received (unprintable)")
+            import importlib
+            per_project_module = importlib.import_module(per_project_module_name)
 
-        result = self._execute_ami(data)
-        if result == SIGNAL_RESPONSE_SENT:
-            return
-
-        if result == 0:
-            content = self._build_html_for_result(data or {}, success=True)
-            self._send_html(HTTPStatus.OK, content)
-        else:
-            self._send_html_error(path, HTTPStatus.INTERNAL_SERVER_ERROR, "Internal server error")
-
-    def _execute_ami(self, data):
-        logger.debug(data)
-        action = data.get("action")
-        # Normalize action: ShotGrid may submit duplicate 'action' fields leading to a list
-        if isinstance(action, list):
-            if not action:
-                raise Exception("No action specified")
-            logger.debug("Multiple action values received %s; using first '%s'", action, action[0])
-            action = action[0]
-        if not isinstance(action, str) or not action.strip():
-            raise Exception("Invalid action value")
-
-        try:
-            module = importlib.import_module(f"ami.{action}")
-
-            # Find the first class defined in the module that has a callable main()
-            ami_class = None
-            for name, obj in module.__dict__.items():
+            # Find the project-specific class
+            for name, obj in per_project_module.__dict__.items():
                 if isinstance(obj, type) and hasattr(obj, "main") and callable(getattr(obj, "main")):
-                    ami_class = obj
-                    break
+                    if obj != ami_class:  # Make sure it's not the base class
+                        ami_class = obj
+                        logger.info(f"Using project-specific AMI class: {name} for project {project_name}")
+                        break
+        except ImportError:
+            logger.debug(f"No project-specific override found for {project_name}, using base class")
 
-            if not ami_class:
-                raise Exception("No class with main() found in ami.%s", action)
+        instance = ami_class(sg, data)
 
-            sg = get_sg_session()
-            instance = ami_class(sg, data)
+        params_fn = getattr(instance, "parameters", None)
+        parameters = None
+        if callable(params_fn):
+            parameters = params_fn()
 
-            params_fn = getattr(instance, "parameters", None)
-            parameters = None
-            if callable(params_fn):
-                parameters = params_fn()
+        has_custom_request_page = hasattr(instance, "get_request_page_template")
+        
+        if (parameters or has_custom_request_page) and not data.get("__form_submitted"):
+            return -1, (action, parameters or [], data, instance)
 
-            # If parameters exist and the form wasn't submitted yet, render the form
-            if parameters and not data.get("__form_submitted"):
-                self._send_html_with_parameters(action, parameters, data)
-                return SIGNAL_RESPONSE_SENT  # signal: response sent
+        if parameters and data.get("__form_submitted"):
+            for p in parameters:
+                field_key = str(p.name)
+                if field_key in data:
+                    p.set(data.get(field_key))
 
-            # If parameters exist and this is a submission, hydrate them from form data
-            if parameters and data.get("__form_submitted"):
-                for p in parameters:
-                    field_key = str(p.name)
-                    if field_key in data:
-                        p.set(data.get(field_key))
+        return instance.main(), instance
 
-            return instance.main()
+    except Exception as e:
+        logger.exception(e)
+        return 1, None
 
-        except Exception as e:
-            logger.exception(e)
-            return 1
 
-    def _send_html_with_parameters(self, action: str, parameters: list, original: Dict[str, Any]) -> None:
-        # Build a simple form to edit parameters and submit back
-        def esc(s: str) -> str:
-            return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+def build_parameters_form(action: str, parameters: list, original: Dict[str, Any]) -> Dict[str, Any]:
+    def esc(s: str) -> str:
+        return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
-        inputs_html = []
-        for p in parameters:
-            label = esc(str(p.name))
-            # Determine current value to show (default if no setter was called yet)
-            try:
-                current_val = p.value()
-            except Exception:
-                current_val = getattr(p, "default", "")
-            if isinstance(current_val, bool):
-                checked = " checked" if current_val else ""
-                inputs_html.append(
-                    f'<label style="display:block;margin:8px 0;"><span style="display:inline-block;width:180px;">{label}</span>'
-                    f'<input type="checkbox" name="{esc(str(p.name))}" value="true"{checked}></label>'
-                )
-            else:
-                inputs_html.append(
-                    f'<label style="display:block;margin:8px 0;"><span style="display:inline-block;width:180px;">{label}</span>'
-                    f'<input type="text" name="{esc(str(p.name))}" value="{esc(str(current_val))}" '
-                    f'style="min-width:320px;padding:6px;border-radius:6px;border:1px solid #555;background:#0b1220;color:#e5e7eb;"></label>'
-                )
-
-        # Keep original context as hidden inputs so we can call main() afterwards
-        hidden_inputs = []
-        keep_keys = original.keys()
-        for k in keep_keys:
-            if k in ("__form_submitted", "action"):
-                continue
-            v = original.get(k)
-            if v is None:
-                continue
-            hidden_inputs.append(f'<input type="hidden" name="{esc(str(k))}" value="{esc(str(v))}">')
-        hidden_inputs.append('<input type="hidden" name="__form_submitted" value="1">')
-        hidden_inputs.append(f'<input type="hidden" name="action" value="{esc(str(action))}">')
-
-        # Render using external template
-        template_text = _load_template("parameters.html")
-        html = Template(template_text).safe_substitute(
-            {
-                "title": "Parameters",
-                "heading": "Adjust Parameters",
-                "action_url": "/ami",
-                "hidden_inputs": "".join(hidden_inputs),
-                "inputs_html": "".join(inputs_html),
-                "submit_label": "Send",
-            }
-        )
-
-        self._send_html(HTTPStatus.OK, html.encode("utf-8"))
-
-    def _send_html_error(self, path: str, status: HTTPStatus, message: str,
-                         echo: Optional[Dict[str, Any]] = None) -> None:
-
-        if path in ("/", "/ami"):
-            html = _render_html_page(
-                title=f"{int(status)} {status.phrase}",
-                success=False,
-                message=message,
-                lines=[],
-                echo=echo or {},
+    inputs_html = []
+    for p in parameters:
+        label = esc(str(p.name))
+        try:
+            current_val = p.value()
+        except Exception:
+            current_val = getattr(p, "default", "")
+        
+        if isinstance(current_val, bool):
+            checked = " checked" if current_val else ""
+            inputs_html.append(
+                f'<label style="display:block;margin:8px 0;"><span style="display:inline-block;width:180px;">{label}</span>'
+                f'<input type="checkbox" name="{esc(str(p.name))}" value="true"{checked}></label>'
             )
-            self._send_html(status, html)
+        else:
+            inputs_html.append(
+                f'<label style="display:block;margin:8px 0;"><span style="display:inline-block;width:180px;">{label}</span>'
+                f'<input type="text" name="{esc(str(p.name))}" value="{esc(str(current_val))}" '
+                f'style="min-width:320px;padding:6px;border-radius:6px;border:1px solid #555;background:#0b1220;color:#e5e7eb;"></label>'
+            )
 
-    def _send_html(self, status: HTTPStatus, html_bytes: bytes) -> None:
-        self.send_response(status)
-        self._apply_cors()
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", str(len(html_bytes)))
-        self.end_headers()
-        self.wfile.write(html_bytes)
+    hidden_inputs = []
+    for k in original.keys():
+        if k in ("__form_submitted", "action"):
+            continue
+        v = original.get(k)
+        if v is None:
+            continue
+        hidden_inputs.append(f'<input type="hidden" name="{esc(str(k))}" value="{esc(str(v))}">')
+    
+    hidden_inputs.append('<input type="hidden" name="__form_submitted" value="1">')
+    hidden_inputs.append(f'<input type="hidden" name="action" value="{esc(str(action))}">')
 
-    @staticmethod
-    def _build_html_for_result(data: Dict[str, Any], success: bool) -> bytes:
-        action_name = data.get("action") or "unknown_action"
-        if isinstance(action_name, list):
-            action_name = action_name[0] if action_name else "unknown_action"
+    return {
+        "title": "Parameters",
+        "heading": "Adjust Parameters",
+        "action_url": "/ami",
+        "hidden_inputs": "".join(hidden_inputs),
+        "inputs_html": "".join(inputs_html),
+        "submit_label": "Send",
+    }
 
-        lines = [
-            f"Action: {action_name}",
-            f"User: {data.get('user_id', 'unknown')}",
-            f"Entity ids: {data.get('selected_ids', '')}",
-            f"Project: {data.get('project_name', '')}",
-        ]
-        title = "Action Submitted" if success else "Action Failed"
-        message = "Action received and processed." if success else "There was a problem processing your request."
-        return _render_html_page(title=title, success=success, message=message, lines=lines, echo=data)
+@app.get("/favicon.ico")
+async def favicon():
+    return JSONResponse(content=None, status_code=204)
 
+@app.get("/download/report")
+async def download_report():
+    report_path = "/tmp/ami_weekly_status_report_report.xlsx"
+    if not os.path.exists(report_path):
+        return JSONResponse(content={"error": "Report file not found"}, status_code=404)
+    
+    with open(report_path, "rb") as f:
+        content = f.read()
+    
+    from fastapi.responses import Response
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=weekly_status_report.xlsx"}
+    )
 
-def run_server(host: str, port: str) -> ThreadingHTTPServer:
-    class AmiHTTPServer(ThreadingHTTPServer):
-        daemon_threads = True
+@app.post("/")
+@app.post("/ami")
+async def post_ami(request: Request):
+    form_data = await request.form()
+    data = {}
+    
+    for key, value in form_data.items():
+        if hasattr(value, 'file'):
+            upload_file = value
+            if upload_file.filename:
+                file_path = "/tmp/uploaded_template.xlsx"
+                
+                with open(file_path, "wb") as f:
+                    content = await upload_file.read()
+                    f.write(content)
+                
+                data[key] = file_path
+                logger.info(f"Uploaded file saved to: {file_path}")
+        else:
+            data[key] = value
+    
+    query_params = dict(request.query_params)
+    if query_params:
+        data.update(query_params)
 
-    server = AmiHTTPServer((host, int(port)), AmiRequestHandler)
-    logger.info(f"Starting AMI server on http://{host}:{port}")
-    return server
+    try:
+        preview = json.dumps(data, ensure_ascii=False)[:2000]
+        logger.debug("AMI payload: %s%s", preview, " …" if len(preview) == 2000 else "")
+    except Exception:
+        logger.debug("AMI payload received (unprintable)")
+
+    try:
+        result, params_data = execute_ami(data)
+        
+        if result == -1 and params_data:
+            action, parameters, original, instance = params_data
+            context = build_parameters_form(action, parameters, original)
+            
+            # Merge additional context from AMI instance if available
+            if hasattr(instance, "get_request_page_context"):
+                try:
+                    ami_context = instance.get_request_page_context()
+                    if ami_context:
+                        context.update(ami_context)
+                except Exception as e:
+                    logger.error(f"Error getting request page context: {e}")
+            
+            custom_template = None
+            if hasattr(instance, "get_request_page_template"):
+                custom_template = instance.get_request_page_template()
+            
+            template_name = custom_template if custom_template else "request_page.html"
+            return templates.TemplateResponse(template_name, {"request": request, **context})
+        
+        if result == 0:
+            context = build_result_page(data, success=True)
+            
+            custom_template = None
+            if params_data and hasattr(params_data, "get_result_page_template"):
+                custom_template = params_data.get_result_page_template()
+            
+            template_name = custom_template if custom_template else "result_page.html"
+            return templates.TemplateResponse(template_name, {"request": request, **context})
+        else:
+            context = render_page(
+                title="500 Internal Server Error",
+                success=False,
+                message="Internal server error",
+                lines=[],
+                echo=data,
+            )
+            return templates.TemplateResponse("result_page.html", {"request": request, **context}, status_code=500)
+    
+    except Exception as e:
+        logger.exception(e)
+        context = render_page(
+            title="500 Internal Server Error",
+            success=False,
+            message=str(e),
+            lines=[],
+            echo=data,
+        )
+        return templates.TemplateResponse("result_page.html", {"request": request, **context}, status_code=500)
 
 
 def service_main() -> int:
+    import uvicorn
+    
     logger.info("Running AMI server")
-    host = os.environ.get("AMI_SERVER_HOST")
-    port = os.environ.get("AMI_SERVER_PORT")
-    assert host and port, "AMI_SERVER_HOST and AMI_SERVER_PORT must be set"
-
-    server = run_server(host, port)
-
-    def handle_sig(signum, _):
-        logger.info(f"Signal {signum} received, shutting down...")
-        threading.Thread(target=server.shutdown, daemon=True).start()
-
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        try:
-            signal.signal(sig, handle_sig)
-        except Exception as e:
-            logger.warning(f"Failed to set signal handler for {sig}: {e}")
-
-    try:
-        server.serve_forever(poll_interval=0.5)
-    except Exception:
-        logger.info("Interrupted, shutting down...")
-    finally:
-        server.server_close()
-        logger.info("Server stopped.")
+    host = os.environ.get("AMI_SERVER_HOST", "0.0.0.0")
+    port = int(os.environ.get("AMI_SERVER_PORT", "8080"))
+    
+    uvicorn.run(app, host=host, port=port, log_level="info")
     return 0
 
 
