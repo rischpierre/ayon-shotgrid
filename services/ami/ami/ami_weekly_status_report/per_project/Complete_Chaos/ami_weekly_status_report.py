@@ -28,7 +28,7 @@ class AMIWeeklyStatusReportCompleteChaos(AMIWeeklyStatusReport):
         shots = self.get_shots(shot_fields)
         assets = self.get_assets(asset_fields)
 
-        shots, assets = self._fill_additionnal_fields(shots, assets)
+        shots, assets = self._fill_additional_fields(shots, assets)
         shots, assets = self._format_fields(shots, assets)
 
         assets = self.translate_client_statuses(assets)
@@ -41,7 +41,7 @@ class AMIWeeklyStatusReportCompleteChaos(AMIWeeklyStatusReport):
         return 0
 
     @staticmethod
-    def _fill_additionnal_fields(shots, assets):
+    def _fill_additional_fields(shots, assets):
         # RVX_WeeklyReport_20251002_01
         today = date.today().strftime("%Y-%m-%d")
         for shot in shots:

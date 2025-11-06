@@ -17,8 +17,9 @@
 - [x] fix the HB excel generation
 - [x] add autofilter to the first line
 - [x] udpate the dockerfile to add the corder repo
-- [ ] make a gif for the demo
-- [ ] the xlxs template is not the correct one for CC
+- [ ] fix traceback when generating the file
+- [ ] check if the custom template is correctly used when uploaded
+- [ ] make a mp4 for the demo
 
 
 # How it works

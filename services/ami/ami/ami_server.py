@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 
 import ayon_api
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from jinja2 import ChoiceLoader, FileSystemLoader
 from shotgun_api3 import Shotgun

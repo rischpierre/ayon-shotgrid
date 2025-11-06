@@ -26,9 +26,6 @@ WORKDIR /service
 RUN poetry config virtualenvs.create false
 RUN poetry install --no-interaction --no-ansi --only main
 
-# Clone corder repository
-RUN git clone https://gitlab.eu.rvx.is/pipeline/corder.git /service/corder
-
 # Remove unnecessary packages to make the image smaller
 RUN apk del git curl build-base libffi-dev
 RUN python -m pip cache purge

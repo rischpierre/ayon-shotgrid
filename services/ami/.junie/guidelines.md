@@ -10,6 +10,31 @@ It is a web server that listens to the requests made from shotgrid
 
 # changelog
 
+## 2025-11-06 - Added SSH Key Support for Docker Build
+- Added BuildKit syntax directive (# syntax=docker/dockerfile:1) to enable advanced Docker features
+- Modified git clone command to use --mount=type=ssh for SSH agent forwarding during build
+- Added ssh-keyscan command to add GitLab host to known_hosts to prevent host verification prompts
+- Updated README.md with comprehensive build instructions including:
+  - Prerequisites for SSH key authentication
+  - Step-by-step commands to start SSH agent and add keys
+  - Docker build command with DOCKER_BUILDKIT=1 and --ssh default flag
+  - Alternative method for using specific SSH keys
+- This allows the Docker container to clone private repositories using local SSH keys during the build process
+
+## 2025-11-06 - Use Unique Temporary Filenames to Avoid Conflicts
+- Modified export_file() method in AMIWeeklyStatusReport to use tempfile.mktemp() with prefix "report_" and suffix ".xlsx"
+- Modified get_template() method to use tempfile.mktemp() with prefix "sg_template_" for downloaded ShotGrid templates
+- Added report_cache dictionary in ami_server.py to store temporary report paths with unique UUID keys
+- Updated build_result_page() to generate unique download URLs using UUID keys and store report paths in cache
+- Modified download_report() endpoint to accept a report_key parameter and retrieve paths from cache
+- Updated post_ami() to pass ami_instance to build_result_page() for accessing generated report paths
+- This prevents conflicts when multiple users or processes generate reports simultaneously
+
+## 2025-11-06 - Changed Temporary Files to Use /tmp Directory
+- Modified export_file() method in AMIWeeklyStatusReport to use /tmp/report.xlsx as default output path instead of module directory
+- Modified get_template() method in AMIWeeklyStatusReport to download sg_template.xlsx to /tmp/sg_template.xlsx instead of module directory
+- This ensures temporary files are stored in the proper temporary directory rather than cluttering the module directory
+
 ## 2025-11-06 - Added Corder Repository to Dockerfile
 - Added git clone step in Dockerfile to clone corder repository from https://gitlab.eu.rvx.is/pipeline/corder.git
 - Repository is cloned to /service/corder directory
