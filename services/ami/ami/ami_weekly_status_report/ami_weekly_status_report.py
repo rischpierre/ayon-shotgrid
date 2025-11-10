@@ -26,16 +26,16 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
     def get_result_page_template(self):
         return "html_pages/result_page.html"
 
-    def translate_client_statuses(self, entities):
+    def translate_client_statuses(self, entities, status_field="sg_status_list"):
         if not self.client_to_internal_status_map:
             return entities
 
         internal_to_client_status_map = {code: status for status, codes in
                                          self.client_to_internal_status_map.items() for code in codes}
         for entity in entities:
-            if "sg_status_list" in entity:
-                entity["sg_status_list"] = internal_to_client_status_map.get(entity["sg_status_list"],
-                                                                             entity["sg_status_list"])
+            if status_field in entity:
+                entity[status_field] = internal_to_client_status_map.get(entity[status_field],
+                                                                         entity[status_field])
 
         return entities
 
@@ -85,7 +85,7 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
             else:
                 # Priority 3: Fall back to default template
                 path = os.path.dirname(__file__) + "/template_examples/template.xlsx"
-        
+
         crd = corder.Corder(path)
         crd.parse_replacements()
         return crd
@@ -94,11 +94,19 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
         range = self.template.range(entity_type)
         return [x.lstrip("{").rstrip("}") for x in range.tags]
 
-    def get_shots(self, fields):
-        return self.sg_session.find("Shot", filters=[["project.Project.id", "is", self.project_id]], fields=fields)
+    def get_shots(self, fields, additional_filters):
+        filters = [["project.Project.id", "is", self.project_id]]
+        if additional_filters:
+            filters.append(additional_filters)
+        return self.sg_session.find("Shot", filters=filters, fields=fields)
 
     def get_assets(self, fields):
-        return self.sg_session.find("Asset", filters=[["project.Project.id", "is", self.project_id]], fields=fields)
+        filters = [
+            ["project.Project.id", "is", self.project_id],
+            ["sg_ayon_folder_type", "is", "ShowAsset"],
+            ["tags", "in", {"type": "Tag", "id": 342, "name": "Report"}],
+        ]
+        return self.sg_session.find("Asset", filters=filters, fields=fields)
 
     def fill_entities(self, entity_type: Literal["shot", "asset"], entities: list[Dict[str, Any]]):
         rows = []
@@ -116,35 +124,9 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
             rows.append(row)
 
         rng.set_replacement_values(rows)
-        self.template.fill()
-
-    def get_dates_per_pipeline_step(self, shots):
-        steps = self.sg_session.find("Step", [["code", "in", ["Compositing", "Animation", "Layout"]]], ["code"])
-        step_map = {x['id']: x for x in steps}
-        shot_map = {x['id']: x for x in shots}
-        tasks = self.sg_session.find(
-            "Task",
-            filters=[["project.Project.id", "is", self.project_id],
-                     ['entity', 'in', list(shot_map.values())],
-                     ["step", "in", steps]
-                     ],
-            fields=["sg_blocking", "due_date", "entity", "step", "content"]
-        )
-        task_map = {x['entity']['id']: x for x in tasks}
-        out_shots = []
-        for shot in shots:
-            task = task_map.get(shot["id"])
-            if not task:
-                continue
-            step_code = step_map[task["step"]["id"]]["code"]
-            if task["due_date"]:
-                shot[step_code.lower() + "_" + "due_date"] = task["due_date"]
-            if task["sg_blocking"]:
-                shot[step_code.lower() + "_" + "sg_blocking"] = task["sg_blocking"]
-            out_shots.append(shot)
-        return out_shots
 
     def export_file(self):
+        self.template.fill()
         if self.out_file:
             out_file = self.out_file
         else:
