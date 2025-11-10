@@ -133,7 +133,7 @@ def execute_ami(data: Dict[str, Any]) -> tuple[int, Optional[tuple]]:
         if data["entity_type"] == "Project":
             project_id = int(data["selected_ids"].split(",")[0] or 0)
         else:
-            project_id = data.get("project_id")
+            project_id = int(data.get("project_id"))
 
         project = sg.find_one("Project", [["id", "is", project_id]], ["name"])
         project_name = project["name"]
