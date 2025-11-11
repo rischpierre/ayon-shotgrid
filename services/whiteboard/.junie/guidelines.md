@@ -151,3 +151,5 @@ IMPORTANT: Always-Update Rule
 - 2025-11-03 12:43: UI: Task Picker now uses ShotGrid Step colors for task swatches (via task.step_color from backend). Falls back to deterministic palette when color is unavailable. No API changes.
 
 - 2025-11-03 12:44: UI: Increased assigned artist avatar size on Shot and Asset cards by 4px (38px→42px) for readability. No API changes.
+
+- 2025-11-11 11:07: Annotations storage changed to absolute calendar dates. Backend now saves annotations under ISO date keys (YYYY-MM-DD) so they no longer shift when time advances. GET /api/week maps stored dates that fall within the requested week back to wX/day keys for UI display. Legacy stored keys like "w0/tue" are still read and shown for that specific week and are cleaned up on next write.

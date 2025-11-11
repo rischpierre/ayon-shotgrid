@@ -118,22 +118,26 @@ def _load_project_artists_and_groups(project_id: int) -> List[Artist]:
     return proj_artists
 
 
-def _load_annotations_map(project_id: int) -> Dict[str, object]:
-    annotations_map: Dict[str, object] = {}
+def _load_annotations_map(project_id: int) -> Dict[datetime.date, Dict[str, str]]:
+    annotations_map: Dict[datetime.date, Dict[str, str]] = {}
     try:
         raw = sg_get_project_annotations(project_id)
-        if isinstance(raw, dict):
-            for k, v in raw.items():
-                if isinstance(v, dict):
-                    text = str(v.get("text", ""))
-                    color = str(v.get("color", "#c7cbe0"))
-                elif isinstance(v, str):
-                    text = v
-                    color = "#c7cbe0"
-                else:
-                    text = str(v)
-                    color = "#c7cbe0"
-                annotations_map[str(k)] = {"text": text, "color": color}
+        raw = {
+        "2025-11-11": {"text": "Bat as Lookdev /Eye as Model Final ", "color": "#c7cbe0"},
+        "2025-11-12": {
+            "text": "Butterfly as Model Final / Client will send Barossa Riverland RedFork SCANS + Hankley Somewhere SCANS",
+            "color": "#c7cbe0",
+        },
+            "2025-11-24": {
+                "text": "toto",
+                "color": "#c7cbe0",
+            },
+
+        }
+        for date_, annotation in raw.items():
+            text = annotation.get("text", "")
+            color = annotation.get("color", "#c7cbe0")
+            annotations_map[datetime.date.fromisoformat(date_)] = {"text": text, "color": color}
     except Exception as e:
         logger.exception(f"Failed to fetch project annotations {e}")
     return annotations_map
@@ -518,6 +522,22 @@ def get_week(week: Week, project_id: str):
         _apply_assignment_overrides(project_id, assignee_map, current_ids)
         _apply_unassign_overrides(project_id, assignee_map)
 
+        week_offset = Weeks.index(week)  # week is a Week enum
+        monday_of_the_current_week = monday + datetime.timedelta(days=7 * week_offset)
+        friday_of_the_current_week = monday_of_the_current_week + datetime.timedelta(days=4)
+
+        # Annotations: map absolute-date keys (YYYY-MM-DD) into this week's keys (wX/day)
+        annotations_for_week: Dict[str, Dict[str, str]] = {}
+        for date_, annotation in annotations_map.items():
+            if monday_of_the_current_week <= date_ <= friday_of_the_current_week:
+                day_idx = date_.weekday()  # 0..6
+                if day_idx > 4:
+                    continue
+
+                day = Days[day_idx]
+                annotations_for_week[f"{week.value}/{day.value}"] = annotation
+                continue
+
         return WeekSnapshot(
             week=week,
             days=Days,
@@ -542,7 +562,7 @@ def get_week(week: Week, project_id: str):
                 if omitted_all
                 else None
             ),
-            annotations=annotations_map or None,
+            annotations=annotations_for_week or None,
         )
     except Exception as e:
         logger.exception(f"Failed to build project-aware week snapshot {e}")
@@ -790,30 +810,63 @@ def set_annotation(payload: Dict[str, str], project_id: Optional[str] = None):
     text = payload.get("text", "")
     color = payload.get("color", "#c7cbe0")
 
-    key = f"{raw_week}/{raw_day}"
+    # Compute absolute date key (YYYY-MM-DD) from provided week/day
+    iso_key: Optional[str] = None
+    legacy_key = f"{raw_week}/{raw_day}" if raw_week and raw_day else None
+    try:
+        if raw_week and raw_day:
+            dt = date_from_week_day(Week(raw_week), Day(raw_day))
+            iso_key = dt.isoformat()
+    except Exception:
+        # Fall back to legacy key only if conversion failed
+        iso_key = None
+
     try:
         data = sg_get_project_annotations(int(project_id))
         if not isinstance(data, dict):
             data = {}
 
-        # remove annotation if text is empty
         if not text.strip():
-            if key in data:
+            # Remove by absolute key primarily; also delete legacy if present
+            if iso_key and iso_key in data:
                 try:
-                    del data[key]
+                    del data[iso_key]
                 except Exception:
-                    data[key] = None  # fallback no-op
+                    data[iso_key] = None
+            if legacy_key and legacy_key in data:
+                try:
+                    del data[legacy_key]
+                except Exception:
+                    data[legacy_key] = None
         else:
-            data[key] = {"text": text, "color": color}
+            # Write under absolute date key
+            if iso_key:
+                data[iso_key] = {"text": text, "color": color}
+                # Clean up any legacy key for the same position
+                if legacy_key and legacy_key in data:
+                    try:
+                        del data[legacy_key]
+                    except Exception:
+                        data[legacy_key] = None
+            elif legacy_key:
+                # Fallback storage if we couldn't compute absolute date (shouldn't happen)
+                data[legacy_key] = {"text": text, "color": color}
 
         sg_set_project_annotations(int(project_id), data)
+
         # Normalize output like GET (ensure {text, color})
         out: Dict[str, Dict[str, str]] = {}
         for k, v in data.items():
-            text = v.get("text", "")
-            color = v.get("color", "#c7cbe0")
-
-            out[k] = {"text": text, "color": color}
+            if isinstance(v, dict):
+                t = v.get("text", "")
+                c = v.get("color", "#c7cbe0")
+            elif isinstance(v, str):
+                t = v
+                c = "#c7cbe0"
+            else:
+                t = str(v)
+                c = "#c7cbe0"
+            out[str(k)] = {"text": t, "color": c}
 
         return {"ok": True, "annotations": out}
     except Exception:
