@@ -75,7 +75,7 @@ def to_week_and_day(dt: datetime.date, current_monday: datetime.date) -> Optiona
     delta_days = (dt - current_monday).days
     week_id = delta_days // 7
 
-    if week_id not in (0, 1, 2, 3):
+    if week_id not in (0, 1, 2, 3, 4, 5):
         return None
 
     wd = dt.weekday()  # 0..6

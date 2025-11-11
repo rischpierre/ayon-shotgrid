@@ -22,9 +22,11 @@ class Week(Enum):
     w1 = "w1"  # next week
     w2 = "w2"  # two weeks from now
     w3 = "w3"  # three weeks from now
+    w4 = "w4"  # four weeks from now
+    w5 = "w5"  # five weeks from now
 
 
-Weeks: List[Week] = [Week.w0, Week.w1, Week.w2, Week.w3]
+Weeks: List[Week] = [Week.w0, Week.w1, Week.w2, Week.w3, Week.w4, Week.w5]
 
 
 class EntityType(Enum):

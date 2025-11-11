@@ -122,22 +122,8 @@ def _load_annotations_map(project_id: int) -> Dict[datetime.date, Dict[str, str]
     annotations_map: Dict[datetime.date, Dict[str, str]] = {}
     try:
         raw = sg_get_project_annotations(project_id)
-        raw = {
-        "2025-11-11": {"text": "Bat as Lookdev /Eye as Model Final ", "color": "#c7cbe0"},
-        "2025-11-12": {
-            "text": "Butterfly as Model Final / Client will send Barossa Riverland RedFork SCANS + Hankley Somewhere SCANS",
-            "color": "#c7cbe0",
-        },
-            "2025-11-24": {
-                "text": "toto",
-                "color": "#c7cbe0",
-            },
-
-        }
         for date_, annotation in raw.items():
-            text = annotation.get("text", "")
-            color = annotation.get("color", "#c7cbe0")
-            annotations_map[datetime.date.fromisoformat(date_)] = {"text": text, "color": color}
+            annotations_map[datetime.date.fromisoformat(date_)] = annotation
     except Exception as e:
         logger.exception(f"Failed to fetch project annotations {e}")
     return annotations_map
