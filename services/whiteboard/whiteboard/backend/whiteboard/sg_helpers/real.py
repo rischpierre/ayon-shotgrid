@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Sequence, Tuple
 import ayon_api
 import shotgun_api3
 
-from whiteboard.models import EntityType, Week, Day, AssignedTask
+from whiteboard.models import EntityType, EntityTypes, Week, Day, AssignedTask
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +124,10 @@ def sg_find_tasks_per_entity(project_id: int) -> dict[EntityType, dict[int, list
 
         entity_type = task["entity"]["type"]
         entity_id = task["entity"]["id"]
+
+        if entity_type not in EntityTypes:  # we can have tasks on sequences for example
+            continue
+
         result[EntityType[entity_type]].setdefault(entity_id, []).append(task)
     return result
 

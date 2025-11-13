@@ -33,6 +33,7 @@ class EntityType(Enum):
     Shot = "Shot"
     Asset = "Asset"
 
+EntityTypes = [EntityType.Shot, EntityType.Asset]
 
 class Artist(BaseModel):
     id: int
