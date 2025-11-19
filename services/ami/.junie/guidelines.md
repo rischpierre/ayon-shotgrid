@@ -10,6 +10,13 @@ It is a web server that listens to the requests made from shotgrid
 
 # changelog
 
+## 2025-11-19 - Batched Queries for Weekly Status Report Query Fields
+- Optimized `fetch_query_fields` in `ami/ami_weekly_status_report/per_project/Huckleberry/ami_weekly_status_report.py` to avoid per-entity `find_one` calls.
+- Now performs a single batched `find` per field by replacing "Current Shot/Asset" placeholders with an `in` filter over all relevant entities.
+- Preserves schema-defined ordering and assigns the top-ranked result per source entity.
+- Maintains project scoping in filters.
+- Significantly reduces ShotGrid API calls and computation time on large datasets.
+
 ## 2025-11-06 - Added SSH Key Support for Docker Build
 - Added BuildKit syntax directive (# syntax=docker/dockerfile:1) to enable advanced Docker features
 - Modified git clone command to use --mount=type=ssh for SSH agent forwarding during build

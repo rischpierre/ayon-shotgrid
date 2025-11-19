@@ -78,42 +78,87 @@ class AMIWeeklyStatusReportHuckleberry(AMIWeeklyStatusReport):
         return fields_with_query
 
     def fetch_query_fields(self, entity_type, entities, query_fields):
-
+        # Build schema for all fields once
         schema_per_field = {}
         for field in query_fields:
             schema_per_field[field] = self.sg_session.schema_field_read(entity_type, field)[field]
 
-        for entity in entities:
-            for field, schema in schema_per_field.items():
-                query = schema['properties'].get("query", {}).get("value", {})
-                filters = query.get("filters", {}).get("conditions", [])
-                order = schema["properties"].get("summary_value", {}).get("value", {})
-                direction = order.get("direction", "desc")
-                order_by = order.get("column", "id")
+        # Prepare a list of all source entities for IN queries
+        truncated_entities = [{"type": e["type"], "id": e["id"]} for e in entities if e.get("type") and e.get("id")]
 
-                entity_type = query.get("entity_type")
-                filter_list = []
-                for filter_ in filters:
-                    values_final = []
-                    values = filter_.get("values", [])
-                    for v in values:
-                        if isinstance(v, dict) and v.get("name") in ("Current Shot", "Current Asset"):
-                            truncated_entity = {"type": entity["type"], "id": entity["id"]}
-                            values_final.append(truncated_entity)
-                        else:
-                            values_final.append(v)
+        for field, schema in schema_per_field.items():
+            query = schema.get('properties', {}).get("query", {}).get("value", {})
+            filters = query.get("filters", {}).get("conditions", [])
+            order = schema.get("properties", {}).get("summary_value", {}).get("value", {})
+            direction = order.get("direction", "desc")
+            order_by = order.get("column", "id")
 
-                    if values_final:
-                        if len(values_final) == 1:
-                            values_final = values_final[0]
-                        filter_list.append([filter_["path"], filter_["relation"], values_final])
+            target_entity_type = query.get("entity_type")
+            filter_list = []
 
-                filter_list.append(["project.Project.id", "is", self.project_id])
+            for flt in filters:
+                values_final = []
+                values = flt.get("values", [])
+                contains_current = False
+                for v in values:
+                    if isinstance(v, dict) and v.get("name") in ("Current Shot", "Current Asset"):
+                        contains_current = True
+                    else:
+                        values_final.append(v)
 
-                queried_entity = self.sg_session.find_one(entity_type, filter_list, ["entity", "code"],
-                                                        order=[{"field_name": order_by, "direction": direction}])
+                # If the filter refers to the current entity, replace with an IN over all entities
+                if contains_current:
+                    # If there are additional static values, include them too
+                    values_final = values_final + truncated_entities
+                
+                # Normalize relation if we are passing a list
+                relation = flt.get("relation")
+                if isinstance(values_final, list) and len(values_final) > 1:
+                    if relation == "is":
+                        relation = "in"
+                    elif relation == "is_not":
+                        relation = "not_in"
 
-                entity[field] = queried_entity.get("code") if queried_entity else None
+                # If only one value, pass the scalar
+                if len(values_final) == 1:
+                    value_for_filter = values_final[0]
+                else:
+                    value_for_filter = values_final
+
+                # Only append if there is at least one value; otherwise keep as-is (some filters may not need values)
+                if values_final:
+                    filter_list.append([flt.get("path"), relation, value_for_filter])
+                else:
+                    # Fallback to original filter if no values were computed (unlikely)
+                    filter_list.append([flt.get("path"), flt.get("relation"), flt.get("values")])
+
+            # Always scope to project
+            filter_list.append(["project.Project.id", "is", self.project_id])
+
+            # Fetch all matching target entities once
+            records = self.sg_session.find(
+                target_entity_type,
+                filter_list,
+                ["entity", "code"],
+                order=[{"field_name": order_by, "direction": direction}],
+            )
+
+            # Group by source entity id, pick the first (best by order)
+            best_by_entity_id = {}
+            for rec in records:
+                ent = rec.get("entity")
+                if not ent:
+                    continue
+                eid = ent.get("id")
+                if eid is None:
+                    continue
+                if eid not in best_by_entity_id:
+                    best_by_entity_id[eid] = rec.get("code")
+
+            # Assign back to original entities
+            for e in entities:
+                e[field] = best_by_entity_id.get(e.get("id"))
+
         return entities
 
 
