@@ -29,7 +29,11 @@ class AMIWeeklyStatusReportHuckleberry(AMIWeeklyStatusReport):
 
     def main(self):
         shot_fields = self.get_fields("shot")
+        shot_query_fields = self.get_query_fields("Shot", shot_fields)
+
         asset_fields = self.get_fields("asset")
+        asset_query_fields = self.get_query_fields("Asset", asset_fields)
+
         shot_fields.append("sg_status_list")
         asset_fields.append("sg_status_list")
 
@@ -37,8 +41,13 @@ class AMIWeeklyStatusReportHuckleberry(AMIWeeklyStatusReport):
 
         shots = self.get_shots(shot_fields, additional_filters=filters)
         shots = self.get_dates_per_tasks(shots, shot_fields)
+        shots = self.convert_field_entities_to_text(shots)
+        shots = self.fetch_query_fields("Shot", shots, shot_query_fields)
 
         assets = self.get_assets(asset_fields)
+        assets = self.get_dates_per_tasks(assets, asset_fields)
+        assets = self.convert_field_entities_to_text(assets)
+        assets = self.fetch_query_fields("Asset", assets, asset_query_fields)
 
         assets = self.translate_client_statuses(assets)
         shots = self.translate_client_statuses(shots)
@@ -60,27 +69,98 @@ class AMIWeeklyStatusReportHuckleberry(AMIWeeklyStatusReport):
         self.export_file()
         return 0
 
-    def get_dates_per_tasks(self, shots, shot_fields):
+    def get_query_fields(self, entity_type, fields_on_template):
+        shot_schema = self.sg_session.schema_field_read(entity_type)
+        fields_with_query = []
+        for name, value in shot_schema.items():
+            if name in fields_on_template and value.get("properties", {}).get("query"):
+                fields_with_query.append(name)
+        return fields_with_query
+
+    def fetch_query_fields(self, entity_type, entities, query_fields):
+
+        schema_per_field = {}
+        for field in query_fields:
+            schema_per_field[field] = self.sg_session.schema_field_read(entity_type, field)[field]
+
+        for entity in entities:
+            for field, schema in schema_per_field.items():
+                query = schema['properties'].get("query", {}).get("value", {})
+                filters = query.get("filters", {}).get("conditions", [])
+                order = schema["properties"].get("summary_value", {}).get("value", {})
+                direction = order.get("direction", "desc")
+                order_by = order.get("column", "id")
+
+                entity_type = query.get("entity_type")
+                filter_list = []
+                for filter_ in filters:
+                    values_final = []
+                    values = filter_.get("values", [])
+                    for v in values:
+                        if isinstance(v, dict) and v.get("name") in ("Current Shot", "Current Asset"):
+                            truncated_entity = {"type": entity["type"], "id": entity["id"]}
+                            values_final.append(truncated_entity)
+                        else:
+                            values_final.append(v)
+
+                    if values_final:
+                        if len(values_final) == 1:
+                            values_final = values_final[0]
+                        filter_list.append([filter_["path"], filter_["relation"], values_final])
+
+                filter_list.append(["project.Project.id", "is", self.project_id])
+
+                queried_entity = self.sg_session.find_one(entity_type, filter_list, ["entity", "code"],
+                                                        order=[{"field_name": order_by, "direction": direction}])
+
+                entity[field] = queried_entity.get("code") if queried_entity else None
+        return entities
+
+
+    def convert_field_entities_to_text(self, entities):
+        ids_by_type = {}
+        for entity in entities:
+            for value in entity.values():
+                if isinstance(value, dict) and "id" in value and "type" in value:
+                    ids_by_type.setdefault(value["type"], set()).add(value["id"])
+
+        lookup = {}
+        for entity_type, ids in ids_by_type.items():
+            records = self.sg_session.find(entity_type, [["id", "in", list(ids)]], ["code"])
+            lookup[entity_type] = {r["id"]: r.get("code") for r in records}
+
+        for entity in entities:
+            for field_name, value in entity.items():
+                if isinstance(value, dict) and "id" in value and "type" in value:
+                    type_lookup = lookup.get(value["type"])
+                    if type_lookup and value["id"] in type_lookup:
+                        entity[field_name] = type_lookup[value["id"]]
+        return entities
+
+    def get_dates_per_tasks(self, entities, entity_fields):
 
         delimiter = "___"
-        task_map = {x.split(delimiter)[-1]:  x.split(delimiter)[0] for x in shot_fields if delimiter in x}
+        task_map = {x.split(delimiter)[-1]:  x.split(delimiter)[0] for x in entity_fields if delimiter in x}
         task_names = list(set(task_map.values()))
         task_fields = list(set(task_map.keys()))
         fields = list(task_map.keys())
         fields.extend(["entity", "content"])
         sg_tasks = self.sg_session.find("Task", [["project.Project.id", "is", self.project_id],["content", "in", task_names]], fields)
 
-        for shot in shots:
+        for entity in entities:
             for task in sg_tasks:
-                if task["entity"]["id"] != shot["id"]:
+                if not task.get("entity"):
+                    continue
+
+                if task["entity"]["id"] != entity["id"]:
                     continue
                 for field in task_fields:
                     value = task.get(field)
                     if not value:
                         continue
-                    shot[f"{task['content']}{delimiter}{field}"] = value
+                    entity[f"{task['content']}{delimiter}{field}"] = value
 
-        return shots
+        return entities
 
     def fill_overview(self, shots, assets):
         today = datetime.date.today().strftime("%Y-%m-%d")
