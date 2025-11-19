@@ -36,7 +36,7 @@ class AMIWeeklyStatusReportHuckleberry(AMIWeeklyStatusReport):
         filters = ["sg_client_shot_name", "is_not", None]
 
         shots = self.get_shots(shot_fields, additional_filters=filters)
-        shots = self.get_dates_per_pipeline_step(shots)
+        shots = self.get_dates_per_tasks(shots, shot_fields)
 
         assets = self.get_assets(asset_fields)
 
@@ -60,33 +60,27 @@ class AMIWeeklyStatusReportHuckleberry(AMIWeeklyStatusReport):
         self.export_file()
         return 0
 
-    def get_dates_per_pipeline_step(self, shots):
-        steps = self.sg_session.find("Step", [["code", "in", ["Compositing", "Animation", "Layout"]]], ["code"])
-        step_map = {x['id']: x for x in steps}
-        shot_map = {x['id']: x for x in shots}
-        tasks = self.sg_session.find(
-            "Task",
-            filters=[["project.Project.id", "is", self.project_id],
-                     ['entity', 'in', list(shot_map.values())],
-                     ["step", "in", steps]
-                     ],
-            fields=["sg_blocking", "due_date", "entity", "step", "content"]
-        )
-        task_map = {x['entity']['id']: x for x in tasks}
-        out_shots = []
-        for shot in shots:
-            task = task_map.get(shot["id"])
-            if not task:
-                out_shots.append(shot)
-                continue
-            step_code = step_map[task["step"]["id"]]["code"]
-            if task["due_date"]:
-                shot[step_code.lower() + "_" + "due_date"] = task["due_date"]
-            if task["sg_blocking"]:
-                shot[step_code.lower() + "_" + "sg_blocking"] = task["sg_blocking"]
-            out_shots.append(shot)
+    def get_dates_per_tasks(self, shots, shot_fields):
 
-        return out_shots
+        delimiter = "___"
+        task_map = {x.split(delimiter)[-1]:  x.split(delimiter)[0] for x in shot_fields if delimiter in x}
+        task_names = list(set(task_map.values()))
+        task_fields = list(set(task_map.keys()))
+        fields = list(task_map.keys())
+        fields.extend(["entity", "content"])
+        sg_tasks = self.sg_session.find("Task", [["project.Project.id", "is", self.project_id],["content", "in", task_names]], fields)
+
+        for shot in shots:
+            for task in sg_tasks:
+                if task["entity"]["id"] != shot["id"]:
+                    continue
+                for field in task_fields:
+                    value = task.get(field)
+                    if not value:
+                        continue
+                    shot[f"{task['content']}{delimiter}{field}"] = value
+
+        return shots
 
     def fill_overview(self, shots, assets):
         today = datetime.date.today().strftime("%Y-%m-%d")
