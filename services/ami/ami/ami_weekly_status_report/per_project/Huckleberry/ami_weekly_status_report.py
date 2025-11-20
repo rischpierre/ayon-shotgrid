@@ -185,10 +185,9 @@ class AMIWeeklyStatusReportHuckleberry(AMIWeeklyStatusReport):
     def get_dates_per_tasks(self, entities, entity_fields):
 
         delimiter = "___"
-        task_map = {x.split(delimiter)[-1]:  x.split(delimiter)[0] for x in entity_fields if delimiter in x}
-        task_names = list(set(task_map.values()))
-        task_fields = list(set(task_map.keys()))
-        fields = list(task_map.keys())
+        task_names = list(set([x.split(delimiter)[0] for x in entity_fields if delimiter in x]))
+        task_fields = list(set([x.split(delimiter)[-1] for x in entity_fields if delimiter in x]))
+        fields = task_fields.copy()
         fields.extend(["entity", "content"])
         sg_tasks = self.sg_session.find("Task", [["project.Project.id", "is", self.project_id],["content", "in", task_names]], fields)
 

@@ -94,8 +94,8 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
         range = self.template.range(entity_type)
         return [x.lstrip("{").rstrip("}") for x in range.tags]
 
-    def get_shots(self, fields, additional_filters):
-        filters = [["project.Project.id", "is", self.project_id]]
+    def get_shots(self, fields, additional_filters=None):
+        filters = [["project.Project.id", "is", self.project_id], ["sg_shot_type", "is_not", "Test"]]
         if additional_filters:
             filters.append(additional_filters)
         return self.sg_session.find("Shot", filters=filters, fields=fields)
