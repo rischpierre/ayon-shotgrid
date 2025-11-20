@@ -139,7 +139,7 @@ class AMIWeeklyStatusReportHuckleberry(AMIWeeklyStatusReport):
             records = self.sg_session.find(
                 target_entity_type,
                 filter_list,
-                ["entity", "code"],
+                ["entity", "code", "client_code"],
                 order=[{"field_name": order_by, "direction": direction}],
             )
 
@@ -153,7 +153,7 @@ class AMIWeeklyStatusReportHuckleberry(AMIWeeklyStatusReport):
                 if eid is None:
                     continue
                 if eid not in best_by_entity_id:
-                    best_by_entity_id[eid] = rec.get("code")
+                    best_by_entity_id[eid] = rec.get("client_code") or rec.get("code")
 
             # Assign back to original entities
             for e in entities:
