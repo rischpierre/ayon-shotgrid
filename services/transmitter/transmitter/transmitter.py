@@ -196,6 +196,7 @@ class ShotgridTransmitter:
             "entity.folder.tags_changed",
             "entity.version.created",
             "entity.version.status_changed",
+            "entity.version.attrib_changed",
             "reviewable.created",
             "flow.version.mediapath",
             "entity.version.thumbnail_changed",
@@ -204,7 +205,7 @@ class ShotgridTransmitter:
             "entity_list.changed",
             "reviewable.created"
         ]
-
+        _logged_url_mismatch_projects = set()
         last_comments_sync = datetime.min.replace(tzinfo=timezone.utc)
         while True:
             try:
@@ -260,7 +261,9 @@ class ShotgridTransmitter:
                     filters=[["name", "is", project_name], ["sg_ayon_server_url", "is", ayon_api.get_base_url()]],
                     fields=["code"]
                     ):
-                    self.log.info(f"Skipping project {project_name} because the sg_ayon_server_url is not matching the current server url.")
+                    if project_name not in _logged_url_mismatch_projects:
+                        self.log.info(f"Skipping project {project_name} because the sg_ayon_server_url is not matching the current server url.")
+                        _logged_url_mismatch_projects.add(project_name)
                     continue
 
 

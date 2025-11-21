@@ -450,7 +450,11 @@ class AyonShotgridHub:
                     self.custom_attribs_map,
                     self.settings
                 )
-            case "entity.task.attrib_changed" | "entity.folder.attrib_changed":
+            case (
+                "entity.task.attrib_changed"
+                | "entity.folder.attrib_changed"
+                | "entity.version.attrib_changed"
+            ):
                 attrib_key = next(iter(ayon_event["payload"]["newValue"]))
                 if attrib_key not in self.custom_attribs_map:
                     self.log.warning(
