@@ -245,6 +245,7 @@ def validate_custom_attribs_map(
     sg_schemas = {}
 
     AY_SG_TYPE_MAPPING = {
+        "percent": "integer",
         "number": "integer",
         "float": "float",
         "text": "string",
