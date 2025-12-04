@@ -496,11 +496,12 @@ def update_sg_entity_from_ayon_event(
             sg_assignees = []
             for user_name in new_attribs:
                 ayon_user = ayon_api.get_user(user_name)
+                type_ = "Group" if ayon_user["data"].get("is_vendor") == True else "HumanUser"
                 if not ayon_user or not ayon_user["data"].get("sg_user_id"):
                     log.warning(f"User {user_name} is not synched to SG yet.")
                     continue
                 sg_assignees.append(
-                    {"type": "HumanUser",
+                    {"type": type_,
                      "id": ayon_user["data"]["sg_user_id"]}
                 )
             new_attribs = {"assignees": sg_assignees}
@@ -516,7 +517,6 @@ def update_sg_entity_from_ayon_event(
                 sg_entity_type,
                 custom_attribs_map
             ))
-
 
         sg_entity = sg_session.update(
             sg_entity_type,
