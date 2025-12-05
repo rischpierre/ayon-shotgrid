@@ -1638,7 +1638,7 @@ def _add_task_assignees(sg_entity):
     for assignee in task_assignees:
         # Skip task assignments that aren't from a human user (i.e. groups)
         # TODO: add support for group assignments
-        if assignee["type"] != "HumanUser":
+        if assignee["type"] not in ("HumanUser", "Group"):
             continue
         ayon_user_name = get_ayon_name_by_sg_id(assignee["id"])
         if not ayon_user_name:
