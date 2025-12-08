@@ -249,6 +249,7 @@ def validate_custom_attribs_map(
         "number": "integer",
         "float": "float",
         "text": "string",
+        "list": "string",  # list is a list of choices in flow
         "date_time": "datetime",
         "date": "datetime",
     }
