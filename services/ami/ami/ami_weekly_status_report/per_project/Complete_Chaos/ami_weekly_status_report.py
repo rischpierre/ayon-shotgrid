@@ -57,6 +57,7 @@ class AMIWeeklyStatusReportCompleteChaos(AMIWeeklyStatusReport):
     def _format_fields(self, shots, assets):
         for shot in shots:
             shot["sg__"] = "{}%".format(shot["sg__"]) if "sg__" in shot else ""
+            shot["sg_progress"] = "{}%".format(shot["sg_progress"]) if "sg_progress" in shot else ""
             shot["sg_shared_shot"] = "Yes" if "sg_shared_shot" in shot else "No"
 
         return shots, assets
