@@ -1,6 +1,6 @@
 name = "shotgrid"
 title = "Shotgrid"
-version = "0.6.10-rvx.16"
+version = "0.6.14-rvx.16"
 client_dir = "ayon_shotgrid"
 
 services = {
@@ -19,3 +19,4 @@ ayon_required_addons = {
     "core": ">=0.3.0",
 }
 ayon_compatible_addons = {}
+ayon_server_version = ">=1.12.5"

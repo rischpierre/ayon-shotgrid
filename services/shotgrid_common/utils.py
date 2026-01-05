@@ -36,6 +36,7 @@ from ayon_api import get_attributes_for_type
 
 import shotgun_api3
 
+
 _loggers = {}
 
 
@@ -154,12 +155,7 @@ def _sg_to_ay_dict(
         ay_entity_type = "version"
         name = slugify_string(sg_entity["code"], min_length=0)
         label = sg_entity["code"]
-    elif sg_entity["type"] == "Note":
-        ay_entity_type = "comment"
-        content = sg_entity["content"] or ""
-        name = slugify_string(content, min_length=0)
-        label = content
-    elif sg_entity["type"] == "Reply":
+    elif sg_entity["type"] in ["Note", "Reply"]:
         ay_entity_type = "comment"
         content = sg_entity["content"] or ""
         name = slugify_string(content, min_length=0)
@@ -817,8 +813,7 @@ def get_sg_entities(
     for enabled_entity in project_enabled_entities:
         entity_name, parent_field = enabled_entity
 
-        # Reply entity don't have a project field
-        if entity_name == "Reply":
+        if entity_name == "Reply":  # Reply doesn't have link to project
             continue
 
         sg_entities = sg_session.find(
@@ -1216,15 +1211,22 @@ def get_sg_statuses(
     # supported by that entity
     # NOTE: this is a limitation in AYON as the statuses are global and not
     # per entity
+    sg_statuses = {}
     if sg_entity_type:
         if sg_entity_type == "Project":
             status_field = "sg_status"
-        elif sg_entity_type in ("Playlist", "Reply"):
-            return {}
+        elif sg_entity_type == "Playlist":
+            status_field = "sg_playlist_status"
         else:
             status_field = "sg_status_list"
-        entity_status = sg_session.schema_field_read(sg_entity_type, status_field)
-        sg_statuses = entity_status["sg_status_list"]["properties"]["display_values"]["value"]
+        try:
+            entity_status = sg_session.schema_field_read(sg_entity_type, status_field)
+            sg_statuses = entity_status[status_field]["properties"]["display_values"]["value"]
+        except shotgun_api3.shotgun.Fault:
+            log.warning(
+                f"Unable to get status field '{status_field}' for {sg_entity_type} "
+                "in Flow."
+            )
         return sg_statuses
 
     sg_statuses = {
@@ -1672,69 +1674,11 @@ def get_sg_user_id(ayon_username: str) -> [int]:
         sg_user_id = ayon_user["data"]["sg_user_id"]
     return sg_user_id
 
-def handle_reply(sg_ay_dict, sg_session, entity_hub):
-    """Transforms content and links from SG to matching AYON structures."""
-    sg_reply_id = sg_ay_dict["attribs"][SHOTGRID_ID_ATTRIB]
-    sg_reply, sg_reply_id = _get_sg_reply(sg_reply_id, sg_session)
-
-    if not sg_reply:
-        log.warning(f"Couldn't find reply '{sg_reply_id}'")
-        return
-
-    ayon_user_name = _get_ayon_user_name(sg_reply["user"])
-    sg_note, sg_note_id = _get_sg_note(sg_reply["entity"]["id"], sg_session)
-    if not sg_note:
-        log.warning(f"Couldn't find note '{sg_note}'")
-        return
-
-    ay_parent_entity = _get_sg_note_parent_entity(entity_hub, sg_note, sg_session)
-    if not ay_parent_entity:
-        log.warning(f"Cannot find parent for comment '{sg_reply_id}'")
-        return
-
-    content = _get_reply_content_with_notifications(sg_note, sg_reply)
-
-    project_name = entity_hub.project_name
-
-    sg_ayon_id = sg_ay_dict["data"].get(CUST_FIELD_CODE_ID)
-    ayon_comment = None
-    if sg_ayon_id:
-        ayon_comment = ayon_api.get_activity_by_id(project_name, sg_ayon_id)
-
-    if not ayon_comment:
-        ay_activity_id = _add_comment(
-            sg_session,
-            project_name,
-            ay_parent_entity["id"],
-            ay_parent_entity["entity_type"],
-            ayon_user_name,
-            content,
-            sg_reply,
-            comment_type=sg_note["sg_note_type"]
-        )
-    else:
-        ay_activity_id = _update_comment(
-            sg_session,
-            project_name,
-            ay_parent_entity,
-            ay_parent_entity["entity_type"],
-            ayon_comment,
-            sg_reply,
-            content,
-        )
-    #updates SG with AYON comment id
-    sg_session.update(
-        sg_ay_dict["attribs"].get(SHOTGRID_TYPE_ATTRIB, ""),
-        sg_ay_dict["attribs"].get(SHOTGRID_ID_ATTRIB, ""),
-        {
-            CUST_FIELD_CODE_ID: ay_activity_id
-        }
-    )
 
 def handle_comment(sg_ay_dict, sg_session, entity_hub):
     """Transforms content and links from SG to matching AYON structures."""
     sg_note_id = sg_ay_dict["attribs"][SHOTGRID_ID_ATTRIB]
-    sg_note, sg_note_id = _get_sg_note(sg_note_id, sg_session)
+    sg_note, sg_note_id = _get_sg_chat_msg(sg_note_id, sg_session, "Note")
 
     if not sg_note:
         log.warning(f"Couldn't find note '{sg_note_id}'")
@@ -1775,7 +1719,6 @@ def handle_comment(sg_ay_dict, sg_session, entity_hub):
             ay_parent_entity["entity_type"],
             ayon_comment,
             sg_note,
-            content,
         )
     #updates SG with AYON comment id
     sg_session.update(
@@ -1786,6 +1729,55 @@ def handle_comment(sg_ay_dict, sg_session, entity_hub):
         }
     )
 
+def handle_reply(sg_ay_dict, sg_session, entity_hub):
+    sg_note_id = sg_ay_dict["attribs"][SHOTGRID_ID_ATTRIB]
+    sg_reply, sg_reply_id = _get_sg_chat_msg(sg_note_id, sg_session, "Reply")
+    parent_note, parent_note_id = _get_sg_chat_msg(sg_reply["entity"]["id"], sg_session, "Note")
+    ay_parent_entity = _get_sg_note_parent_entity(entity_hub, parent_note, sg_session)
+
+    log.debug(f"{sg_reply = }")
+    log.debug(f"{parent_note = }")
+
+    # build the content citing the parent note
+    content = f"> {parent_note['content']}\n\n{sg_reply['content']}"
+
+    project_name = entity_hub.project_name
+    ayon_user_name = _get_ayon_user_name(sg_reply["user"])
+
+    # get sg reply id from sg
+    ayon_comment = None
+    ay_comment_activities = ayon_api.get_activities(
+        project_name,
+        activity_types=["comment"],
+        entity_ids=[ay_parent_entity["id"]],
+        fields=["body", "activityId", "activityData"]
+    )
+    # iterate all comments in AYON on the sg_parent_note parent entity
+    # and find the one with matching sg_reply id in the content
+    for ay_cmt in list(ay_comment_activities):
+        log.debug(f"{ay_cmt = }")
+        if int(ay_cmt["activityData"].get("sg_note_id", -1)) == int(sg_reply_id):
+            ayon_comment = ay_cmt
+            break
+
+    if not ayon_comment:
+        _ = _add_comment(
+            sg_session,
+            project_name,
+            ay_parent_entity["id"],
+            ay_parent_entity["entity_type"],
+            ayon_user_name,
+            content,
+            sg_reply,
+        )
+    else:
+        ayon_api.update_activity(
+            project_name,
+            ayon_comment["activityId"],
+            body=content,
+            data=ayon_comment["activityData"],
+        )
+
 
 def _update_comment(
     sg_session,
@@ -1793,8 +1785,7 @@ def _update_comment(
     ay_parent_entity,
     ay_parent_entity_type,
     ayon_comment,
-    sg_note,
-    content
+    sg_note
 ):
     ay_activity_id = ayon_comment["activityId"]
     prev_content = ayon_comment["body"]
@@ -1851,46 +1842,25 @@ def _update_comment(
     ayon_api.update_activity(   #! gotta check if this causes notes to be updated everytime
         project_name,
         ay_activity_id,
-        body=content,
+        body=sg_note["content"],
         data=ayon_comment["activityData"],
         file_ids=file_ids,
     )
     return ay_activity_id
 
 
-def _get_sg_note(sg_note_id, sg_session):
-    """Gets detail information about SG note wih SG id."""
+def _get_sg_chat_msg(sg_note_id, sg_session, sg_msg_type):
+    """Gets detail information about SG note/reply wih SG id."""
+    schema = sg_session.schema_field_read(sg_msg_type)
+    all_fields = list(schema.keys())
+    log.debug(f"{all_fields = }")
     sg_note = sg_session.find_one(
-        "Note",
+        sg_msg_type,
         [["id", "is", int(sg_note_id)]],
-        fields=[
-            "id",
-            "content",
-            "sg_ayon_id",
-            "user",
-            "note_links",
-            "addressings_to",
-            "attachments",
-            "sg_note_type",
-        ]
+        fields=all_fields
     )
     return sg_note, sg_note_id
 
-
-def _get_sg_reply(sg_note_id, sg_session):
-    """Gets detail information about SG note wih SG id."""
-    sg_note = sg_session.find_one(
-        "Reply",
-        [["id", "is", int(sg_note_id)]],
-        fields=[
-            "id",
-            "content",
-            "sg_ayon_id",
-            "user",
-            "entity",
-        ]
-    )
-    return sg_note, sg_note_id
 
 def _get_sg_note_parent_entity(entity_hub, sg_note, sg_session):
     """Transforms SG links to AYON hierarchy."""
@@ -1905,6 +1875,10 @@ def _get_sg_note_parent_entity(entity_hub, sg_note, sg_session):
         )
         if not sg_entity:
             log.warning(f"Couldn't find entity in SG with '{sg_id}")
+            continue
+
+        if link["type"] == "Playlist":
+            log.debug("Skipping unsupported Playlist link in SG note.")
             continue
 
         if not sg_entity.get(CUST_FIELD_CODE_ID):
@@ -1963,15 +1937,11 @@ def _get_sg_note_parent_entity(entity_hub, sg_note, sg_session):
     )
     return ay_parent_entities[0]
 
-def _get_reply_content_with_notifications(sg_note, sg_reply):
-    content = ">" + sg_note["content"].replace("\n", "  \n>") + "\n\n"
-    content += sg_reply["content"].replace("\n", "  \n")
-    return content
 
 def _get_content_with_notifications(sg_note):
     """Translates SG 'addressings_to' to AYON @ mentions."""
     content = sg_note["content"].replace("\n", "  \n")
-    for sg_user in sg_note["addressings_to"]:
+    for sg_user in sg_note.get("addressings_to", []):
         if sg_user["type"] != "HumanUser":
             log.warning(f"Cannot create notes for non humans "
                         f"- {sg_user['type']}")
@@ -2293,6 +2263,8 @@ def create_new_sg_entity(
         default_task_type,
         custom_attribs_map=custom_attribs_map
     )
+
+
 def update_movie_paths(
     sg_session: shotgun_api3.Shotgun,
     ayon_entity_hub: ayon_api.entity_hub.EntityHub,
