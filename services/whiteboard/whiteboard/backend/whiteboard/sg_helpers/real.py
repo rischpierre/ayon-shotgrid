@@ -125,7 +125,7 @@ def sg_find_tasks_per_entity(project_id: int) -> dict[EntityType, dict[int, list
         entity_type = task["entity"]["type"]
         entity_id = task["entity"]["id"]
 
-        if entity_type not in EntityTypes:  # we can have tasks on sequences for example
+        if entity_type not in [e.name for e in EntityTypes]:  # we can have tasks on sequences for example
             continue
 
         result[EntityType[entity_type]].setdefault(entity_id, []).append(task)

@@ -99,17 +99,17 @@ class AssignArtistRequest(BaseModel):
     task_id: int
 
 
-artists: Dict[str, Artist] = {}
+Artists: Dict[str, Artist] = {}
 
 # todo what is this weeks_days it does not make sense
-weeks_days: Dict[Week, Dict[Day, Dict[str, List[str]]]] = {} # week -> day -> board_id -> list[item_id]
-boards: Dict[str, Board] = {}
-assignments: Dict[int, List[AssignedTask]] = {}  # entity_id -> [AssignedTask, ...]
+Weeks_days: Dict[Week, Dict[Day, Dict[str, List[str]]]] = {} # week -> day -> board_id -> list[item_id]
+Boards: Dict[str, Board] = {}
+Assignments: Dict[int, List[AssignedTask]] = {}  # entity_id -> [AssignedTask, ...]
 
 # Per-project overrides and assignments (project-aware mode)
-moves_overrides: Dict[int, Dict[EntityType, Dict[int, Tuple[Week, Day]]]] = {}  # project_id -> entity_type -> entity_id -> (week, day)
-assignments_overrides: Dict[int, Dict[EntityType, Dict[int, List[AssignedTask]]]] = {}  # project_id -> entity_type -> entity_id -> [AssignedTask]
-unassign_overrides: Dict[int, Dict[EntityType, Dict[int, List[AssignedTask]]]] = {}
-tasks_per_entity: Dict[EntityType, dict[int, list[Dict[str, Any]]]] = {}
+Moves_overrides: Dict[int, Dict[EntityType, Dict[int, Tuple[Week, Day]]]] = {}  # project_id -> entity_type -> entity_id -> (week, day)
+Assignments_overrides: Dict[int, Dict[EntityType, Dict[int, List[AssignedTask]]]] = {}  # project_id -> entity_type -> entity_id -> [AssignedTask]
+Unassign_overrides: Dict[int, Dict[EntityType, Dict[int, List[AssignedTask]]]] = {}
+Tasks_per_entity: Dict[EntityType, dict[int, list[Dict[str, Any]]]] = {}
 # Items changed to have no due date project_id -> entityType -> [entity_id]
-unschedules_overrides: Dict[int, Dict[EntityType, set[int]]] = {}
+Unschedules_overrides: Dict[int, Dict[EntityType, set[int]]] = {}

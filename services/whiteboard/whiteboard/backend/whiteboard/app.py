@@ -313,7 +313,6 @@ def _collect_entity_ids(
 
 def _build_tasks_and_assignees_for_current(
     board_items: Dict[str, List[Item]],
-    tasks_per_entity: Dict[EntityType, Dict[int, List[dict]]],
 ) -> Tuple[Dict[int, List[str]], Dict[EntityType, Dict[int, List[AssignedTask]]]]:
     shot_ids, asset_ids = _collect_entity_ids(board_items)
     current_ids = shot_ids | asset_ids
@@ -326,10 +325,10 @@ def _build_tasks_and_assignees_for_current(
 
     sg_tasks: List[dict] = []
     # Collect tasks for both shots and assets present in the current snapshot
-    for shot_id, tasks in tasks_per_entity.get(EntityType.Shot, {}).items():
+    for shot_id, tasks in Tasks_per_entity.get(EntityType.Shot, {}).items():
         if shot_id in shot_ids:
             sg_tasks.extend(tasks)
-    for asset_id, tasks in tasks_per_entity.get(EntityType.Asset, {}).items():
+    for asset_id, tasks in Tasks_per_entity.get(EntityType.Asset, {}).items():
         if asset_id in asset_ids:
             sg_tasks.extend(tasks)
 
@@ -378,7 +377,7 @@ def _build_tasks_and_assignees_for_current(
 def _apply_assignment_overrides(
     project_id: int, assignee_map, current_ids: Set[int]
 ) -> None:
-    proj_assign = assignments_overrides.get(project_id, {})
+    proj_assign = Assignments_overrides.get(project_id, {})
     for entity_type, v in proj_assign.items():
         for entity_id, assigned_tasks in v.items():
             if entity_id not in current_ids:
@@ -394,7 +393,7 @@ def _apply_assignment_overrides(
 
 
 def _apply_unassign_overrides(project_id: int, assignee_map) -> None:
-    overrides = unassign_overrides.get(project_id, {})
+    overrides = Unassign_overrides.get(project_id, {})
     for entity_type, v in overrides.items():
         for entity_id, removed_list in v.items():
             existing = assignee_map.get(entity_type, {}).get(entity_id)
@@ -454,9 +453,9 @@ def list_projects():
 
 @app.get("/api/tasks")
 def get_tasks(project_id: str):
-    global tasks_per_entity
-    tasks_per_entity = sg_find_tasks_per_entity(int(project_id))
-    return tasks_per_entity
+    global Tasks_per_entity
+    Tasks_per_entity = sg_find_tasks_per_entity(int(project_id))
+    return Tasks_per_entity
 
 
 @app.get("/api/week/{week}", response_model=WeekSnapshot)
@@ -475,8 +474,8 @@ def get_week(week: Week, project_id: str):
         )
 
         # In-memory overrides
-        project_moves = moves_overrides.get(project_id, {})
-        project_no_due = unschedules_overrides.get(project_id, {})
+        project_moves = Moves_overrides.get(project_id, {})
+        project_no_due = Unschedules_overrides.get(project_id, {})
 
         # Classification
         shot_board_items, no_due_shots, on_hold_shots, omitted_shots, sequences = (
@@ -499,9 +498,7 @@ def get_week(week: Week, project_id: str):
 
         # Tasks and assignees for visible entities
         shot_ids, asset_ids = _collect_entity_ids(board_items)
-        _tasks_map, assignee_map = _build_tasks_and_assignees_for_current(
-            board_items, tasks_per_entity
-        )
+        _tasks_map, assignee_map = _build_tasks_and_assignees_for_current(board_items)
 
         # Overrides for immediate UI feedback
         current_ids = shot_ids | asset_ids
@@ -558,7 +555,7 @@ def get_week(week: Week, project_id: str):
 @app.post("/api/move_item")
 def move_item(request: MoveByWeekDayRequest, project_id: Optional[str] = None):
     project_id = int(project_id)
-    mp = moves_overrides.setdefault(project_id, {}).setdefault(request.entity_type, {})
+    mp = Moves_overrides.setdefault(project_id, {}).setdefault(request.entity_type, {})
     mp[int(request.item_id)] = (request.to_week, request.to_day)
     return {"ok": True}
 
@@ -569,7 +566,7 @@ def remove_due_date(payload: Dict[str, Any], project_id: Optional[str] = None):
     entity_id = int(payload.get("item_id"))
 
     entity_type = EntityType[payload.get("entity_type")]
-    overrides = unschedules_overrides.setdefault(project_ids, {})
+    overrides = Unschedules_overrides.setdefault(project_ids, {})
     ids_overrides = overrides.setdefault(entity_type, set())
     ids_overrides.add(entity_id)
     return {"ok": True}
@@ -578,7 +575,7 @@ def remove_due_date(payload: Dict[str, Any], project_id: Optional[str] = None):
 @app.post("/api/assign")
 def assign_artist(request: AssignArtistRequest, project_id: str):
     project_id = int(project_id)
-    assign_map = assignments_overrides.setdefault(project_id, {}).setdefault(
+    assign_map = Assignments_overrides.setdefault(project_id, {}).setdefault(
         request.entity_type, {}
     )
     assignments = assign_map.setdefault(request.entity_id, [])
@@ -603,7 +600,7 @@ def assign_artist(request: AssignArtistRequest, project_id: str):
 def unassign_artist(request: AssignArtistRequest, project_id: Optional[str] = None):
     # Remove an assignment if present; prefer per-project store when project_id is provided
     project_id = int(project_id)
-    pmap = assignments_overrides.setdefault(project_id, {}).setdefault(
+    pmap = Assignments_overrides.setdefault(project_id, {}).setdefault(
         request.entity_type, {}
     )
     cur = pmap.get(request.entity_id, [])
@@ -617,7 +614,7 @@ def unassign_artist(request: AssignArtistRequest, project_id: Optional[str] = No
     pmap[request.entity_id] = filtered
 
     # Record an override so prefilled ShotGrid assignees are hidden in the UI
-    ov_map = unassign_overrides.setdefault(project_id, {})
+    ov_map = Unassign_overrides.setdefault(project_id, {})
     ov_list = ov_map.setdefault(request.entity_type, {}).setdefault(
         request.entity_id, []
     )
@@ -639,10 +636,10 @@ def unassign_artist(request: AssignArtistRequest, project_id: Optional[str] = No
 @app.get("/api/changes")
 def list_changes(project_id: str):
     project_id = int(project_id)
-    assigns = assignments_overrides.get(project_id, {})
-    moves = moves_overrides.get(project_id, {})
-    unassigns = unassign_overrides.get(project_id, {})
-    unschedules = unschedules_overrides.get(project_id, {})
+    assigns = Assignments_overrides.get(project_id, {})
+    moves = Moves_overrides.get(project_id, {})
+    unassigns = Unassign_overrides.get(project_id, {})
+    unschedules = Unschedules_overrides.get(project_id, {})
 
     # If absolutely nothing is pending, return empty normalized structures
     if not moves and not assigns and not unassigns and not unschedules:
@@ -739,10 +736,10 @@ def publish_changes(project_id: Optional[str] = None):
     project_id = int(project_id)
 
     # Prepare data
-    moves = moves_overrides.get(project_id, {})
-    assigns = assignments_overrides.get(project_id, {})
-    unassigns = unassign_overrides.get(project_id, {})
-    unschedules = unschedules_overrides.get(project_id, {})
+    moves = Moves_overrides.get(project_id, {})
+    assigns = Assignments_overrides.get(project_id, {})
+    unassigns = Unassign_overrides.get(project_id, {})
+    unschedules = Unschedules_overrides.get(project_id, {})
 
     # Try publishing to ShotGrid; if not configured, treat as success and clear
     try:
@@ -753,10 +750,10 @@ def publish_changes(project_id: Optional[str] = None):
         )
 
     # Clear pending changes for the project
-    moves_overrides[project_id] = {}
-    assignments_overrides[project_id] = {}
-    unassign_overrides[project_id] = {}
-    unschedules_overrides[project_id] = {}
+    Moves_overrides[project_id] = {}
+    Assignments_overrides[project_id] = {}
+    Unassign_overrides[project_id] = {}
+    Unschedules_overrides[project_id] = {}
 
     return {"ok": True}
 

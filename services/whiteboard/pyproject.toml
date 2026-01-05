@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "shotgrid-whiteboard"
-version = "0.6.10+rvx.16"
+version = "0.6.14+rvx.16"
 description = "Whiteboard webpage"
 authors = ["Oscar Domingo <oscar.domingo@ynput.com>"]
 package-mode = false
@@ -9,7 +9,7 @@ package-mode = false
 python = ">=3.10,<4.0"
 uvicorn = "*"
 shotgun-api3 = "3.8.5"
-ayon-python-api = "1.2.1"
+ayon-python-api = "1.2.6"
 fastapi = "*"
 
 [tool.poetry.dev-dependencies]
