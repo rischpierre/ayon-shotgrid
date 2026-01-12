@@ -1,0 +1,14 @@
+[
+  {
+    "label": "tmp_sg",
+    "command": "set -a && source ~/.env_prod && set +a && uv run tmp_sg.py",
+    "cwd": "/cache/dev/sandbox/rvx/shotgun",
+    "show_command": true
+  },
+  {
+  "label": "tmp_ayon_prod",
+  "command": "set -a && source ~/.env_prod && set +a && uv run tmp_ayon_prod.py",
+  "cwd": "/cache/dev/sandbox/rvx/ayon",
+  "show_command": true
+}
+]
