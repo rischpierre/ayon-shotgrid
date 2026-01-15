@@ -10,5 +10,19 @@
   "command": "set -a && source ~/.env_prod && set +a && uv run tmp_ayon_prod.py",
   "cwd": "/cache/dev/sandbox/rvx/ayon",
   "show_command": true
-}
+},
+{
+  "label": "Docker Logs [TRANS] [DEV] 1h",
+  "command": "DOCKER_HOST=ssh://huskarl01.eu.rvx.is docker logs -ft --since=1h aysvc_shotgridtransmitterprod"
+},
+{
+  "label": "Deploy SG services [ALL] [DEV]",
+  "command": "make build-all VERSION=0.0.0-prod && make dist-all VERSION=0.0.0-prod && ssh huskarl01 'docker stop aysvc_shotgridamiprod aysvc_shotgridleecherprod aysvc_shotgridprocessorprod aysvc_shotgridtransmitterprod'",
+  "cwd": "/cache/dev/ayon-shotgrid/services",
+},
+{
+  "label": "Deploy SG services [TRANS] [DEV]",
+  "command": "make build SERVICE=transmitter VERSION=0.0.0-prod && make dist SERVICE=transmitter VERSION=0.0.0-prod && ssh huskarl01 'docker stop  aysvc_shotgridtransmitterprod'",
+  "cwd": "/cache/dev/ayon-shotgrid/services",
+},
 ]
