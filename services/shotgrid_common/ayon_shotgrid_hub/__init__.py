@@ -922,6 +922,13 @@ class AyonShotgridHub:
         sg_id = entity_dict["attrib"].get("shotgridId")
         sg_type = entity_dict["attrib"].get("shotgridType")
 
+        # Fallback to last version if we create a note from a product entity
+        if (not (sg_id and sg_type)) and "productType" in entity_dict:
+            ay_version = ayon_api.get_last_version_by_product_id(self.project_name, entity_dict["id"])
+            if ay_version:
+                sg_id = ay_version['attrib'].get("shotgridId")
+                sg_type = ay_version['attrib'].get("shotgridType")
+
         sg_entity = None
         if sg_id and sg_type:
             if sg_type == "Version":
