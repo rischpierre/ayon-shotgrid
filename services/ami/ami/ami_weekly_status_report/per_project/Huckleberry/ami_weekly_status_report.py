@@ -208,7 +208,7 @@ class AMIWeeklyStatusReportHuckleberry(AMIWeeklyStatusReport):
 
     def fill_overview(self, shots, assets):
         today = datetime.date.today().strftime("%Y-%m-%d")
-        friday_of_the_next_week = (datetime.date.today() + datetime.timedelta(days=4)
+        friday_of_the_next_week = (datetime.date.today() - datetime.timedelta(days=4)
              + datetime.timedelta(days=7+5)).strftime("%Y-%m-%d")
 
         status_map = {
