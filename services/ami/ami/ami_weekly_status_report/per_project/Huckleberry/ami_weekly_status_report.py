@@ -208,7 +208,8 @@ class AMIWeeklyStatusReportHuckleberry(AMIWeeklyStatusReport):
 
     def fill_overview(self, shots, assets):
         today = datetime.date.today().strftime("%Y-%m-%d")
-        friday_of_this_week = (datetime.date.today() + datetime.timedelta(days=4)).strftime("%Y-%m-%d")
+        friday_of_the_next_week = (datetime.date.today() + datetime.timedelta(days=4)
+             + datetime.timedelta(days=7+5)).strftime("%Y-%m-%d")
 
         status_map = {
             "turned_over": None,
@@ -224,7 +225,7 @@ class AMIWeeklyStatusReportHuckleberry(AMIWeeklyStatusReport):
 
         data = {
             "_date": today,
-            "_week_ending": friday_of_this_week,
+            "_week_ending": friday_of_the_next_week,
 
             # OVERALL ASSET STATUS
             "_total_assets": len(assets),
@@ -282,11 +283,14 @@ class AMIWeeklyStatusReportHuckleberry(AMIWeeklyStatusReport):
             "_cbbs_received_this_week": 0,
         }
 
+        # fill the values based on the statuses
         for k, v in data.items():
             for x, sg_status in status_map.items():
                 if k.endswith(x):
+
                     if k.startswith("_assets_"):
                         data[k] = len([y for y in assets if y["sg_status_list"] == sg_status])
+
                     elif k.startswith("_shots_"):
                         data[k] = len([y for y in shots if y["sg_status_list"] == sg_status])
 
