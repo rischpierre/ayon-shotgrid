@@ -47,5 +47,5 @@ RUN chown ayonuser:ayonuser -R /home/ayonuser
 # Tell docker that all future commands should run as the appuser user
 USER ayonuser
 
-CMD ["python", "-m", "ami"]
+CMD ["uv", "run", "-m", "ami"]
 
