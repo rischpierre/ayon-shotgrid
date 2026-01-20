@@ -1,0 +1,516 @@
+version = 1
+revision = 2
+requires-python = "==3.10.*"
+
+[[package]]
+name = "annotated-doc"
+version = "0.0.4"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/annotated-doc/0.0.4/annotated_doc-0.0.4.tar.gz", hash = "sha256:fbcda96e87e9c92ad167c2e53839e57503ecfda18804ea28102353485033faa4" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/annotated-doc/0.0.4/annotated_doc-0.0.4-py3-none-any.whl", hash = "sha256:571ac1dc6991c450b25a9c2d84a3705e2ae7a53467b5d111c24fa8baabbed320" },
+]
+
+[[package]]
+name = "annotated-types"
+version = "0.7.0"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/annotated-types/0.7.0/annotated_types-0.7.0.tar.gz", hash = "sha256:aff07c09a53a08bc8cfccb9c85b05f1aa9a2a6f23728d790723543408344ce89" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/annotated-types/0.7.0/annotated_types-0.7.0-py3-none-any.whl", hash = "sha256:1f02e8b43a8fbbc3f3e0d4f0f4bfc8131bcb4eebe8849b8e5c773f3a1c582a53" },
+]
+
+[[package]]
+name = "anyio"
+version = "4.12.1"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+dependencies = [
+    { name = "exceptiongroup" },
+    { name = "idna" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/anyio/4.12.1/anyio-4.12.1.tar.gz", hash = "sha256:41cfcc3a4c85d3f05c932da7c26d0201ac36f72abd4435ba90d0464a3ffed703" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/anyio/4.12.1/anyio-4.12.1-py3-none-any.whl", hash = "sha256:d405828884fc140aa80a3c667b8beed277f1dfedec42ba031bd6ac3db606ab6c" },
+]
+
+[[package]]
+name = "arrow"
+version = "1.4.0"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+dependencies = [
+    { name = "python-dateutil" },
+    { name = "tzdata" },
+]
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/arrow/1.4.0/arrow-1.4.0.tar.gz", hash = "sha256:ed0cc050e98001b8779e84d461b0098c4ac597e88704a655582b21d116e526d7" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/arrow/1.4.0/arrow-1.4.0-py3-none-any.whl", hash = "sha256:749f0769958ebdc79c173ff0b0670d59051a535fa26e8eba02953dc19eb43205" },
+]
+
+[[package]]
+name = "atomicwrites"
+version = "1.4.1"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/atomicwrites/1.4.1/atomicwrites-1.4.1.tar.gz", hash = "sha256:81b2c9071a49367a7f770170e5eec8cb66567cfbbc8c73d20ce5ca4a8d71cf11" }
+
+[[package]]
+name = "attrs"
+version = "25.4.0"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/attrs/25.4.0/attrs-25.4.0.tar.gz", hash = "sha256:16d5969b87f0859ef33a48b35d55ac1be6e42ae49d5e853b597db70c35c57e11" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/attrs/25.4.0/attrs-25.4.0-py3-none-any.whl", hash = "sha256:adcf7e2a1fb3b36ac48d97835bb6d8ade15b8dcce26aba8bf1d14847b57a3373" },
+]
+
+[[package]]
+name = "ayon-python-api"
+version = "1.2.6"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+dependencies = [
+    { name = "requests" },
+    { name = "unidecode" },
+]
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/ayon-python-api/1.2.6/ayon_python_api-1.2.6.tar.gz", hash = "sha256:758e8f46152e90e1a7b494b4d80a723771d9ad39d4ff17c8cfb9ee482cf6553e" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/ayon-python-api/1.2.6/ayon_python_api-1.2.6-py3-none-any.whl", hash = "sha256:769a999cc1e6a9c24a71a3eea9405ae16f641ce8689ab6d240c6ea11cabcb8f4" },
+]
+
+[[package]]
+name = "certifi"
+version = "2026.1.4"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/certifi/2026.1.4/certifi-2026.1.4.tar.gz", hash = "sha256:ac726dd470482006e014ad384921ed6438c457018f4b3d204aea4281258b2120" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/certifi/2026.1.4/certifi-2026.1.4-py3-none-any.whl", hash = "sha256:9943707519e4add1115f44c2bc244f782c0249876bf51b6599fee1ffbedd685c" },
+]
+
+[[package]]
+name = "charset-normalizer"
+version = "3.4.4"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/charset-normalizer/3.4.4/charset_normalizer-3.4.4.tar.gz", hash = "sha256:94537985111c35f28720e43603b8e7b43a6ecfb2ce1d3058bbe955b73404e21a" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/charset-normalizer/3.4.4/charset_normalizer-3.4.4-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:e824f1492727fa856dd6eda4f7cee25f8518a12f3c4a56a74e8095695089cf6d" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/charset-normalizer/3.4.4/charset_normalizer-3.4.4-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:4bd5d4137d500351a30687c2d3971758aac9a19208fc110ccb9d7188fbe709e8" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/charset-normalizer/3.4.4/charset_normalizer-3.4.4-cp310-cp310-manylinux2014_armv7l.manylinux_2_17_armv7l.manylinux_2_31_armv7l.whl", hash = "sha256:027f6de494925c0ab2a55eab46ae5129951638a49a34d87f4c3eda90f696b4ad" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/charset-normalizer/3.4.4/charset_normalizer-3.4.4-cp310-cp310-manylinux2014_ppc64le.manylinux_2_17_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:f820802628d2694cb7e56db99213f930856014862f3fd943d290ea8438d07ca8" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/charset-normalizer/3.4.4/charset_normalizer-3.4.4-cp310-cp310-manylinux2014_s390x.manylinux_2_17_s390x.manylinux_2_28_s390x.whl", hash = "sha256:798d75d81754988d2565bff1b97ba5a44411867c0cf32b77a7e8f8d84796b10d" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/charset-normalizer/3.4.4/charset_normalizer-3.4.4-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9d1bb833febdff5c8927f922386db610b49db6e0d4f4ee29601d71e7c2694313" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/charset-normalizer/3.4.4/charset_normalizer-3.4.4-cp310-cp310-manylinux_2_31_riscv64.manylinux_2_39_riscv64.whl", hash = "sha256:9cd98cdc06614a2f768d2b7286d66805f94c48cde050acdbbb7db2600ab3197e" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/charset-normalizer/3.4.4/charset_normalizer-3.4.4-cp310-cp310-musllinux_1_2_aarch64.whl", hash = "sha256:077fbb858e903c73f6c9db43374fd213b0b6a778106bc7032446a8e8b5b38b93" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/charset-normalizer/3.4.4/charset_normalizer-3.4.4-cp310-cp310-musllinux_1_2_armv7l.whl", hash = "sha256:244bfb999c71b35de57821b8ea746b24e863398194a4014e4c76adc2bbdfeff0" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/charset-normalizer/3.4.4/charset_normalizer-3.4.4-cp310-cp310-musllinux_1_2_ppc64le.whl", hash = "sha256:64b55f9dce520635f018f907ff1b0df1fdc31f2795a922fb49dd14fbcdf48c84" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/charset-normalizer/3.4.4/charset_normalizer-3.4.4-cp310-cp310-musllinux_1_2_riscv64.whl", hash = "sha256:faa3a41b2b66b6e50f84ae4a68c64fcd0c44355741c6374813a800cd6695db9e" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/charset-normalizer/3.4.4/charset_normalizer-3.4.4-cp310-cp310-musllinux_1_2_s390x.whl", hash = "sha256:6515f3182dbe4ea06ced2d9e8666d97b46ef4c75e326b79bb624110f122551db" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/charset-normalizer/3.4.4/charset_normalizer-3.4.4-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:cc00f04ed596e9dc0da42ed17ac5e596c6ccba999ba6bd92b0e0aef2f170f2d6" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/charset-normalizer/3.4.4/charset_normalizer-3.4.4-cp310-cp310-win32.whl", hash = "sha256:f34be2938726fc13801220747472850852fe6b1ea75869a048d6f896838c896f" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/charset-normalizer/3.4.4/charset_normalizer-3.4.4-cp310-cp310-win_amd64.whl", hash = "sha256:a61900df84c667873b292c3de315a786dd8dac506704dea57bc957bd31e22c7d" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/charset-normalizer/3.4.4/charset_normalizer-3.4.4-cp310-cp310-win_arm64.whl", hash = "sha256:cead0978fc57397645f12578bfd2d5ea9138ea0fac82b2f63f7f7c6877986a69" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/charset-normalizer/3.4.4/charset_normalizer-3.4.4-py3-none-any.whl", hash = "sha256:7a32c560861a02ff789ad905a2fe94e3f840803362c84fecf1851cb4cf3dc37f" },
+]
+
+[[package]]
+name = "click"
+version = "8.3.1"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/click/8.3.1/click-8.3.1.tar.gz", hash = "sha256:12ff4785d337a1bb490bb7e9c2b1ee5da3112e94a8622f26a6c77f5d2fc6842a" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/click/8.3.1/click-8.3.1-py3-none-any.whl", hash = "sha256:981153a64e25f12d547d3426c367a4857371575ee7ad18df2a6183ab0545b2a6" },
+]
+
+[[package]]
+name = "colorama"
+version = "0.4.6"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/colorama/0.4.6/colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/colorama/0.4.6/colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6" },
+]
+
+[[package]]
+name = "corder"
+version = "1.0.1"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+dependencies = [
+    { name = "openpyxl" },
+]
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/corder/1.0.1/corder-1.0.1.tar.gz", hash = "sha256:3b875fe28a5e75c695fa630688c2e5d6d6949fa388482ad00fb2466cda4da375" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/corder/1.0.1/corder-1.0.1-py3-none-any.whl", hash = "sha256:71107f29e24c5ea608af62ebf8e2e90e9f5411407fb8eab593b6928118b67a03" },
+]
+
+[[package]]
+name = "et-xmlfile"
+version = "2.0.0"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/et-xmlfile/2.0.0/et_xmlfile-2.0.0.tar.gz", hash = "sha256:dab3f4764309081ce75662649be815c4c9081e88f0837825f90fd28317d4da54" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/et-xmlfile/2.0.0/et_xmlfile-2.0.0-py3-none-any.whl", hash = "sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa" },
+]
+
+[[package]]
+name = "exceptiongroup"
+version = "1.3.1"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/exceptiongroup/1.3.1/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/exceptiongroup/1.3.1/exceptiongroup-1.3.1-py3-none-any.whl", hash = "sha256:a7a39a3bd276781e98394987d3a5701d0c4edffb633bb7a5144577f82c773598" },
+]
+
+[[package]]
+name = "fastapi"
+version = "0.128.0"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+dependencies = [
+    { name = "annotated-doc" },
+    { name = "pydantic" },
+    { name = "starlette" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/fastapi/0.128.0/fastapi-0.128.0.tar.gz", hash = "sha256:1cc179e1cef10a6be60ffe429f79b829dce99d8de32d7acb7e6c8dfdf7f2645a" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/fastapi/0.128.0/fastapi-0.128.0-py3-none-any.whl", hash = "sha256:aebd93f9716ee3b4f4fcfe13ffb7cf308d99c9f3ab5622d8877441072561582d" },
+]
+
+[[package]]
+name = "h11"
+version = "0.16.0"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/h11/0.16.0/h11-0.16.0.tar.gz", hash = "sha256:4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/h11/0.16.0/h11-0.16.0-py3-none-any.whl", hash = "sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86" },
+]
+
+[[package]]
+name = "idna"
+version = "3.11"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/idna/3.11/idna-3.11.tar.gz", hash = "sha256:795dafcc9c04ed0c1fb032c2aa73654d8e8c5023a7df64a53f39190ada629902" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/idna/3.11/idna-3.11-py3-none-any.whl", hash = "sha256:771a87f49d9defaf64091e6e6fe9c18d4833f140bd19464795bc32d966ca37ea" },
+]
+
+[[package]]
+name = "jinja2"
+version = "3.1.6"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+dependencies = [
+    { name = "markupsafe" },
+]
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/jinja2/3.1.6/jinja2-3.1.6.tar.gz", hash = "sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/jinja2/3.1.6/jinja2-3.1.6-py3-none-any.whl", hash = "sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67" },
+]
+
+[[package]]
+name = "markupsafe"
+version = "3.0.3"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/markupsafe/3.0.3/markupsafe-3.0.3.tar.gz", hash = "sha256:722695808f4b6457b320fdc131280796bdceb04ab50fe1795cd540799ebe1698" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/markupsafe/3.0.3/markupsafe-3.0.3-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:2f981d352f04553a7171b8e44369f2af4055f888dfb147d55e42d29e29e74559" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/markupsafe/3.0.3/markupsafe-3.0.3-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:e1c1493fb6e50ab01d20a22826e57520f1284df32f2d8601fdd90b6304601419" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/markupsafe/3.0.3/markupsafe-3.0.3-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:1ba88449deb3de88bd40044603fafffb7bc2b055d626a330323a9ed736661695" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/markupsafe/3.0.3/markupsafe-3.0.3-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:f42d0984e947b8adf7dd6dde396e720934d12c506ce84eea8476409563607591" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/markupsafe/3.0.3/markupsafe-3.0.3-cp310-cp310-manylinux_2_31_riscv64.manylinux_2_39_riscv64.whl", hash = "sha256:c0c0b3ade1c0b13b936d7970b1d37a57acde9199dc2aecc4c336773e1d86049c" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/markupsafe/3.0.3/markupsafe-3.0.3-cp310-cp310-musllinux_1_2_aarch64.whl", hash = "sha256:0303439a41979d9e74d18ff5e2dd8c43ed6c6001fd40e5bf2e43f7bd9bbc523f" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/markupsafe/3.0.3/markupsafe-3.0.3-cp310-cp310-musllinux_1_2_riscv64.whl", hash = "sha256:d2ee202e79d8ed691ceebae8e0486bd9a2cd4794cec4824e1c99b6f5009502f6" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/markupsafe/3.0.3/markupsafe-3.0.3-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:177b5253b2834fe3678cb4a5f0059808258584c559193998be2601324fdeafb1" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/markupsafe/3.0.3/markupsafe-3.0.3-cp310-cp310-win32.whl", hash = "sha256:2a15a08b17dd94c53a1da0438822d70ebcd13f8c3a95abe3a9ef9f11a94830aa" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/markupsafe/3.0.3/markupsafe-3.0.3-cp310-cp310-win_amd64.whl", hash = "sha256:c4ffb7ebf07cfe8931028e3e4c85f0357459a3f9f9490886198848f4fa002ec8" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/markupsafe/3.0.3/markupsafe-3.0.3-cp310-cp310-win_arm64.whl", hash = "sha256:e2103a929dfa2fcaf9bb4e7c091983a49c9ac3b19c9061b6d5427dd7d14d81a1" },
+]
+
+[[package]]
+name = "more-itertools"
+version = "10.8.0"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/more-itertools/10.8.0/more_itertools-10.8.0.tar.gz", hash = "sha256:f638ddf8a1a0d134181275fb5d58b086ead7c6a72429ad725c67503f13ba30bd" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/more-itertools/10.8.0/more_itertools-10.8.0-py3-none-any.whl", hash = "sha256:52d4362373dcf7c52546bc4af9a86ee7c4579df9a8dc268be0a2f949d376cc9b" },
+]
+
+[[package]]
+name = "openpyxl"
+version = "3.1.5"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+dependencies = [
+    { name = "et-xmlfile" },
+]
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/openpyxl/3.1.5/openpyxl-3.1.5.tar.gz", hash = "sha256:cf0e3cf56142039133628b5acffe8ef0c12bc902d2aadd3e0fe5878dc08d1050" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/openpyxl/3.1.5/openpyxl-3.1.5-py2.py3-none-any.whl", hash = "sha256:5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2" },
+]
+
+[[package]]
+name = "packaging"
+version = "25.0"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/packaging/25.0/packaging-25.0.tar.gz", hash = "sha256:d443872c98d677bf60f6a1f2f8c1cb748e8fe762d2bf9d3148b5599295b0fc4f" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/packaging/25.0/packaging-25.0-py3-none-any.whl", hash = "sha256:29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484" },
+]
+
+[[package]]
+name = "pluggy"
+version = "0.13.1"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pluggy/0.13.1/pluggy-0.13.1.tar.gz", hash = "sha256:15b2acde666561e1298d71b523007ed7364de07029219b604cf808bfa1c765b0" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pluggy/0.13.1/pluggy-0.13.1-py2.py3-none-any.whl", hash = "sha256:966c145cd83c96502c3c3868f50408687b38434af77734af1e9ca461a4081d2d" },
+]
+
+[[package]]
+name = "py"
+version = "1.11.0"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/py/1.11.0/py-1.11.0.tar.gz", hash = "sha256:51c75c4126074b472f746a24399ad32f6053d1b34b68d2fa41e558e6f4a98719" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/py/1.11.0/py-1.11.0-py2.py3-none-any.whl", hash = "sha256:607c53218732647dff4acdfcd50cb62615cedf612e72d1724fb1a0cc6405b378" },
+]
+
+[[package]]
+name = "pydantic"
+version = "2.12.5"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+dependencies = [
+    { name = "annotated-types" },
+    { name = "pydantic-core" },
+    { name = "typing-extensions" },
+    { name = "typing-inspection" },
+]
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic/2.12.5/pydantic-2.12.5.tar.gz", hash = "sha256:4d351024c75c0f085a9febbb665ce8c0c6ec5d30e903bdb6394b7ede26aebb49" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic/2.12.5/pydantic-2.12.5-py3-none-any.whl", hash = "sha256:e561593fccf61e8a20fc46dfc2dfe075b8be7d0188df33f221ad1f0139180f9d" },
+]
+
+[[package]]
+name = "pydantic-core"
+version = "2.41.5"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5.tar.gz", hash = "sha256:08daa51ea16ad373ffd5e7606252cc32f07bc72b28284b6bc9c6df804816476e" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:77b63866ca88d804225eaa4af3e664c5faf3568cea95360d21f4725ab6e07146" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:dfa8a0c812ac681395907e71e1274819dec685fec28273a28905df579ef137e2" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5921a4d3ca3aee735d9fd163808f5e8dd6c6972101e4adbda9a4667908849b97" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:e25c479382d26a2a41b7ebea1043564a937db462816ea07afa8a44c0866d52f9" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:f547144f2966e1e16ae626d8ce72b4cfa0caedc7fa28052001c94fb2fcaa1c52" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:6f52298fbd394f9ed112d56f3d11aabd0d5bd27beb3084cc3d8ad069483b8941" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:100baa204bb412b74fe285fb0f3a385256dad1d1879f0a5cb1499ed2e83d132a" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:05a2c8852530ad2812cb7914dc61a1125dc4e06252ee98e5638a12da6cc6fb6c" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-musllinux_1_1_aarch64.whl", hash = "sha256:29452c56df2ed968d18d7e21f4ab0ac55e71dc59524872f6fc57dcf4a3249ed2" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-musllinux_1_1_armv7l.whl", hash = "sha256:d5160812ea7a8a2ffbe233d8da666880cad0cbaf5d4de74ae15c313213d62556" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:df3959765b553b9440adfd3c795617c352154e497a4eaf3752555cfb5da8fc49" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-win32.whl", hash = "sha256:1f8d33a7f4d5a7889e60dc39856d76d09333d8a6ed0f5f1190635cbec70ec4ba" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-win_amd64.whl", hash = "sha256:62de39db01b8d593e45871af2af9e497295db8d73b085f6bfd0b18c83c70a8f9" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-pp310-pypy310_pp73-macosx_10_12_x86_64.whl", hash = "sha256:b5819cd790dbf0c5eb9f82c73c16b39a65dd6dd4d1439dcdea7816ec9adddab8" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-pp310-pypy310_pp73-macosx_11_0_arm64.whl", hash = "sha256:5a4e67afbc95fa5c34cf27d9089bca7fcab4e51e57278d710320a70b956d1b9a" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-pp310-pypy310_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ece5c59f0ce7d001e017643d8d24da587ea1f74f6993467d85ae8a5ef9d4f42b" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-pp310-pypy310_pp73-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:16f80f7abe3351f8ea6858914ddc8c77e02578544a0ebc15b4c2e1a0e813b0b2" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-pp310-pypy310_pp73-musllinux_1_1_aarch64.whl", hash = "sha256:33cb885e759a705b426baada1fe68cbb0a2e68e34c5d0d0289a364cf01709093" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-pp310-pypy310_pp73-musllinux_1_1_armv7l.whl", hash = "sha256:c8d8b4eb992936023be7dee581270af5c6e0697a8559895f527f5b7105ecd36a" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-pp310-pypy310_pp73-musllinux_1_1_x86_64.whl", hash = "sha256:242a206cd0318f95cd21bdacff3fcc3aab23e79bba5cac3db5a841c9ef9c6963" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-pp310-pypy310_pp73-win_amd64.whl", hash = "sha256:d3a978c4f57a597908b7e697229d996d77a6d3c94901e9edee593adada95ce1a" },
+]
+
+[[package]]
+name = "pytest"
+version = "5.4.3"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+dependencies = [
+    { name = "atomicwrites", marker = "sys_platform == 'win32'" },
+    { name = "attrs" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "more-itertools" },
+    { name = "packaging" },
+    { name = "pluggy" },
+    { name = "py" },
+    { name = "wcwidth" },
+]
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pytest/5.4.3/pytest-5.4.3.tar.gz", hash = "sha256:7979331bfcba207414f5e1263b5a0f8f521d0f457318836a7355531ed1a4c7d8" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pytest/5.4.3/pytest-5.4.3-py3-none-any.whl", hash = "sha256:5c0db86b698e8f170ba4582a492248919255fcd4c79b1ee64ace34301fb589a1" },
+]
+
+[[package]]
+name = "python-dateutil"
+version = "2.9.0.post0"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/python-dateutil/2.9.0.post0/python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/python-dateutil/2.9.0.post0/python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427" },
+]
+
+[[package]]
+name = "python-multipart"
+version = "0.0.21"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/python-multipart/0.0.21/python_multipart-0.0.21.tar.gz", hash = "sha256:7137ebd4d3bbf70ea1622998f902b97a29434a9e8dc40eb203bbcf7c2a2cba92" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/python-multipart/0.0.21/python_multipart-0.0.21-py3-none-any.whl", hash = "sha256:cf7a6713e01c87aa35387f4774e812c4361150938d20d232800f75ffcf266090" },
+]
+
+[[package]]
+name = "requests"
+version = "2.32.5"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+dependencies = [
+    { name = "certifi" },
+    { name = "charset-normalizer" },
+    { name = "idna" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/requests/2.32.5/requests-2.32.5.tar.gz", hash = "sha256:dbba0bac56e100853db0ea71b82b4dfd5fe2bf6d3754a8893c3af500cec7d7cf" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/requests/2.32.5/requests-2.32.5-py3-none-any.whl", hash = "sha256:2462f94637a34fd532264295e186976db0f5d453d1cdd31473c85a6a161affb6" },
+]
+
+[[package]]
+name = "shotgrid-ami"
+version = "0.6.14+rvx.16"
+source = { virtual = "." }
+dependencies = [
+    { name = "arrow" },
+    { name = "ayon-python-api" },
+    { name = "corder" },
+    { name = "fastapi" },
+    { name = "jinja2" },
+    { name = "openpyxl" },
+    { name = "python-multipart" },
+    { name = "shotgun-api3" },
+    { name = "uvicorn" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "arrow" },
+    { name = "ayon-python-api", specifier = "==1.2.6" },
+    { name = "corder" },
+    { name = "fastapi", specifier = ">=0.119.1" },
+    { name = "jinja2", specifier = ">=3.1.6" },
+    { name = "openpyxl" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=5.2,<6.0" },
+    { name = "python-multipart", specifier = ">=0.0.20" },
+    { name = "shotgun-api3", specifier = "==3.8.5" },
+    { name = "uvicorn", specifier = ">=0.38.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "shotgun-api3"
+version = "3.8.5"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/shotgun-api3/3.8.5/shotgun_api3-3.8.5.tar.gz", hash = "sha256:4e1738a76c06308eca7106a8b94508edd469ef2dd63ac71c2324dcb35112090b" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/shotgun-api3/3.8.5/shotgun_api3-3.8.5-py2.py3-none-any.whl", hash = "sha256:1f31b27599dea8d5daf47a407dd550c9c778a66901dc95be4b090d7c5109a4ca" },
+]
+
+[[package]]
+name = "six"
+version = "1.17.0"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/six/1.17.0/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/six/1.17.0/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274" },
+]
+
+[[package]]
+name = "starlette"
+version = "0.50.0"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/starlette/0.50.0/starlette-0.50.0.tar.gz", hash = "sha256:a2a17b22203254bcbc2e1f926d2d55f3f9497f769416b3190768befe598fa3ca" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/starlette/0.50.0/starlette-0.50.0-py3-none-any.whl", hash = "sha256:9e5391843ec9b6e472eed1365a78c8098cfceb7a74bfd4d6b1c0c0095efb3bca" },
+]
+
+[[package]]
+name = "typing-extensions"
+version = "4.15.0"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/typing-extensions/4.15.0/typing_extensions-4.15.0.tar.gz", hash = "sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/typing-extensions/4.15.0/typing_extensions-4.15.0-py3-none-any.whl", hash = "sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548" },
+]
+
+[[package]]
+name = "typing-inspection"
+version = "0.4.2"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/typing-inspection/0.4.2/typing_inspection-0.4.2.tar.gz", hash = "sha256:ba561c48a67c5958007083d386c3295464928b01faa735ab8547c5692e87f464" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/typing-inspection/0.4.2/typing_inspection-0.4.2-py3-none-any.whl", hash = "sha256:4ed1cacbdc298c220f1bd249ed5287caa16f34d44ef4e9c3d0cbad5b521545e7" },
+]
+
+[[package]]
+name = "tzdata"
+version = "2025.3"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/tzdata/2025.3/tzdata-2025.3.tar.gz", hash = "sha256:de39c2ca5dc7b0344f2eba86f49d614019d29f060fc4ebc8a417896a620b56a7" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/tzdata/2025.3/tzdata-2025.3-py2.py3-none-any.whl", hash = "sha256:06a47e5700f3081aab02b2e513160914ff0694bce9947d6b76ebd6bf57cfc5d1" },
+]
+
+[[package]]
+name = "unidecode"
+version = "1.4.0"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/unidecode/1.4.0/Unidecode-1.4.0.tar.gz", hash = "sha256:ce35985008338b676573023acc382d62c264f307c8f7963733405add37ea2b23" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/unidecode/1.4.0/Unidecode-1.4.0-py3-none-any.whl", hash = "sha256:c3c7606c27503ad8d501270406e345ddb480a7b5f38827eafe4fa82a137f0021" },
+]
+
+[[package]]
+name = "urllib3"
+version = "2.6.3"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/urllib3/2.6.3/urllib3-2.6.3.tar.gz", hash = "sha256:1b62b6884944a57dbe321509ab94fd4d3b307075e0c2eae991ac71ee15ad38ed" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/urllib3/2.6.3/urllib3-2.6.3-py3-none-any.whl", hash = "sha256:bf272323e553dfb2e87d9bfd225ca7b0f467b919d7bbd355436d3fd37cb0acd4" },
+]
+
+[[package]]
+name = "uvicorn"
+version = "0.40.0"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "h11" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/uvicorn/0.40.0/uvicorn-0.40.0.tar.gz", hash = "sha256:839676675e87e73694518b5574fd0f24c9d97b46bea16df7b8c05ea1a51071ea" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/uvicorn/0.40.0/uvicorn-0.40.0-py3-none-any.whl", hash = "sha256:c6c8f55bc8bf13eb6fa9ff87ad62308bbbc33d0b67f84293151efe87e0d5f2ee" },
+]
+
+[[package]]
+name = "wcwidth"
+version = "0.2.14"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/wcwidth/0.2.14/wcwidth-0.2.14.tar.gz", hash = "sha256:4d478375d31bc5395a3c55c40ccdf3354688364cd61c4f6adacaa9215d0b3605" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/wcwidth/0.2.14/wcwidth-0.2.14-py2.py3-none-any.whl", hash = "sha256:a7bb560c8aee30f9957e5f9895805edd20602f2d7f720186dfd906e82b4982e1" },
+]

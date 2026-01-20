@@ -12,34 +12,37 @@ ENV SG_URL="https://apavatn.shotgrid.autodesk.com"
 ENV AMI_SERVER_HOST="0.0.0.0"
 ENV AMI_SERVER_PORT="45139"
 
-# Install python/pip
+# Install python/pip and uv
 RUN apk add --update --no-cache git curl build-base libffi-dev
-RUN python -m ensurepip
-RUN python -m pip install --no-cache --upgrade pip setuptools poetry pip-autoremove && ln -sf pip3 /usr/bin/pip
+ENV UV_INSTALL_DIR=/usr/local/bin
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
+
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/usr/local/bin:${PATH}"
+
 
 # Create Working directory `/service` and copy `transmitter`
 RUN mkdir /service
 COPY ami/pyproject.toml /service/pyproject.toml
 WORKDIR /service
 
-# Install dependencies with poetry
-RUN poetry config virtualenvs.create false
-RUN poetry install --no-interaction --no-ansi --only main
+# Install dependencies with uv
+RUN uv sync
 
 # Remove unnecessary packages to make the image smaller
 RUN apk del git curl build-base libffi-dev
-RUN python -m pip cache purge
-RUN pip-autoremove -y setuptools poetry
-RUN python -m pip uninstall -y pip pip-autoremove
+RUN uv cache clean
 
-# Create a group and user: ayonuser
-RUN addgroup -S ayonuser && adduser -SH ayonuser -G ayonuser
-
-RUN chown ayonuser:ayonuser -R /service
-RUN chmod 777 -R /service
+# Create a group and user: ayonuser with home directory
+RUN addgroup -S ayonuser && adduser -S ayonuser -G ayonuser
+RUN chmod -R 775 /opt/uv
 
 COPY shotgrid_common /service
 COPY ami/ami /service/ami
+
+# Set ownership after all files are copied
+RUN chown ayonuser:ayonuser -R /service
+RUN chown ayonuser:ayonuser -R /home/ayonuser
 
 # Tell docker that all future commands should run as the appuser user
 USER ayonuser

@@ -13,6 +13,8 @@ class AMIWeeklyStatusReportHuckleberry(AMIWeeklyStatusReport):
         self.template = self.get_template()
         self.out_file = data.get("out_file")
 
+        self.date_format = "%d/%m/%Y"
+
         self.client_to_internal_status_map = {
             "wtg": ["wtg"],
             "ip": ["ip"],
@@ -52,14 +54,17 @@ class AMIWeeklyStatusReportHuckleberry(AMIWeeklyStatusReport):
         assets = self.translate_client_statuses(assets)
         shots = self.translate_client_statuses(shots)
 
-        report_name = f"RVX_Weekly_Report_{datetime.date.today().strftime('%y%m%d')}"
-        today = datetime.date.today().strftime("%Y-%m-%d")
+        report_name = f"RVX_Weekly_Report_{datetime.date.today().strftime(self.date_format.replace('/', '_'))}"
+        today = datetime.date.today().strftime(self.date_format)
         for a in assets:
             a["_date"] = today
             a["_report_name"] = report_name
         for s in shots:
             s["_date"] = today
             s["_report_name"] = report_name
+
+        assets = self._format_dates(assets)
+        shots = self._format_dates(shots)
 
         self.fill_entities("shot", shots)
         self.fill_entities("asset", assets)
@@ -68,6 +73,17 @@ class AMIWeeklyStatusReportHuckleberry(AMIWeeklyStatusReport):
 
         self.export_file()
         return 0
+
+    def _format_dates(self, entities):
+        for entity in entities:
+            for field_name, field_value in entity.items():
+                try:
+                    date_ = datetime.datetime.strptime(field_value, "%Y-%m-%d")
+                    date_formatted = date_.strftime(self.date_format)
+                    entity[field_name] = date_.strftime(self.date_format)
+                except:
+                    pass
+        return entities
 
     def get_query_fields(self, entity_type, fields_on_template):
         shot_schema = self.sg_session.schema_field_read(entity_type)
@@ -207,9 +223,9 @@ class AMIWeeklyStatusReportHuckleberry(AMIWeeklyStatusReport):
         return entities
 
     def fill_overview(self, shots, assets):
-        today = datetime.date.today().strftime("%Y-%m-%d")
+        today = datetime.date.today().strftime(self.date_format)
         friday_of_the_next_week = (datetime.date.today() - datetime.timedelta(days=4)
-             + datetime.timedelta(days=7+5)).strftime("%Y-%m-%d")
+             + datetime.timedelta(days=7+4)).strftime(self.date_format)
 
         status_map = {
             "turned_over": None,
@@ -316,8 +332,8 @@ if __name__ == "__main__":
     from ami.ami_server import get_sg_session
 
     parser = argparse.ArgumentParser(description="Generate Weekly Status Report")
-    parser.add_argument("--project_name", help="Name of the project in ShotGrid")
-    parser.add_argument("--out_file", help="Output file path for the generated report")
+    parser.add_argument("--project-name", help="Name of the project in ShotGrid")
+    parser.add_argument("--out-file", help="Output file path for the generated report")
     parser.add_argument("--template", help="Path to the Excel template file")
     args = parser.parse_args()
 
