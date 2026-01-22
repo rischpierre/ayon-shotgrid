@@ -88,3 +88,12 @@ dev:
 
 shell:
 	docker run --rm -u ayonuser -ti -v $(CURDIR)/$(SERVICE)/$(SERVICE):/service:Z $(IMAGE) /bin/sh
+
+dev-whiteboard:
+	docker build -t whiteboard:dev -f ./whiteboard/Dockerfile .
+	echo "open in browser: http://localhost:45140"
+	docker run --rm -p 45140:45140 \
+		--env-file $(CURDIR)/whiteboard/.env \
+		--env AYON_ADDON_NAME=shotgrid \
+		--env AYON_ADDON_VERSION=$(ADDON_VERSION) \
+		whiteboard:dev

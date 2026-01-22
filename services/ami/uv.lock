@@ -12,15 +12,6 @@ wheels = [
 ]
 
 [[package]]
-name = "annotated-types"
-version = "0.7.0"
-source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
-sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/annotated-types/0.7.0/annotated_types-0.7.0.tar.gz", hash = "sha256:aff07c09a53a08bc8cfccb9c85b05f1aa9a2a6f23728d790723543408344ce89" }
-wheels = [
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/annotated-types/0.7.0/annotated_types-0.7.0-py3-none-any.whl", hash = "sha256:1f02e8b43a8fbbc3f3e0d4f0f4bfc8131bcb4eebe8849b8e5c773f3a1c582a53" },
-]
-
-[[package]]
 name = "anyio"
 version = "4.12.1"
 source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
@@ -165,7 +156,7 @@ wheels = [
 
 [[package]]
 name = "fastapi"
-version = "0.128.0"
+version = "0.125.0"
 source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
 dependencies = [
     { name = "annotated-doc" },
@@ -173,9 +164,9 @@ dependencies = [
     { name = "starlette" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/fastapi/0.128.0/fastapi-0.128.0.tar.gz", hash = "sha256:1cc179e1cef10a6be60ffe429f79b829dce99d8de32d7acb7e6c8dfdf7f2645a" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/fastapi/0.125.0/fastapi-0.125.0.tar.gz", hash = "sha256:16b532691a33e2c5dee1dac32feb31dc6eb41a3dd4ff29a95f9487cb21c054c0" }
 wheels = [
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/fastapi/0.128.0/fastapi-0.128.0-py3-none-any.whl", hash = "sha256:aebd93f9716ee3b4f4fcfe13ffb7cf308d99c9f3ab5622d8877441072561582d" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/fastapi/0.125.0/fastapi-0.125.0-py3-none-any.whl", hash = "sha256:2570ec4f3aecf5cca8f0428aed2398b774fcdfee6c2116f86e80513f2f86a7a1" },
 ]
 
 [[package]]
@@ -277,49 +268,21 @@ wheels = [
 
 [[package]]
 name = "pydantic"
-version = "2.12.5"
-source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
-dependencies = [
-    { name = "annotated-types" },
-    { name = "pydantic-core" },
-    { name = "typing-extensions" },
-    { name = "typing-inspection" },
-]
-sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic/2.12.5/pydantic-2.12.5.tar.gz", hash = "sha256:4d351024c75c0f085a9febbb665ce8c0c6ec5d30e903bdb6394b7ede26aebb49" }
-wheels = [
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic/2.12.5/pydantic-2.12.5-py3-none-any.whl", hash = "sha256:e561593fccf61e8a20fc46dfc2dfe075b8be7d0188df33f221ad1f0139180f9d" },
-]
-
-[[package]]
-name = "pydantic-core"
-version = "2.41.5"
+version = "1.10.18"
 source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
 dependencies = [
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5.tar.gz", hash = "sha256:08daa51ea16ad373ffd5e7606252cc32f07bc72b28284b6bc9c6df804816476e" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic/1.10.18/pydantic-1.10.18.tar.gz", hash = "sha256:baebdff1907d1d96a139c25136a9bb7d17e118f133a76a2ef3b845e831e3403a" }
 wheels = [
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:77b63866ca88d804225eaa4af3e664c5faf3568cea95360d21f4725ab6e07146" },
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:dfa8a0c812ac681395907e71e1274819dec685fec28273a28905df579ef137e2" },
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5921a4d3ca3aee735d9fd163808f5e8dd6c6972101e4adbda9a4667908849b97" },
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:e25c479382d26a2a41b7ebea1043564a937db462816ea07afa8a44c0866d52f9" },
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:f547144f2966e1e16ae626d8ce72b4cfa0caedc7fa28052001c94fb2fcaa1c52" },
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:6f52298fbd394f9ed112d56f3d11aabd0d5bd27beb3084cc3d8ad069483b8941" },
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:100baa204bb412b74fe285fb0f3a385256dad1d1879f0a5cb1499ed2e83d132a" },
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:05a2c8852530ad2812cb7914dc61a1125dc4e06252ee98e5638a12da6cc6fb6c" },
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-musllinux_1_1_aarch64.whl", hash = "sha256:29452c56df2ed968d18d7e21f4ab0ac55e71dc59524872f6fc57dcf4a3249ed2" },
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-musllinux_1_1_armv7l.whl", hash = "sha256:d5160812ea7a8a2ffbe233d8da666880cad0cbaf5d4de74ae15c313213d62556" },
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:df3959765b553b9440adfd3c795617c352154e497a4eaf3752555cfb5da8fc49" },
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-win32.whl", hash = "sha256:1f8d33a7f4d5a7889e60dc39856d76d09333d8a6ed0f5f1190635cbec70ec4ba" },
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-cp310-cp310-win_amd64.whl", hash = "sha256:62de39db01b8d593e45871af2af9e497295db8d73b085f6bfd0b18c83c70a8f9" },
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-pp310-pypy310_pp73-macosx_10_12_x86_64.whl", hash = "sha256:b5819cd790dbf0c5eb9f82c73c16b39a65dd6dd4d1439dcdea7816ec9adddab8" },
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-pp310-pypy310_pp73-macosx_11_0_arm64.whl", hash = "sha256:5a4e67afbc95fa5c34cf27d9089bca7fcab4e51e57278d710320a70b956d1b9a" },
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-pp310-pypy310_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ece5c59f0ce7d001e017643d8d24da587ea1f74f6993467d85ae8a5ef9d4f42b" },
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-pp310-pypy310_pp73-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:16f80f7abe3351f8ea6858914ddc8c77e02578544a0ebc15b4c2e1a0e813b0b2" },
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-pp310-pypy310_pp73-musllinux_1_1_aarch64.whl", hash = "sha256:33cb885e759a705b426baada1fe68cbb0a2e68e34c5d0d0289a364cf01709093" },
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-pp310-pypy310_pp73-musllinux_1_1_armv7l.whl", hash = "sha256:c8d8b4eb992936023be7dee581270af5c6e0697a8559895f527f5b7105ecd36a" },
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-pp310-pypy310_pp73-musllinux_1_1_x86_64.whl", hash = "sha256:242a206cd0318f95cd21bdacff3fcc3aab23e79bba5cac3db5a841c9ef9c6963" },
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic-core/2.41.5/pydantic_core-2.41.5-pp310-pypy310_pp73-win_amd64.whl", hash = "sha256:d3a978c4f57a597908b7e697229d996d77a6d3c94901e9edee593adada95ce1a" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic/1.10.18/pydantic-1.10.18-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:e405ffcc1254d76bb0e760db101ee8916b620893e6edfbfee563b3c6f7a67c02" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic/1.10.18/pydantic-1.10.18-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:e306e280ebebc65040034bff1a0a81fd86b2f4f05daac0131f29541cafd80b80" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic/1.10.18/pydantic-1.10.18-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:11d9d9b87b50338b1b7de4ebf34fd29fdb0d219dc07ade29effc74d3d2609c62" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic/1.10.18/pydantic-1.10.18-cp310-cp310-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:b661ce52c7b5e5f600c0c3c5839e71918346af2ef20062705ae76b5c16914cab" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic/1.10.18/pydantic-1.10.18-cp310-cp310-musllinux_1_1_i686.whl", hash = "sha256:c20f682defc9ef81cd7eaa485879ab29a86a0ba58acf669a78ed868e72bb89e0" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic/1.10.18/pydantic-1.10.18-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:c5ae6b7c8483b1e0bf59e5f1843e4fd8fd405e11df7de217ee65b98eb5462861" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic/1.10.18/pydantic-1.10.18-cp310-cp310-win_amd64.whl", hash = "sha256:74fe19dda960b193b0eb82c1f4d2c8e5e26918d9cda858cbf3f41dd28549cb70" },
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pydantic/1.10.18/pydantic-1.10.18-py3-none-any.whl", hash = "sha256:06a189b81ffc52746ec9c8c007f16e5167c8b0a696e1a726369327e3db7b2a82" },
 ]
 
 [[package]]
@@ -388,6 +351,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "jinja2" },
     { name = "openpyxl" },
+    { name = "pydantic" },
     { name = "python-multipart" },
     { name = "shotgun-api3" },
     { name = "uvicorn" },
@@ -406,6 +370,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.119.1" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "openpyxl" },
+    { name = "pydantic", specifier = "==1.10.18" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=5.2,<6.0" },
     { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "shotgun-api3", specifier = "==3.8.5" },
@@ -451,18 +416,6 @@ source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
 sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/typing-extensions/4.15.0/typing_extensions-4.15.0.tar.gz", hash = "sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466" }
 wheels = [
     { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/typing-extensions/4.15.0/typing_extensions-4.15.0-py3-none-any.whl", hash = "sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548" },
-]
-
-[[package]]
-name = "typing-inspection"
-version = "0.4.2"
-source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
-dependencies = [
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/typing-inspection/0.4.2/typing_inspection-0.4.2.tar.gz", hash = "sha256:ba561c48a67c5958007083d386c3295464928b01faa735ab8547c5692e87f464" }
-wheels = [
-    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/typing-inspection/0.4.2/typing_inspection-0.4.2-py3-none-any.whl", hash = "sha256:4ed1cacbdc298c220f1bd249ed5287caa16f34d44ef4e9c3d0cbad5b521545e7" },
 ]
 
 [[package]]

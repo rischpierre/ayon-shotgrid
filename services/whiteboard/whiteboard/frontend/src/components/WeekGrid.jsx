@@ -86,6 +86,8 @@ export default function WeekGrid({snapshot, onDropArtist, onMoveItem, onSetAnnot
 
     const doRemoveAnnotation = useCallback(() => {
         if (!headerMenu.day) return;
+        const confirmed = window.confirm('Are you sure you want to remove this annotation?');
+        if (!confirmed) return;
         onSetAnnotation?.({week, day: headerMenu.day, text: '', color: ''});
         closeHeaderMenu();
     }, [headerMenu.day, onSetAnnotation, week, closeHeaderMenu]);

@@ -1,5 +1,6 @@
 import argparse
 import datetime
+from datetime import timedelta
 from typing import Any, Dict
 
 from ami.ami_weekly_status_report.ami_weekly_status_report import AMIWeeklyStatusReport
@@ -223,9 +224,11 @@ class AMIWeeklyStatusReportHuckleberry(AMIWeeklyStatusReport):
         return entities
 
     def fill_overview(self, shots, assets):
-        today = datetime.date.today().strftime(self.date_format)
-        friday_of_the_next_week = (datetime.date.today() - datetime.timedelta(days=4)
-             + datetime.timedelta(days=7+4)).strftime(self.date_format)
+        today = datetime.datetime.today()
+        today_str = today.strftime(self.date_format)
+
+        current_monday = today - timedelta(days=today.weekday())
+        friday_of_the_next_week = (current_monday + timedelta(days=7+4)).strftime(self.date_format)
 
         status_map = {
             "turned_over": None,
@@ -240,7 +243,7 @@ class AMIWeeklyStatusReportHuckleberry(AMIWeeklyStatusReport):
         }
 
         data = {
-            "_date": today,
+            "_date": today_str,
             "_week_ending": friday_of_the_next_week,
 
             # OVERALL ASSET STATUS
