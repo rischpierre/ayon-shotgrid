@@ -4,7 +4,9 @@ node_modules
 index-*.js
 ### Python template
 # Byte-compiled / optimized / DLL files
+validate.py
 __pycache__/
+__pycache__
 *.py[cod]
 *$py.class
 .env
