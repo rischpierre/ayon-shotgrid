@@ -59,19 +59,34 @@ def sg_list_projects() -> List[Dict[str, Any]]:
     sg = get_sg_session()
     fields = ["name", "archived"]
     filters = [["sg_status", "is", "Active"]]
-    return sg.find("Project", filters, fields, order=[{"field_name": "name", "direction": "asc"}])
+    return sg.find(
+        "Project", filters, fields, order=[{"field_name": "name", "direction": "asc"}]
+    )
 
 
 def sg_find_project_artists(project_id: int) -> List[Dict[str, Any]]:
     sg = get_sg_session()
     a_fields = ["name", "image"]
-    a_filters = [["projects", "is", {"type": "Project", "id": project_id}], ["sg_status_list", "is_not", "dis"]]
-    return sg.find("HumanUser", a_filters, a_fields, order=[{"field_name": "name", "direction": "asc"}])
+    a_filters = [
+        ["projects", "is", {"type": "Project", "id": project_id}],
+        ["sg_status_list", "is_not", "dis"],
+    ]
+    return sg.find(
+        "HumanUser",
+        a_filters,
+        a_fields,
+        order=[{"field_name": "name", "direction": "asc"}],
+    )
 
 
 def sg_list_groups() -> List[Dict[str, Any]]:
     sg = get_sg_session()
-    return sg.find("Group", [], ["code", "sg_thumbnail"], order=[{"field_name": "code", "direction": "asc"}])
+    return sg.find(
+        "Group",
+        [],
+        ["code", "sg_thumbnail"],
+        order=[{"field_name": "code", "direction": "asc"}],
+    )
 
 
 def sg_find_project_shots(project_id: int) -> List[Dict[str, Any]]:
@@ -79,7 +94,9 @@ def sg_find_project_shots(project_id: int) -> List[Dict[str, Any]]:
     sg = get_sg_session()
     s_fields = ["code", "sg_next_delivery", "image", "sg_sequence", "sg_status_list"]
     s_filters: List[Any] = [["project", "is", {"type": "Project", "id": project_id}]]
-    return sg.find("Shot", s_filters, s_fields, order=[{"field_name": "code", "direction": "asc"}])
+    return sg.find(
+        "Shot", s_filters, s_fields, order=[{"field_name": "code", "direction": "asc"}]
+    )
 
 
 def sg_find_project_assets(project_id: int) -> List[Dict[str, Any]]:
@@ -88,24 +105,36 @@ def sg_find_project_assets(project_id: int) -> List[Dict[str, Any]]:
     """
     sg = get_sg_session()
     a_fields = ["code", "sg_next_delivery", "image", "sg_asset_type", "sg_status_list"]
-    a_filters: List[Any] = [["project", "is", {"type": "Project", "id": project_id}]]
-    return sg.find("Asset", a_filters, a_fields, order=[{"field_name": "code", "direction": "asc"}])
+    a_filters: List[Any] = [
+        ["project", "is", {"type": "Project", "id": project_id}],
+        ["sg_ayon_folder_type", "is", "ShowAsset"],
+    ]
+    return sg.find(
+        "Asset", a_filters, a_fields, order=[{"field_name": "code", "direction": "asc"}]
+    )
 
 
 def _normalize_step_color(value: Any) -> str | None:
-    if ',' in value:
-        parts = value.split(',')
+    if "," in value:
+        parts = value.split(",")
         if len(parts) == 3:
             r, g, b = (max(0, min(255, int(p))) for p in parts)
             return f"#{r:02x}{g:02x}{b:02x}"
     return f"#9c9c9c"
 
-def sg_find_tasks_per_entity(project_id: int) -> dict[EntityType, dict[int, list[Dict[str, Any]]]]:
+
+def sg_find_tasks_per_entity(
+    project_id: int,
+) -> dict[EntityType, dict[int, list[Dict[str, Any]]]]:
 
     sg = get_sg_session()
     # Fetch all steps and their colors once
-    step_list = sg.find("Step", [], ["id", "code", "color"])  # color used for task display
-    step_color_by_id = {s.get("id"): _normalize_step_color(s.get("color")) for s in (step_list or [])}
+    step_list = sg.find(
+        "Step", [], ["id", "code", "color"]
+    )  # color used for task display
+    step_color_by_id = {
+        s.get("id"): _normalize_step_color(s.get("color")) for s in (step_list or [])
+    }
 
     # Include step field on Task so we can map color
     task_fields = ["id", "content", "entity", "task_assignees", "step"]
@@ -125,26 +154,31 @@ def sg_find_tasks_per_entity(project_id: int) -> dict[EntityType, dict[int, list
         entity_type = task["entity"]["type"]
         entity_id = task["entity"]["id"]
 
-        if entity_type not in [e.name for e in EntityTypes]:  # we can have tasks on sequences for example
+        if entity_type not in [
+            e.name for e in EntityTypes
+        ]:  # we can have tasks on sequences for example
             continue
 
         result[EntityType[entity_type]].setdefault(entity_id, []).append(task)
     return result
 
 
-def sg_find_entities_by_ids(entity_type: EntityType, ids: Sequence[int]) -> List[Dict[str, Any]]:
+def sg_find_entities_by_ids(
+    entity_type: EntityType, ids: Sequence[int]
+) -> List[Dict[str, Any]]:
     sg = get_sg_session()
     if not ids:
         return []
     return sg.find(entity_type.name, [["id", "in", ids]], ["code", "sg_next_delivery"])
 
 
-def sg_publish_changes(project_id: int,
-                       moves: Dict[EntityType, Dict[int, Tuple[Week, Day]]],
-                       assigns: Dict[EntityType, Dict[int, List[Any]]],
-                       unschedules: Dict[EntityType, set[int]],
-                       unassigns: Dict[EntityType, Dict[int, List[AssignedTask]]],
-                       ) -> None:
+def sg_publish_changes(
+    project_id: int,
+    moves: Dict[EntityType, Dict[int, Tuple[Week, Day]]],
+    assigns: Dict[EntityType, Dict[int, List[Any]]],
+    unschedules: Dict[EntityType, set[int]],
+    unassigns: Dict[EntityType, Dict[int, List[AssignedTask]]],
+) -> None:
 
     sg = get_sg_session()
     project = {"type": "Project", "id": int(project_id)}
@@ -158,12 +192,12 @@ def sg_publish_changes(project_id: int,
             target_date = date_from_week_day(wk, dy).isoformat()
             logger.info(f"Adding move to the batch: {entity_id} -> {target_date}")
             batch_data.append(
-                    {
-                        "request_type": "update",
-                        "entity_type": entity_type.name,
-                        "entity_id": entity_id,
-                        "data": {"sg_next_delivery": target_date},
-                    }
+                {
+                    "request_type": "update",
+                    "entity_type": entity_type.name,
+                    "entity_id": entity_id,
+                    "data": {"sg_next_delivery": target_date},
+                }
             )
 
     # unschedules
@@ -185,24 +219,37 @@ def sg_publish_changes(project_id: int,
             for task in task_list:
                 is_group = task.artist_is_group
                 to_unassign_id = task.artist_id
-                artist_to_unassign = {"type": "Group", "id": to_unassign_id} if is_group else {"type": "HumanUser", "id": to_unassign_id}
+                artist_to_unassign = (
+                    {"type": "Group", "id": to_unassign_id}
+                    if is_group
+                    else {"type": "HumanUser", "id": to_unassign_id}
+                )
 
-                sg_task = sg.find_one("Task", [["project", "is", project], ["id", "is", task.task_id]], ["id", "task_assignees"])
+                sg_task = sg.find_one(
+                    "Task",
+                    [["project", "is", project], ["id", "is", task.task_id]],
+                    ["id", "task_assignees"],
+                )
                 if not sg_task:
                     continue
 
                 already_assigned_list = sg_task.get("task_assignees")
                 for already_assigned in already_assigned_list:
-                    if already_assigned["id"] == to_unassign_id and already_assigned["type"] == artist_to_unassign["type"]:
+                    if (
+                        already_assigned["id"] == to_unassign_id
+                        and already_assigned["type"] == artist_to_unassign["type"]
+                    ):
                         already_assigned_list.remove(already_assigned)
 
-                logger.info(f"Adding un-assignment to the batch: {task.task_id} -> {artist_to_unassign}")
+                logger.info(
+                    f"Adding un-assignment to the batch: {task.task_id} -> {artist_to_unassign}"
+                )
                 batch_data.append(
                     {
                         "request_type": "update",
                         "entity_type": "Task",
                         "entity_id": task.task_id,
-                        "data": {"task_assignees": already_assigned_list}
+                        "data": {"task_assignees": already_assigned_list},
                     }
                 )
 
@@ -213,21 +260,31 @@ def sg_publish_changes(project_id: int,
 
                 is_group = task.artist_is_group
                 assignee_id = task.artist_id
-                assignee = {"type": "Group", "id": assignee_id} if is_group else {"type": "HumanUser", "id": assignee_id}
-                sg_task = sg.find_one("Task", [["project", "is", project], ["id", "is", task.task_id]], ["id", "task_assignees"])
+                assignee = (
+                    {"type": "Group", "id": assignee_id}
+                    if is_group
+                    else {"type": "HumanUser", "id": assignee_id}
+                )
+                sg_task = sg.find_one(
+                    "Task",
+                    [["project", "is", project], ["id", "is", task.task_id]],
+                    ["id", "task_assignees"],
+                )
                 if not sg_task:
                     continue
 
                 already_assigned = sg_task.get("task_assignees", [])
                 already_assigned.append(assignee)
 
-                logger.info(f"Adding assignment to the batch: {task.task_id} -> {assignee}")
+                logger.info(
+                    f"Adding assignment to the batch: {task.task_id} -> {assignee}"
+                )
                 batch_data.append(
                     {
                         "request_type": "update",
                         "entity_type": "Task",
                         "entity_id": task.task_id,
-                        "data": {"task_assignees": already_assigned}
+                        "data": {"task_assignees": already_assigned},
                     }
                 )
 
@@ -241,7 +298,12 @@ def sg_get_project_annotations(project_id: int) -> Dict[str, Any]:
     Returns an empty dict if not set or invalid.
     """
     sg = get_sg_session()
-    proj = sg.find_one("Project", [["id", "is", int(project_id)]], ["sg_whiteboard_annotations"]) or {}
+    proj = (
+        sg.find_one(
+            "Project", [["id", "is", int(project_id)]], ["sg_whiteboard_annotations"]
+        )
+        or {}
+    )
     raw = proj.get("sg_whiteboard_annotations") if isinstance(proj, dict) else None
     if not raw:
         return {}
@@ -250,7 +312,9 @@ def sg_get_project_annotations(project_id: int) -> Dict[str, Any]:
             return raw  # in case the field is a dict via API
         return json.loads(str(raw))
     except Exception as e:
-        logger.exception("Failed to parse sg_whiteboard_annotations; returning empty dict {e}")
+        logger.exception(
+            "Failed to parse sg_whiteboard_annotations; returning empty dict {e}"
+        )
         return {}
 
 
