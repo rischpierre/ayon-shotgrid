@@ -14,7 +14,7 @@ class AMIWeeklyStatusReportHuckleberry(AMIWeeklyStatusReport):
         self.template = self.get_template()
         self.out_file = data.get("out_file")
 
-        self.date_format = "%d/%m/%Y"
+        self.date_format = "%Y-%m-%d"
 
         self.client_to_internal_status_map = {
             "wtg": ["wtg"],
