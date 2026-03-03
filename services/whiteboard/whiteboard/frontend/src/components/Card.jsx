@@ -109,11 +109,17 @@ export default function Card({item, onDropArtist, assignees = [], onRemoveDueDat
         setAssigneeMenu(m => ({...m, open: false, assignee: null}));
     }, [assigneeMenu.assignee, item, onUnassign]);
 
+    const shotgridUrl = `https://apavatn.shotgrid.autodesk.com/detail/${item.entity_type}/${item.id}`;
+
     return (
         <div className={`card${isShot ? ' card-shot' : ' card-asset'}`} draggable onDragStart={onDragStart}
              onDragOver={onDragOver} onDrop={onDrop} onContextMenu={handleContext} title={item.parent || ''}>
             <div className="thumb"><img src={item.thumb_url} alt="thumb"/></div>
-            <div className="title">{item.name}</div>
+            <div className="title">
+                <a href={shotgridUrl} target="_blank" rel="noopener noreferrer" style={{color: 'inherit', textDecoration: 'inherit'}}>
+                    {item.name}
+                </a>
+            </div>
             {assignees?.length > 0 ? (
                 <div className="assignees"
                      style={{display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'flex-end'}}>
