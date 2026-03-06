@@ -103,7 +103,6 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
     def get_assets(self, fields):
         filters = [
             ["project.Project.id", "is", self.project_id],
-            ["sg_ayon_folder_type", "is", "ShowAsset"],
             ["tags", "in", {"type": "Tag", "id": 342, "name": "Report"}],
         ]
         return self.sg_session.find("Asset", filters=filters, fields=fields)
