@@ -18,7 +18,7 @@ import ayon_api
 import shotgun_api3
 
 import validate
-from utils import get_logger
+from utils import get_logger, get_prod_bundle
 
 
 class ShotgridProcessor:
@@ -316,6 +316,11 @@ class ShotgridProcessor:
 
 
 def service_main():
+    sg_addon_version = get_prod_bundle().get("addons", {}).get("shotgrid")
+    if not sg_addon_version:
+        raise ValueError(f"Unable to find shotgrid addon version in prod bundle")
+    os.environ["AYON_ADDON_VERSION"] = sg_addon_version
+
     ayon_api.init_service()
     ayon_api.set_sender_type("shotgrid")
 
