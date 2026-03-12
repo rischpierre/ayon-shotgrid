@@ -5,7 +5,7 @@ This service will continually run and query the EventLogEntry table from
 Shotgrid and converts them to AYON events, and can be configured from the AYON
 Addon settings page.
 """
-import sys
+import sys, os
 import json
 import time
 import signal
@@ -17,6 +17,7 @@ from pprint import pformat
 from utils import (
     get_logger,
     get_event_hash,
+    get_prod_bundle,
 )
 
 from constants import (
@@ -530,6 +531,11 @@ class ShotgridListener:
 
 
 def service_main():
+    sg_addon_version = get_prod_bundle().get("addons", {}).get("shotgrid")
+    if not sg_addon_version:
+        raise ValueError(f"Unable to find shotgrid addon version in prod bundle")
+    os.environ["AYON_ADDON_VERSION"] = sg_addon_version
+
     ayon_api.init_service()
     shotgrid_listener = ShotgridListener()
     sys.exit(shotgrid_listener.start_listening())

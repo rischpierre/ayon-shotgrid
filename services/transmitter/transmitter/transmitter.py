@@ -5,7 +5,7 @@ This service will continually run and query the AYON Events Server in order to
 enroll the events of topic `entity.folder` and `entity.task` when any of the
 two are `created`, `renamed` or `deleted`.
 """
-import sys
+import sys, os
 import time
 from datetime import datetime, timezone, timedelta
 import socket
@@ -23,7 +23,7 @@ from constants import (
     COMMENTS_SYNC_INTERVAL
 )
 
-from utils import get_logger
+from utils import get_logger, get_prod_bundle
 
 
 class ShotgridTransmitter:
@@ -450,6 +450,11 @@ class ShotgridTransmitter:
 
 
 def service_main():
+    sg_addon_version = get_prod_bundle().get("addons", {}).get("shotgrid")
+    if not sg_addon_version:
+        raise ValueError(f"Unable to find shotgrid addon version in prod bundle")
+    os.environ["AYON_ADDON_VERSION"] = sg_addon_version
+
     ayon_api.init_service()
     shotgrid_transmitter = ShotgridTransmitter()
     sys.exit(shotgrid_transmitter.start_processing())

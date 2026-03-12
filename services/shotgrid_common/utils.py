@@ -2412,3 +2412,16 @@ def upload_ay_reviewable_to_sg(
         sg_session.upload_thumbnail(
             sg_version_type, sg_version_id, temp_file_path
         )
+
+def get_prod_bundle():
+    bundles = ayon_api.get_bundles()
+
+    # event loops always run on production bundle
+    prod_bundle = next(
+        (b for b in bundles["bundles"] if b["name"] == bundles["productionBundle"]),
+        None,
+    )
+    if not prod_bundle:
+        raise RuntimeError("Unable to find production bundle")
+    return prod_bundle
+
