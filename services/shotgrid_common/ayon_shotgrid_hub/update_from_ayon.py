@@ -54,12 +54,16 @@ def _rvx_update_sg_playlist(
 
     shotgrid_id = entity_list["attrib"].get("shotgridId")
     sg_playlist = None
+
+    def _get_vendor_from_name(name):
+        return sg_session.find_one("Group", [["code", "is", name]], ["code"])
+    
     if shotgrid_id:
         log.debug(f"Entity list {ay_entitity_list_id} already has a ShotGrid ID: {shotgrid_id}")
         sg_playlist = sg_session.find_one(
             "Playlist",
             [["project", "is", sg_project], ["id", "is", int(shotgrid_id)]],
-            ["versions", "project", "code", "tag_list", "locked", "sg_type"],
+            ["versions", "project", "code", "tag_list", "locked", "sg_type", "description", "sg_vendor"],
         )
         if not sg_playlist:
             log.error(f"ShotGrid Playlist with ID {shotgrid_id} not found in ShotGrid, creating it")
@@ -78,7 +82,13 @@ def _rvx_update_sg_playlist(
             "tag_list": entity_list["tags"],
             "locked": not entity_list["active"],
             "sg_type": entity_list["data"].get("sg_type"),
+            "description": entity_list['attrib'].get("listDescription"),
         }
+        vendor_name = entity_list["attrib"].get('vendor', "")
+        vendor = _get_vendor_from_name (vendor_name)
+        if vendor:
+            data["sg_vendor"] = vendor
+
         sg_playlist = sg_session.create("Playlist", data, return_fields=["versions", "code"])
         log.debug(f"Created Playlist in ShotGrid: {sg_playlist['id']}")
 
@@ -126,6 +136,16 @@ def _rvx_update_sg_playlist(
         label_to_update = entity_list["label"] != sg_playlist["code"]
         tags_to_update = entity_list["tags"] != sg_playlist["tag_list"]
         type_to_update = entity_list["data"].get("sg_type") != sg_playlist["sg_type"]
+        description_to_update = entity_list['attrib'].get("listDescription") != sg_playlist["description"]
+
+        vendor_from_ay = _get_vendor_from_name(entity_list['attrib'].get("vendor", ""))
+        vendor_from_sg = sg_playlist["sg_vendor"]
+
+        vendor_to_update = False
+        if bool(vendor_from_ay) ^ bool(vendor_from_sg):  # xor
+            vendor_to_update = True
+        elif vendor_from_ay and vendor_from_sg:
+            vendor_to_update = vendor_from_ay["id"] != vendor_from_sg["id"]
 
         # we need to unlock and lock the playlist in SG because it blocks the update if already locked
         # locked should be the first item in the dict to avoid CRUD error modifying a locked list
@@ -138,6 +158,12 @@ def _rvx_update_sg_playlist(
 
         if type_to_update:
             data["sg_type"] = entity_list["data"].get("sg_type")
+
+        if description_to_update:
+            data["description"] = entity_list["attrib"].get("listDescription")
+
+        if vendor_to_update:
+            data["sg_vendor"] = vendor_from_ay
 
         if len(data.keys()) == 1:
             log.debug(f"Entity list {ay_entitity_list_id} attribute(s) unchanged, no update needed")
