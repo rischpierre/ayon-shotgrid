@@ -296,7 +296,7 @@ def sync_ay_entity_list_from_sg_event(
     project_name = sg_project["name"]
     sg_playlist = sg_session.find_one("Playlist",
                                       [["project", "is", sg_project], ["id", "is", sg_event_meta["entity_id"]]],
-                                      ["sg_ayon_id", "type", "code", "versions", "tag_list", "locked", "sg_type"])
+                                      ["sg_ayon_id", "type", "code", "versions", "tag_list", "locked", "sg_type", "description", "sg_vendor"])
     if not sg_playlist:
         log.error(f"Playlist with id {sg_event_meta['entity_id']} not found in Shotgun.")
         return
@@ -326,12 +326,15 @@ def sync_ay_entity_list_from_sg_event(
             sg_session.update("Playlist", sg_playlist["id"], {"sg_ayon_id": entity_list["id"]})
             log.info(f"Entity list {entity_list['label']} already exists in AYON, reconnecting playlist to it.")
         else:
+
             data = {
                 "label": sg_playlist["code"],
                 "entity_type": "version",
                 "attrib": {
                     "shotgridId": sg_playlist["id"],
-                    "shotgridType": sg_playlist["type"]
+                    "shotgridType": sg_playlist["type"],
+                    "listDescription": sg_playlist["description"],
+                    "vendor": sg_playlist["sg_vendor"],
                 },
                 "tags": sg_playlist["tag_list"],
                 "active": not sg_playlist["locked"],
@@ -397,13 +400,14 @@ def sync_ay_entity_list_from_sg_event(
             else:
                 log.debug(f"Removed version {removed_version['id']} from entity list {entity_list['id']}")
 
-    # update entity list label
     attributes_to_sync_map = {
         # FLOW : AYON
         "code": "label",
         "tag_list": "tags",
         "locked": "active",
         "sg_type": "sg_type",
+        "description": "listDescription",
+        "sg_vendor": "vendor",
     }
     sg_attribute_to_update = sg_event_meta.get("attribute_name")
     if sg_attribute_to_update is None:
@@ -413,9 +417,6 @@ def sync_ay_entity_list_from_sg_event(
     if sg_event_meta["type"] == "attribute_change" and sg_attribute_to_update in attributes_to_sync_map.keys():
 
         new_value = sg_event_meta.get("new_value")
-        if new_value is None:
-            log.warning(f"Attribute {sg_attribute_to_update} has no new value, skipping.")
-            return
 
         # locked is the opposite of active in AYON
         new_value = not new_value if sg_attribute_to_update == "locked" else new_value
@@ -434,7 +435,19 @@ def sync_ay_entity_list_from_sg_event(
 
         if sg_attribute_to_update == "sg_type":
             data = {"data": entity_list["data"]}
-            data["data"]["sg_type"] = new_value
+            data["data"][attributes_to_sync_map[sg_attribute_to_update]] = new_value
+
+        elif sg_attribute_to_update == "sg_vendor":
+            data = {"attrib": entity_list["attrib"]}
+            if new_value is None:
+                data["attrib"][attributes_to_sync_map[sg_attribute_to_update]] = None
+            else:
+                data["attrib"][attributes_to_sync_map[sg_attribute_to_update]] = new_value.get("name")
+
+        elif sg_attribute_to_update == "description":
+            data = {"attrib": entity_list["attrib"]}
+            data["attrib"][attributes_to_sync_map[sg_attribute_to_update]] = new_value
+
         else:
             data = {attributes_to_sync_map[sg_attribute_to_update]: new_value}
 

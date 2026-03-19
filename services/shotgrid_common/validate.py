@@ -252,6 +252,7 @@ def validate_custom_attribs_map(
         "list": "string",  # list is a list of choices in flow
         "date_time": "datetime",
         "date": "datetime",
+        "entity": "string",  # RVX: for vendor field sync on playlists
     }
 
     reversed_type_mapping = collections.defaultdict(list)
