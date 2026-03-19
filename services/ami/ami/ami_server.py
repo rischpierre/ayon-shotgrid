@@ -22,13 +22,11 @@ logger = logging.getLogger(__file__)
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
 AMI_BASE_DIR = os.path.dirname(__file__)
 
-ami_loaders = []
-for entry in os.listdir(AMI_BASE_DIR):
-    entry_path = os.path.join(AMI_BASE_DIR, entry)
-    if os.path.isdir(entry_path) and entry.startswith("ami_"):
-        ami_loaders.append(FileSystemLoader(entry_path))
-
-loader = ChoiceLoader(ami_loaders + [FileSystemLoader(TEMPLATES_DIR)])
+# Create a loader that can find templates in AMI directories and the main templates dir
+loader = ChoiceLoader([
+    FileSystemLoader(AMI_BASE_DIR),
+    FileSystemLoader(TEMPLATES_DIR)
+])
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 templates.env.loader = loader
 

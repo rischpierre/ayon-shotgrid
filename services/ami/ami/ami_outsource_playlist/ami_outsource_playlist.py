@@ -51,7 +51,7 @@ class AMIOutsourcePlaylist(ami_base.AmiBase):
         return [self.vendor_param, self.description_param]
 
     def get_request_page_template(self):
-        return "request_page.html"
+        return "ami_outsource_playlist/request_page.html"
 
     def main(self) -> int:
         playlist_id = self.selected_ids[0]
