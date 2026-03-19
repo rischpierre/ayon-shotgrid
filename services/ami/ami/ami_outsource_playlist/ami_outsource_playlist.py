@@ -39,12 +39,13 @@ class AMIOutsourcePlaylist(ami_base.AmiBase):
         self._original_vendor = playlist.get("sg_vendor") or ""
         if self._original_vendor:
             self._original_vendor = sg_session.find_one("Group", [['id', "is", self._original_vendor["id"]]], ["code"])
-        
+
         self._original_vendor_name = self._original_vendor.get("code") if self._original_vendor else ""
+        self._original_description = playlist.get("description") or ""
 
         self.vendor_param = StringParameter("Vendor", default=self._original_vendor_name)
         self.description_param = StringParameter(
-            "Description", default=playlist.get("description") or ""
+            "Description", default=self._original_description
         )
 
     def parameters(self):
@@ -66,22 +67,35 @@ class AMIOutsourcePlaylist(ami_base.AmiBase):
         if not ayon_playlist_id:
             raise Exception("Playlist has no sg_ayon_id – not synced to AYON yet")
 
-        # Write back vendor if user changed it
+        # Write back vendor and/or description if user changed them
         new_vendor_name = self.vendor_param.value()
+        new_description = self.description_param.value()
+
+        update_data = {}
         if new_vendor_name != self._original_vendor_name:
             # Validate vendor exists
-            new_vendor = self._get_vendor_from_name(new_vendor_name) 
+            new_vendor = self._get_vendor_from_name(new_vendor_name)
             if not new_vendor:
                 raise Exception(f"Vendor '{new_vendor_name}' is not a valid vendor")
-            self.sg_session.update("Playlist", playlist_id, {"sg_vendor": new_vendor})
+            update_data["sg_vendor"] = new_vendor
 
-        # Build farm command
+        if new_description != self._original_description:
+            update_data["description"] = new_description
+
+        if update_data:
+            self.sg_session.update("Playlist", playlist_id, update_data)
+
+        # Build farm command with vendor and description flags
+        description = self.description_param.value()
+        vendor = self.vendor_param.value()
+
         command = (
             f"{HOWLER_SCRIPT} collect outsource "
-            f"--project {project_name} --playlist-id {ayon_playlist_id}"
+            f"--project {project_name} --playlist-id {ayon_playlist_id} "
+            f"--vendor '{vendor}' --description '{description}'"
         )
 
-        job_name = f"Howler: collect {self.description_param.value()} [{new_vendor_name}]"
+        job_name = f"Howler: collect {description} [{vendor}]"
 
         layer = rvx_beryl.farm.CommandLineLayer(
             job_name,
