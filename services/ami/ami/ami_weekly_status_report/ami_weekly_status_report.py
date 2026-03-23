@@ -21,10 +21,10 @@ class AMIWeeklyStatusReport(ami_base.AmiBase):
         return []
 
     def get_request_page_template(self):
-        return "html_pages/request_page.html"
+        return "ami_weekly_status_report/html_pages/request_page.html"
 
     def get_result_page_template(self):
-        return "html_pages/result_page.html"
+        return "ami_weekly_status_report/html_pages/result_page.html"
 
     def translate_client_statuses(self, entities, status_field="sg_status_list"):
         if not self.client_to_internal_status_map:
