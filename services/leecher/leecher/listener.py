@@ -381,6 +381,10 @@ class ShotgridListener:
                     if not event:
                         continue
 
+                    project_id = (event.get("project", {}) or {}).get("id")
+                    if not project_id or project_id not in sg_projects_by_id:  
+                        continue
+                        
                     meta = event.get("meta", {})
 
                     ignore_event = True

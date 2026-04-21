@@ -25,6 +25,8 @@ And most of the times it fetches the ShotGrid entity as an AYON dict like:
 """
 import json
 import collections
+from functools import cache
+from cachetools import cached, TTLCache
 
 import shotgun_api3
 import ayon_api
@@ -107,6 +109,12 @@ def _get_entity_list_item_from_entity_id(project_name, entity_list_id, entity_id
     for node in nodes:
         if node["entityId"] == entity_id:
             return node["id"]
+
+@cached(cache=TTLCache(maxsize=128, ttl=3600), key=lambda sg_session, sg_project: (id(sg_session), sg_project["id"]))
+def _get_delivery_fields(sg_session, sg_project):
+    schema = sg_session.schema_field_read(entity_type="Version", project_entity=sg_project)
+    delivery_fields = [k for k in schema.keys() if k.startswith(f"sg_delivery_{sg_project['code']}")]
+    return delivery_fields
 
 def create_ay_entity_from_sg_event(
     sg_event: Dict,
@@ -621,20 +629,24 @@ def update_ayon_entity_from_sg_event(
     default_task_type = addon_settings[
         "compatibility_settings"]["default_task_type"]
 
+    sg_entity_type = sg_event["entity_type"]
+    delivery_fields = _get_delivery_fields(sg_session, sg_project) if sg_entity_type == "Version" else []
+
     sg_ay_dict = get_sg_entity_as_ay_dict(
         sg_session,
-        sg_event["entity_type"],
+        sg_entity_type,
         sg_event["entity_id"],
         project_code_field,
         default_task_type,
-        custom_attribs_map=custom_attribs_map
+        custom_attribs_map=custom_attribs_map,
+        extra_fields=delivery_fields,
     )
 
-    if sg_event["entity_type"] == "Asset":
+    if sg_entity_type == "Asset":
         rvx_validate_sg_asset(sg_ay_dict, sg_session)
-    elif sg_event["entity_type"] == "Shot":
+    elif sg_entity_type == "Shot":
         rvx_validate_sg_shot(sg_ay_dict, sg_session)
-    elif sg_event["entity_type"] == "Sequence":
+    elif sg_entity_type == "Sequence":
         rvx_validate_sg_sequence(sg_ay_dict, sg_session)
 
     if not sg_ay_dict:
@@ -721,6 +733,8 @@ def update_ayon_entity_from_sg_event(
         custom_attribs_map,
         ay_project=ayon_entity_hub.project_entity
     )
+    if sg_entity_type == "Version":
+        _rvx_update_delivery_attributes(ay_entity, sg_ay_dict, delivery_fields)
 
     ayon_entity_hub.commit_changes()
 
@@ -747,6 +761,12 @@ def update_ayon_entity_from_sg_event(
 
     return ay_entity
 
+def _rvx_update_delivery_attributes(ay_entity, sg_ay_dict, delivery_fields):
+    for field in delivery_fields:
+        value = sg_ay_dict["data"].get(field)
+        if value is not None:
+            ay_entity.data[field] = value
+    
 
 def remove_ayon_entity_from_sg_event(
     sg_event: Dict,
