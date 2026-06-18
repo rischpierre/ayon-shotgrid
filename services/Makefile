@@ -86,8 +86,29 @@ dev:
 
 	find $(CURDIR)/$(SERVICE) -type l -delete
 
+dev-ami:
+	-ln -s $(CURDIR)/shotgrid_common/* $(CURDIR)/ami
+	-docker run --rm -u ayonuser -ti \
+		-v $(CURDIR)/shotgrid_common:/service/shotgrid_common:Z \
+		-v $(CURDIR)/ami/ami:/service/ami:Z \
+		--env-file $(CURDIR)/ami/.env \
+		--env AYON_ADDON_NAME=shotgrid \
+		--env AYON_ADDON_VERSION=$(ADDON_VERSION) \
+		--attach=stdin \
+		--attach=stdout \
+		--attach=stderr \
+		$(IMAGE) uv run -m ami
+
+	find $(CURDIR)/$(SERVICE) -type l -delete
+
 shell:
 	docker run --rm -u ayonuser -ti -v $(CURDIR)/$(SERVICE)/$(SERVICE):/service:Z $(IMAGE) /bin/sh
+
+shell-ami:
+	docker run --rm -u ayonuser -ti \
+		-v $(CURDIR)/shotgrid_common:/service/shotgrid_common:Z \
+		-v $(CURDIR)/ami/ami:/service/ami:Z \
+		$(IMAGE) /bin/sh
 
 dev-whiteboard:
 	docker build -t whiteboard:dev -f ./whiteboard/Dockerfile .
