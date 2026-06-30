@@ -286,6 +286,24 @@ wheels = [
 ]
 
 [[package]]
+name = "pygelf"
+version = "0.4.3"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pygelf/0.4.3/pygelf-0.4.3.tar.gz", hash = "sha256:8ed972563be3c8f168483f01dbf522b6bc697959c97a3f4881324b3f79638911" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pygelf/0.4.3/pygelf-0.4.3-py3-none-any.whl", hash = "sha256:0876c99a77f9f021834982c9808205b3239fabf5886788d701f31b495b65c8ae" },
+]
+
+[[package]]
+name = "pyseq"
+version = "0.9.2"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pyseq/0.9.2/pyseq-0.9.2.tar.gz", hash = "sha256:145b0b8525cfa797f95d5aedb573c25fea849e356508d9312ad1f64ac3fab543" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/pyseq/0.9.2/pyseq-0.9.2-py3-none-any.whl", hash = "sha256:f7c6014ec5c776b0539e9414878ec3928edc2c4d13628a93748a114f380dc971" },
+]
+
+[[package]]
 name = "pytest"
 version = "5.4.3"
 source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
@@ -341,6 +359,33 @@ wheels = [
 ]
 
 [[package]]
+name = "rvx-beryl"
+version = "0.5.0"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+dependencies = [
+    { name = "ayon-python-api" },
+    { name = "pyseq" },
+    { name = "rvx-log" },
+    { name = "tomli" },
+]
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/rvx-beryl/0.5.0/rvx_beryl-0.5.0.tar.gz", hash = "sha256:e49dd188b8a711fda4cfab124080ec97826d8835bdc7a1ef54f1b0ea3c543338" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/rvx-beryl/0.5.0/rvx_beryl-0.5.0-py3-none-any.whl", hash = "sha256:fbd72aa0cad6bae353a7b3192e6b7f522d8c4bc9c1c50d9542db4ba0d3a365ad" },
+]
+
+[[package]]
+name = "rvx-log"
+version = "2.0.1"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+dependencies = [
+    { name = "pygelf" },
+]
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/rvx-log/2.0.1/rvx_log-2.0.1.tar.gz", hash = "sha256:9e4437c884d1af40da8d6c2e5f39d25a411f7332e08767c0833a0c05ab6b18e5" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/rvx-log/2.0.1/rvx_log-2.0.1-py2.py3-none-any.whl", hash = "sha256:7ae00617ae75567f72c5cf768e1f3c3b37e55eab7191a07a1252b2cfc381c48b" },
+]
+
+[[package]]
 name = "shotgrid-ami"
 version = "0.6.14+rvx.16"
 source = { virtual = "." }
@@ -353,6 +398,8 @@ dependencies = [
     { name = "openpyxl" },
     { name = "pydantic" },
     { name = "python-multipart" },
+    { name = "rvx-beryl" },
+    { name = "rvx-log" },
     { name = "shotgun-api3" },
     { name = "uvicorn" },
 ]
@@ -373,6 +420,8 @@ requires-dist = [
     { name = "pydantic", specifier = "==1.10.18" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=5.2,<6.0" },
     { name = "python-multipart", specifier = ">=0.0.20" },
+    { name = "rvx-beryl" },
+    { name = "rvx-log" },
     { name = "shotgun-api3", specifier = "==3.8.5" },
     { name = "uvicorn", specifier = ">=0.38.0" },
 ]
@@ -407,6 +456,15 @@ dependencies = [
 sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/starlette/0.50.0/starlette-0.50.0.tar.gz", hash = "sha256:a2a17b22203254bcbc2e1f926d2d55f3f9497f769416b3190768befe598fa3ca" }
 wheels = [
     { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/starlette/0.50.0/starlette-0.50.0-py3-none-any.whl", hash = "sha256:9e5391843ec9b6e472eed1365a78c8098cfceb7a74bfd4d6b1c0c0095efb3bca" },
+]
+
+[[package]]
+name = "tomli"
+version = "2.4.1"
+source = { registry = "https://nexus.eu.rvx.is/repository/rvx-group/simple" }
+sdist = { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/tomli/2.4.1/tomli-2.4.1.tar.gz", hash = "sha256:7c7e1a961a0b2f2472c1ac5b69affa0ae1132c39adcb67aba98568702b9cc23f" }
+wheels = [
+    { url = "https://nexus.eu.rvx.is/repository/rvx-group/packages/tomli/2.4.1/tomli-2.4.1-py3-none-any.whl", hash = "sha256:0d85819802132122da43cb86656f8d1f8c6587d54ae7dcaf30e90533028b49fe" },
 ]
 
 [[package]]
