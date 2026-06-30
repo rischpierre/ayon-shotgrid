@@ -19,7 +19,7 @@ class AMIWeeklyStatusReportSweetfoot2(AMIWeeklyStatusReport):
         self.template = self.get_template()
         self.out_file = data.get("out_file")
 
-        self.date_format = "%Y-%m-%d"
+        self.date_format = "%m/%d/%Y"
 
         self.client_to_internal_status_map = {
             "wtg": ["wtg"],
