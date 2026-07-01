@@ -40,6 +40,11 @@ class AMIWeeklyStatusReportSweetfoot2(AMIWeeklyStatusReport):
 
     def main(self):
         shot_fields = self.get_fields("shot")
+        
+        # This value is required later
+        shot_fields.append("compositing___sg_blocking_date")
+        import pdb;pdb.set_trace()
+
         shot_query_fields = self.get_query_fields("Shot", shot_fields)
 
         asset_fields = self.get_fields("asset")
@@ -50,15 +55,17 @@ class AMIWeeklyStatusReportSweetfoot2(AMIWeeklyStatusReport):
 
         filters = ["sg_client_shot_name", "is_not", None]
         shots = self.get_shots(shot_fields, additional_filters=filters)
+        shots = self.get_dates_per_tasks(shots, shot_fields)
+
         assets = self.get_assets(asset_fields)
+        assets = self.get_dates_per_tasks(assets, asset_fields)
 
         assets, shots = self._get_episode(assets, shots)
+        assets = self._get_shot_compositing_milestone(assets, shots)
 
-        shots = self.get_dates_per_tasks(shots, shot_fields)
         shots = self.convert_field_entities_to_text(shots)
         shots = self.fetch_query_fields("Shot", shots, shot_query_fields)
 
-        assets = self.get_dates_per_tasks(assets, asset_fields)
         assets = self.convert_field_entities_to_text(assets)
         assets = self.fetch_query_fields("Asset", assets, asset_query_fields)
 
@@ -85,6 +92,27 @@ class AMIWeeklyStatusReportSweetfoot2(AMIWeeklyStatusReport):
         self.export_file()
         return 0
 
+
+    def _get_shot_compositing_milestone(self, assets, shots):
+        shots_map = {s["id"]: s for s in shots}
+        for asset in assets:
+            shot = asset.get("linked_shot")
+            if not shot:
+                logger.warning(f"Unable to get linked shot from asset {asset['id']}")
+                continue
+            shot = shots_map[shot['id']]
+            if not shot:
+                logger.warning(f"Unable to find shot in the map")
+                continue
+            date = shot.get("compositing___sg_blocking_date")
+            if not date:
+                logger.warning(f"Unable to get compositing blocking date")
+
+            asset["shot_blocking_compositing"] = shot.get("compositing___sg_blocking_date")
+
+
+        return assets
+        
     def _get_episode(self, assets, shots):
         for asset in assets:
             linked_shots = asset.get("shots")
@@ -96,6 +124,8 @@ class AMIWeeklyStatusReportSweetfoot2(AMIWeeklyStatusReport):
             if not linked_shot:
                 logger.warning(f"Could not find Shot with id {linked_shots[0].get('id')}")
                 continue
+            asset["linked_shot"] = linked_shot
+
             sequence = linked_shot.get("sg_sequence")
             if not sequence:
                 logger.warning(f"Shot {linked_shot.get('id')} has no sg_sequence")
