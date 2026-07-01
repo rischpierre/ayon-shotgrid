@@ -1,10 +1,13 @@
 import argparse
 import datetime
+import logging
 from datetime import timedelta
 from typing import Any, Dict
 
 from ami.ami_weekly_status_report.ami_weekly_status_report import AMIWeeklyStatusReport
 from ami.ami_weekly_status_report.path_templates import StringTemplate
+
+logger = logging.getLogger(__name__)
 
 
 # to run
@@ -42,17 +45,19 @@ class AMIWeeklyStatusReportSweetfoot2(AMIWeeklyStatusReport):
         asset_fields = self.get_fields("asset")
         asset_query_fields = self.get_query_fields("Asset", asset_fields)
 
-        shot_fields.append("sg_status_list")
-        asset_fields.append("sg_status_list")
+        shot_fields.extend(["sg_status_list", "sg_sequence"])
+        asset_fields.extend(["sg_status_list", "shots"])
 
         filters = ["sg_client_shot_name", "is_not", None]
-
         shots = self.get_shots(shot_fields, additional_filters=filters)
+        assets = self.get_assets(asset_fields)
+
+        assets, shots = self._get_episode(assets, shots)
+
         shots = self.get_dates_per_tasks(shots, shot_fields)
         shots = self.convert_field_entities_to_text(shots)
         shots = self.fetch_query_fields("Shot", shots, shot_query_fields)
 
-        assets = self.get_assets(asset_fields)
         assets = self.get_dates_per_tasks(assets, asset_fields)
         assets = self.convert_field_entities_to_text(assets)
         assets = self.fetch_query_fields("Asset", assets, asset_query_fields)
@@ -79,6 +84,56 @@ class AMIWeeklyStatusReportSweetfoot2(AMIWeeklyStatusReport):
 
         self.export_file()
         return 0
+
+    def _get_episode(self, assets, shots):
+        for asset in assets:
+            linked_shots = asset.get("shots")
+            if not linked_shots or len(linked_shots) == 0:
+                logger.warning(f"Asset {asset.get('id')} has no linked shots")
+                continue
+            linked_shot = linked_shots[0]
+            linked_shot = self.sg_session.find_one("Shot", [["id", "is", linked_shot["id"]]], ["sg_sequence"])
+            if not linked_shot:
+                logger.warning(f"Could not find Shot with id {linked_shots[0].get('id')}")
+                continue
+            sequence = linked_shot.get("sg_sequence")
+            if not sequence:
+                logger.warning(f"Shot {linked_shot.get('id')} has no sg_sequence")
+                continue
+
+            sequence = self.sg_session.find_one("Sequence", [["id", 'is', sequence['id']]], ["episode"])
+            if not sequence:
+                logger.warning(f"Could not find Sequence with id {linked_shot.get('sg_sequence', {}).get('id')}")
+                continue
+            episode = sequence.get('episode')
+            if not episode:
+                logger.warning(f"Sequence {sequence.get('id')} has no episode")
+                continue
+            episode = self.sg_session.find_one("Episode", [['id', "is", episode['id']]], ["code"])
+
+            asset["____episode"] = episode.get("code", "")
+
+        for shot in shots:
+            sequence = shot.get("sg_sequence")
+
+            if not sequence:
+                logger.warning(f"Shot {shot.get('id')} has no sg_sequence")
+                continue
+
+            sequence = self.sg_session.find_one("Sequence", [["id", 'is', sequence['id']]], ["episode"])
+            if not sequence:
+                logger.warning(f"Could not find Sequence with id{sequence['id']}")
+                continue
+            episode = sequence.get('episode')
+            if not episode:
+                logger.warning(f"Sequence {sequence.get('id')} has no episode")
+                continue
+            episode = self.sg_session.find_one("Episode", [['id', "is", episode['id']]], ["code"])
+
+            shot["____episode"] = episode.get("code", "")
+
+        return assets, shots
+             
 
     def _format_dates(self, entities):
         for entity in entities:
@@ -349,7 +404,7 @@ if __name__ == "__main__":
 
     project = sg_session.find_one("Project", [["name", "is", args.project_name]], ["id"])
     if not project:
-        print(f"Error: Project '{args.project_name}' not found in ShotGrid")
+        logger.error(f"Project '{args.project_name}' not found in ShotGrid")
         exit(1)
 
     project_id = project["id"]
