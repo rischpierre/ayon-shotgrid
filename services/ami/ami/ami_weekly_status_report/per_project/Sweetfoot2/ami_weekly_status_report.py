@@ -1,3 +1,4 @@
+import re
 import argparse
 import datetime
 import logging
@@ -42,8 +43,7 @@ class AMIWeeklyStatusReportSweetfoot2(AMIWeeklyStatusReport):
         shot_fields = self.get_fields("shot")
         
         # This value is required later
-        shot_fields.append("compositing___sg_blocking_date")
-        import pdb;pdb.set_trace()
+        shot_fields.extend(["compositing___sg_blocking_date", "sg_latest_client_version_sent"])
 
         shot_query_fields = self.get_query_fields("Shot", shot_fields)
 
@@ -69,6 +69,8 @@ class AMIWeeklyStatusReportSweetfoot2(AMIWeeklyStatusReport):
         assets = self.convert_field_entities_to_text(assets)
         assets = self.fetch_query_fields("Asset", assets, asset_query_fields)
 
+        shots = self._get_latest_client_version(shots)
+
         assets = self.translate_client_statuses(assets)
         shots = self.translate_client_statuses(shots)
 
@@ -91,6 +93,22 @@ class AMIWeeklyStatusReportSweetfoot2(AMIWeeklyStatusReport):
 
         self.export_file()
         return 0
+
+    def _get_latest_client_version(self, shots):
+        reg = re.compile(r"(.*)_(v\d{3})$")
+        for shot in shots:
+            version = shot.get("sg_latest_client_version_sent")
+            if not version:
+                logger.warning(f"Unable to get sg_latest_client_version_sent from shot {shot['id']}")
+                continue
+            found = reg.findall(version)
+            if not found:
+                logger.warning(f"Unable to find version suffix with regex on shot: {shot['id']}")
+                continue
+
+            shot["latest_client_version_sent_version_suffix"] = found[0][-1]
+
+        return shots
 
 
     def _get_shot_compositing_milestone(self, assets, shots):
