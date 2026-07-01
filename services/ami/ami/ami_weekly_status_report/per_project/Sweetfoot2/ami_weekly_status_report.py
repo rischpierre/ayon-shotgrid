@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 # to run
 """
 cd ayon-shotgrid/services/ami
-env PYTHONPATH="{$PYTHONPATH}:." uv run ami/ami_weekly_status_report/per_project/Sweetfoot2/ami_weekly_status_report.py --project-name Sweetfoot2 --out-file result_swe2.xlxs --template ami/ami_weekly_status_report/per_project/Sweetfoot2/Sweetfoot2_wsr_template.xlsx
+env PYTHONPATH="{$PYTHONPATH}:." uv run ami/ami_weekly_status_report/per_project/Sweetfoot2/ami_weekly_status_report.py --project-name Sweetfoot2 --out-file result_swe2.xlxs --template ami/ami_weekly_status_report/per_project/Sweetfoot2/Sweetfoot2_wsr_template_v03.xlsx
 """
 class AMIWeeklyStatusReportSweetfoot2(AMIWeeklyStatusReport):
 
