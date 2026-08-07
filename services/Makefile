@@ -5,7 +5,10 @@
 #   make build SERVICE=leecher VERSION=prod
 #   make build SERVICE=processor VERSION=0.2.3
 ADDON_VERSION := $(if $(VERSION),$(VERSION),$(shell grep "version" ../package.py | cut -d' ' -f3 | tr -d '"'))
-IMAGE := docker-internal.eu.rvx.is/rvx/ayon-shotgrid-$(SERVICE):$(ADDON_VERSION)
+
+# folders might have _ for python but we want the docker images to always have - instead of _ 
+SERVICE_DASH := $(subst _,-,$(SERVICE))
+IMAGE := docker-internal.eu.rvx.is/rvx/ayon-shotgrid-$(SERVICE_DASH):$(ADDON_VERSION)
 SERVICE = $(error Please specify the service to build with 'SERVICE', for example: 'make build SERVICE=leecher')
 
 default:
@@ -43,7 +46,7 @@ build-all:
 	docker build -t docker-internal.eu.rvx.is/rvx/ayon-shotgrid-leecher:$(ADDON_VERSION) -f ./leecher/Dockerfile .
 	docker build -t docker-internal.eu.rvx.is/rvx/ayon-shotgrid-processor:$(ADDON_VERSION) -f ./processor/Dockerfile .
 	docker build -t docker-internal.eu.rvx.is/rvx/ayon-shotgrid-transmitter:$(ADDON_VERSION) -f ./transmitter/Dockerfile .
-	docker build -t docker-internal.eu.rvx.is/rvx/ayon-shotgrid-ami:$(ADDON_VERSION) -f ./ami/Dockerfile .
+	docker build -t docker-internal.eu.rvx.is/rvx/ayon-shotgrid-ami-create-delivery-playlist:$(ADDON_VERSION) -f ./ami_create_delivery_playlist/Dockerfile .
 	docker build -t docker-internal.eu.rvx.is/rvx/ayon-shotgrid-whiteboard:$(ADDON_VERSION) -f ./whiteboard/Dockerfile .
 
 dist:
@@ -53,7 +56,7 @@ dist-all:
 	docker push docker-internal.eu.rvx.is/rvx/ayon-shotgrid-leecher:$(ADDON_VERSION)
 	docker push docker-internal.eu.rvx.is/rvx/ayon-shotgrid-processor:$(ADDON_VERSION)
 	docker push docker-internal.eu.rvx.is/rvx/ayon-shotgrid-transmitter:$(ADDON_VERSION)
-	docker push docker-internal.eu.rvx.is/rvx/ayon-shotgrid-ami:$(ADDON_VERSION)
+	docker push docker-internal.eu.rvx.is/rvx/ayon-shotgrid-ami-create-delivery-playlist:$(ADDON_VERSION)
 	docker push docker-internal.eu.rvx.is/rvx/ayon-shotgrid-whiteboard:$(ADDON_VERSION)
 
 clean:
@@ -68,6 +71,7 @@ clean-build-all:
 	docker build --no-cache -t docker-internal.eu.rvx.is/rvx/ayon-shotgrid-leecher:$(ADDON_VERSION) -f ./leecher/Dockerfile .
 	docker build --no-cache -t docker-internal.eu.rvx.is/rvx/ayon-shotgrid-processor:$(ADDON_VERSION) -f ./processor/Dockerfile .
 	docker build --no-cache -t docker-internal.eu.rvx.is/rvx/ayon-shotgrid-transmitter:$(ADDON_VERSION) -f ./transmitter/Dockerfile .
+	docker build --no-cache -t docker-internal.eu.rvx.is/rvx/ayon-shotgrid-ami-create-delivery-playlist:$(ADDON_VERSION) -f ./ami_create_delivery_playlist/Dockerfile .
 	docker build --no-cache -t docker-internal.eu.rvx.is/rvx/ayon-shotgrid-whiteboard:$(ADDON_VERSION) -f ./whiteboard/Dockerfile .
 
 
@@ -86,6 +90,7 @@ dev:
 
 	find $(CURDIR)/$(SERVICE) -type l -delete
 
+# TODO need to change this one to run the ami
 dev-ami:
 	-ln -s $(CURDIR)/shotgrid_common/* $(CURDIR)/ami
 	-docker run --rm -u ayonuser -ti \
@@ -106,8 +111,8 @@ shell:
 
 shell-ami:
 	docker run --rm -u ayonuser -ti \
-		-v $(CURDIR)/shotgrid_common:/service/shotgrid_common:Z \
-		-v $(CURDIR)/ami/ami:/service/ami:Z \
+		# -v $(CURDIR)/shotgrid_common:/service/shotgrid_common:Z \
+		# -v $(CURDIR)/ami/ami:/service/ami:Z \
 		$(IMAGE) /bin/sh
 
 dev-whiteboard:

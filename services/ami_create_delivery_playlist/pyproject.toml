@@ -1,0 +1,19 @@
+[project]
+name = "ami-create-delivery-playlist"
+version = "0.1.0"
+description = "AMI service for creating delivery playlists in ShotGrid"
+requires-python = "==3.11.*"
+dependencies = [
+    "ayon-python-api>=1.2.6",
+    "fastapi>=0.141.1",
+    "httpx>=0.28.1",
+    "jinja2>=3.1.6",
+    "python-multipart>=0.0.32",
+    "shotgun-api3>=3.8.5",
+    "uvicorn>=0.52.0",
+]
+
+[[tool.uv.index]]
+name = "rvx-group"
+url = "https://nexus.eu.rvx.is/repository/rvx-group/simple"
+default = true
