@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ title }}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="header">
+        <span class="badge" style="background: {{ badge_color }}; border: 1px solid {{ border_color }};">{{ badge_label }}</span>
+        <h1>{{ title }}</h1>
+      </div>
+      <div class="content">
+        <p class="message">{{ message }}</p>
+        {% if download_url %}
+        <a href="{{ download_url }}" class="btn">📥 Download Report (XLSX)</a>
+        {% endif %}
+        <ul class="details">
+          {{ items_html|safe }}
+        </ul>
+        <pre>{{ safe_pre }}</pre>
+      </div>
+      <div class="footer">
+        {{ footer_text }}
+      </div>
+    </div>
+  </div>
+</body>
+</html>

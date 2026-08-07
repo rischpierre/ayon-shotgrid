@@ -1,18 +1,15 @@
-import json
 import logging
 import os
 import sys
-from typing import Any, Dict
-from pprint import pformat
-
-from fastapi import FastAPI, Request, APIRouter
+from pydantic import BaseModel, Field
+from fastapi import FastAPI, Form, Request
+from typing import Annotated
 from fastapi.templating import Jinja2Templates
 from jinja2 import ChoiceLoader, FileSystemLoader
 
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import List
 
-from ami_common import AmiBase, StringParameter
 
 logging.basicConfig(
     level=os.environ.get("LOGLEVEL") or os.environ.get("PYTHON_LOG_LEVEL") or logging.DEBUG,
@@ -25,8 +22,6 @@ logger = logging.getLogger(__name__)
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
 SERVICE_BASE_DIR = os.path.dirname(__file__)
 
-required_templates = ["request_page.html", "result_page.html"]
-
 loader = ChoiceLoader([
     FileSystemLoader(SERVICE_BASE_DIR),
     FileSystemLoader(TEMPLATES_DIR)
@@ -38,27 +33,50 @@ app = FastAPI(title="AMI Create Delivery Playlist Service")
 
 AMI_CREATE_DELIVERY_PLAYLIST_PORT = int(os.environ.get("AMI_CREATE_DELIVERY_PLAYLIST_PORT", 45141))
 
+class PlaylistFormRequest(BaseModel):
+    project_id: int
+    selected_ids: list[int] = Field(min_length =1)
 
-class AMICreateDeliveryPlaylist(AmiBase):
-    """Create a delivery playlist for selected versions.
+class PlaylistSubmitRequest(BaseModel):
+    project_id: int
+    selected_ids: list[int] = Field(min_length =1)
+    name: str
 
-    The default playlist name is generated as 'delivery_YYYY-MM-DD_##' where
-    the numeric suffix increments to the next available version for the day.
-    """
+class AMICreateDeliveryPlaylist():
 
     def __init__(self) -> None:
-        super().__init__()
+        if False:
+            self.sg = self.get_sg_session()
+            
+    def get_sg_session(self):
+        ayon_api_key = os.environ.get("AYON_API_KEY")
+        ayon_server_url = os.environ.get("AYON_SERVER_URL")
+        sg_url = os.environ.get("SG_URL")
+        http_proxy = os.environ.get("HTTP_PROXY", "")
+    
+        if not ayon_api_key or not ayon_server_url:
+            raise Exception("AYON_API_KEY and AYON_SERVER_URL are required")
+    
+        if not sg_url:
+            raise Exception("SG_URL env var is required")
+    
+        ayon_api.init_service(token=ayon_api_key, server_url=ayon_server_url)
+        script_name = ayon_api.get_secret("flow_ami_service_name")["value"]
+        script_key = ayon_api.get_secreet("flow_ami_service_key")["value"]
+    
+        if not script_name or not script_key:
+            raise Exception("Script name or key is not set")
+    
+        proxy_url = http_proxy.replace("http://", "") if http_proxy else None
+        return Shotgun(sg_url, script_name=script_name, api_key=script_key, http_proxy=proxy_url)
         
-        self.router =  APIRouter()
-        self.router.add_api_route("/", self.handle_request, methods=["POST"])
-
-    def generate_parameters(self):
+    def _generate_playlist_name(self):
         today_str = datetime.now().strftime("%Y-%m-%d")
         base_name = f"delivery_{today_str}"
         version = self._get_next_available_version(base_name)
         name = f"{base_name}_{version:02d}"
+        return name
 
-        self.playlist_param = StringParameter("Playlist Name", default=name)
 
     def _get_next_available_version(self, base_name: str) -> int:
         """Find the next numeric suffix for a playlist code containing base_name."""
@@ -78,17 +96,17 @@ class AMICreateDeliveryPlaylist(AmiBase):
                 continue
         return max_ + 1
 
-    def parameters(self) -> List[StringParameter]:
-        """Expose the configurable parameters for this action."""
-        return [self.playlist_param]
-
-    def get_request_page_template(self):
-        """Return custom parameters template."""
-        return "request_page.html"
-
-    def main(self) -> int:
-        """Create a playlist containing the selected versions."""
-        if not self.selected_ids:
+    def get_form(self, request: Request, payload: PlaylistFormRequest):
+        context = {
+            "project_id": payload.project_id,
+            "selected_ids": payload.selected_ids,
+        }
+        return templates.TemplateResponse(request=request, name ="form.html", context={"request": request, **context})
+        
+    def submit(self, request: PlaylistSubmitRequest) -> int:
+        selected_ids = request.selected_ids
+        
+        if not selected_ids:
             raise Exception("Found no selected versions")
 
         versions = self.sg_session.find(
@@ -98,8 +116,8 @@ class AMICreateDeliveryPlaylist(AmiBase):
         )
 
         data = {
-            "project": {"id": self.project_id, "type": "Project"},
-            "code": self.playlist_param.value(),
+            "project": {"id": request.project_id, "type": "Project"},
+            "code": request.name,
             "versions": versions,
             "sg_type": "Delivery",
         }
@@ -109,122 +127,27 @@ class AMICreateDeliveryPlaylist(AmiBase):
         else:
             return -1
 
-    async def handle_request(self, request: Request):
-        try:
-            data = await request.form()
-            self.parse_request_data(data)
-            self.generate_parameters()
-            
-            logger.info(f"Received request: {pformat(data)}")
-    
-    
-            if not data.get("__form_submitted"):
-                parameters = self.parameters()
-                context = build_parameters_form(parameters, data)
-                return templates.TemplateResponse(request=request, name ="request_page.html", context={"request": request, **context})
-    
-            result = self.main()
-    
-            if result == 0:
-                context = build_result_page(data, success=True)
-                return templates.TemplateResponse(request=request, name ="result_page.html", context={"request": request, **context})
-            else:
-                context = build_result_page(data, success=False)
-                return templates.TemplateResponse(request=request, name ="result_page.html", context={"request": request, **context})
-    
-        except Exception as e:
-            logger.exception(e)
-            context = render_page(
-                title="500 Internal Server Error",
-                success=False,
-                message=str(e),
-                lines=[],
-                echo={"error": str(e), "type": type(e).__name__},
-            )
-            return templates.TemplateResponse(request=request, name ="result_page.html", context={"request": request, **context}, status_code=500)
-
-
-
-
-def render_page(title: str, success: bool, message: str, lines: list[str], echo: Dict[str, Any]) -> Dict[str, Any]:
-    badge_color = "#16a34a" if success else "#dc2626"
-    border_color = "#22c55e" if success else "#f87171"
-    badge_label = "Success" if success else "Error"
-    footer_text = "ShotGrid AMI Prototype • All good." if success else "ShotGrid AMI Prototype • Please review and retry."
-    safe_pre = json.dumps(echo, ensure_ascii=False, indent=2)
-    items_html = "".join(f"<li>{line}</li>" for line in lines)
-
-    return {
-        "title": title,
-        "badge_color": badge_color,
-        "border_color": border_color,
-        "badge_label": badge_label,
-        "message": message,
-        "items_html": items_html,
-        "safe_pre": safe_pre,
-        "footer_text": footer_text,
-    }
-
-
-def build_result_page(data: Dict[str, Any], success: bool) -> Dict[str, Any]:
-    lines = [
-        f"Action: ami_create_delivery_playlist",
-        f"User: {data.get('user_id', 'unknown')}",
-        f"Entity ids: {data.get('selected_ids', '')}",
-        f"Project: {data.get('project_name', '')}",
-    ]
-    title = "Playlist Created" if success else "Creation Failed"
-    message = "Delivery playlist created successfully." if success else "There was a problem creating the playlist."
-
-    return render_page(title=title, success=success, message=message, lines=lines, echo=data)
-
-
-def build_parameters_form(parameters: list, original: Dict[str, Any]) -> Dict[str, Any]:
-    def esc(s: str) -> str:
-        return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
-
-    inputs_html = []
-    for p in parameters:
-        label = esc(str(p.name))
-        try:
-            current_val = p.value()
-        except Exception:
-            current_val = getattr(p, "default", "")
-
-        inputs_html.append(
-            f'<label><span>{label}</span>'
-            f'<input type="text" name="{esc(str(p.name))}" value="{esc(str(current_val))}" /></label>'
-        )
-
-    hidden_inputs = []
-    for k, v in original.items():
-        if k in ("__form_submitted", "action", "__action_type"):
-            continue
-        if v is None:
-            continue
-        v_str = str(v).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
-        k_str = str(k).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
-        hidden_inputs.append(f'<input type="hidden" name="{k_str}" value="{v_str}">')
-
-    hidden_inputs.append('<input type="hidden" name="__form_submitted" value="1">')
-
-    return {
-        "title": "Create Delivery Playlist",
-        "heading": "Create Delivery Playlist",
-        "action_url": "/",
-        "submit_label": "Create Playlist",
-        "inputs_html": "".join(inputs_html),
-        "hidden_inputs": "".join(hidden_inputs),
-    }
-
-
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
 
+@app.post("/get_playlist_name_select_form")
+async def form(
+    request: Request,
+    project_id: Annotated[int, Form()],
+    selected_ids: Annotated[str, Form()],
+):
+    ids = [int(x) for x in selected_ids.split(",") if x]
+    payload = PlaylistFormRequest(project_id=project_id, selected_ids=ids)
+    ami = AMICreateDeliveryPlaylist()
+    return ami.get_form(request, payload)
+
+@app.post("/submit_playlist_creation")
+async def form(request: PlaylistSubmitRequest):
+    ami =  AMICreateDeliveryPlaylist()
+    ami.submit(request)
+    return templates.TemplateResponse(request=request, name ="form.html", context={"request": request, **context})
 
 def run():
     import uvicorn
-    instance =  AMICreateDeliveryPlaylist()
-    app.include_router(instance.router)
     uvicorn.run(app, host="0.0.0.0", port=AMI_CREATE_DELIVERY_PLAYLIST_PORT)
