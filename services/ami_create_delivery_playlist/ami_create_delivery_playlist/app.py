@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
@@ -37,7 +38,7 @@ app = FastAPI(title="AMI Create Delivery Playlist Service")
 AMI_CREATE_DELIVERY_PLAYLIST_PORT = int(os.environ.get("AMI_CREATE_DELIVERY_PLAYLIST_PORT", 45141))
 
 
-class PlaylistFormRequest(BaseModel):
+class FormRequest(BaseModel):
     project_id: int
     selected_ids: list[int] = Field(min_length=1)
 
@@ -49,7 +50,7 @@ class PlaylistFormRequest(BaseModel):
         return value
 
 
-class PlaylistSubmitRequest(PlaylistFormRequest):
+class SubmitRequest(FormRequest):
     name: str
 
 
@@ -83,15 +84,10 @@ class AMICreateDeliveryPlaylist(AmiBase):
                 continue
         return max_ + 1
 
-    def get_form(self, request: Request, payload: PlaylistFormRequest):
-        context = {
-            "project_id": payload.project_id,
-            "selected_ids": payload.selected_ids,
-        }
+    def generate_from(self, request: Request, payload: FormRequest):
         return templates.TemplateResponse(request=request, name="form.html", context=payload.model_dump())
 
-
-    def submit(self, request: Request, payload: PlaylistSubmitRequest) -> int:
+    def submit(self, request: Request, payload: SubmitRequest) -> int:
         context = {"title": "Playlist Creation Result", "error": payload.name}
         return templates.TemplateResponse(request=request, name="result.html", context=context)
 
@@ -120,9 +116,20 @@ class AMICreateDeliveryPlaylist(AmiBase):
             return -1
 
 
+@app.exception_handler(Exception)
+async def handle_unexpected_error(request: Request, exc: Exception):
+    logger.exception("Unhandled error while processing request")
+    context = {
+        "message": str(exc),
+        "traceback": traceback.format_exc(),
+    }
+    return templates.TemplateResponse(request=request, name="error.html", context=context, status_code=500)
+
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
 
 @app.get("/styles.css")
 def styles_css():
@@ -135,22 +142,24 @@ def styles_css():
 @app.post("/delivery-playlists/form")
 async def form(
         request: Request,
-        payload: Annotated[PlaylistFormRequest, Form()],
+        payload: Annotated[FormRequest, Form()],
 ):
     logger.info(f"Received payload: {payload}")
     ami = AMICreateDeliveryPlaylist()
-    return ami.get_form(request, payload)
+    return ami.generate_from(request, payload)
 
 
 @app.post("/delivery-playlists")
 async def submit(
         request: Request,
-        payload: Annotated[PlaylistSubmitRequest, Form()],
+        payload: Annotated[SubmitRequest, Form()],
 ):
+    logger.info(f"Received payload: {payload}")
     ami = AMICreateDeliveryPlaylist()
     return ami.submit(request, payload)
 
 
 def run():
     import uvicorn
+    logger.info(f"Starting AMI Create Delivery Playlist service on port {AMI_CREATE_DELIVERY_PLAYLIST_PORT}")
     uvicorn.run(app, host="0.0.0.0", port=AMI_CREATE_DELIVERY_PLAYLIST_PORT)

@@ -9,6 +9,9 @@
   --readonly-bg: #f1f5f9;
   --success-bg: #ecfdf5;
   --success-border: #86efac;
+  --error-bg: #fef2f2;
+  --error-border: #fca5a5;
+  --error-text: #991b1b;
 }
 
 * {
@@ -129,4 +132,19 @@ button:hover,
   margin: 0;
   padding-left: 20px;
   color: var(--text);
+}
+
+.traceback {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--error-border);
+  border-radius: 12px;
+  color: var(--error-text);
+  background: var(--error-bg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
