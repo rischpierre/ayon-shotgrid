@@ -60,18 +60,18 @@ class AMICreateDeliveryPlaylist(AmiBase):
     def __init__(self) -> None:
         super().__init__()
 
-    def _generate_playlist_name(self):
+    def _generate_playlist_name(self, project_id: int):
         today_str = datetime.now().strftime("%Y-%m-%d")
         base_name = f"delivery_{today_str}"
-        version = self._get_next_available_version(base_name)
+        version = self._get_next_available_version(base_name, project_id)
         name = f"{base_name}_{version:02d}"
         return name
 
-    def _get_next_available_version(self, base_name: str) -> int:
+    def _get_next_available_version(self, base_name: str, project_id: int) -> int:
         """Find the next numeric suffix for a playlist code containing base_name."""
         playlists = self.sg_session.find(
             "Playlist",
-            [["project.Project.id", "is", self.project_id], ["code", "contains", f"{base_name}"]],
+            [["project.Project.id", "is", project_id], ["code", "contains", f"{base_name}"]],
             ["code"]
         )
         max_ = 0
@@ -86,17 +86,19 @@ class AMICreateDeliveryPlaylist(AmiBase):
         return max_ + 1
 
     def generate_from(self, request: Request, payload: FormRequest):
+
+        context = payload.model_dump()
+        context["playlist_name"] = self._generate_playlist_name(payload.project_id)
         return templates.TemplateResponse(request=request, name="form.html", context=payload.model_dump())
 
     def submit(self, request: Request, payload: SubmitRequest):
-        context = {"title": "Playlist Creation Result", "error": payload.name}
 
         if not payload.selected_ids:
             raise Exception("Found no selected versions")
 
         versions = self.sg_session.find(
             "Version",
-            [["id", "in", self.selected_ids]],
+            [["id", "in", payload.selected_ids]],
             ["code", "sg_path_to_movie"]
         )
 
@@ -108,9 +110,11 @@ class AMICreateDeliveryPlaylist(AmiBase):
         }
         result = self.sg_session.create("Playlist", data)
         if result:
+            context = payload.model_dump()
+            context["message"] = f"Playlist id: {result['id']}"
             return templates.TemplateResponse(request=request, name="result.html", context=context)
-        else:
-            raise RuntimeError(f"Failed to create playlist with data: {pformat(data)}")
+
+        raise RuntimeError(f"Failed to create playlist with data: {pformat(data)}")
 
 
 @app.exception_handler(Exception)
