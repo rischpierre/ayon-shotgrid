@@ -4,6 +4,7 @@ import sys
 import traceback
 from datetime import datetime
 from pathlib import Path
+from pprint import pformat
 from typing import Annotated
 
 from fastapi import FastAPI, Form, Request
@@ -87,14 +88,10 @@ class AMICreateDeliveryPlaylist(AmiBase):
     def generate_from(self, request: Request, payload: FormRequest):
         return templates.TemplateResponse(request=request, name="form.html", context=payload.model_dump())
 
-    def submit(self, request: Request, payload: SubmitRequest) -> int:
+    def submit(self, request: Request, payload: SubmitRequest):
         context = {"title": "Playlist Creation Result", "error": payload.name}
-        return templates.TemplateResponse(request=request, name="result.html", context=context)
 
-        # todo need to process the ids afterwards
-        selected_ids = request.selected_ids
-
-        if not selected_ids:
+        if not payload.selected_ids:
             raise Exception("Found no selected versions")
 
         versions = self.sg_session.find(
@@ -104,16 +101,16 @@ class AMICreateDeliveryPlaylist(AmiBase):
         )
 
         data = {
-            "project": {"id": request.project_id, "type": "Project"},
-            "code": request.name,
+            "project": {"id": payload.project_id, "type": "Project"},
+            "code": payload.name,
             "versions": versions,
             "sg_type": "Delivery",
         }
         result = self.sg_session.create("Playlist", data)
         if result:
-            return 0
+            return templates.TemplateResponse(request=request, name="result.html", context=context)
         else:
-            return -1
+            raise RuntimeError(f"Failed to create playlist with data: {pformat(data)}")
 
 
 @app.exception_handler(Exception)
@@ -137,6 +134,14 @@ def styles_css():
     if path.exists():
         return FileResponse(path)
     raise HTTPException(status_code=404, detail="Stylesheet not found")
+
+
+@app.get("/validate-playlist-name.js")
+def validate_playlist_name_js():
+    path = Path(TEMPLATES_DIR / "validate-playlist-name.js")
+    if path.exists():
+        return FileResponse(path)
+    raise HTTPException(status_code=404, detail="Script not found")
 
 
 @app.post("/delivery-playlists/form")

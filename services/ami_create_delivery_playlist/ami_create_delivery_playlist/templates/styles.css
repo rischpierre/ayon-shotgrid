@@ -65,7 +65,26 @@ h1 {
 }
 
 .field {
+  position: relative;
   margin-bottom: 18px;
+}
+
+.field.invalid input {
+  border-color: var(--error-border);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
+.field.invalid::after {
+  content: attr(data-tooltip);
+  display: block;
+  margin-top: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: var(--error-text);
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 label {
