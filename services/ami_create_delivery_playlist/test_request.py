@@ -4,7 +4,7 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
+PORT = 8000
 
 if __name__ == "__main__":
     handler = partial(SimpleHTTPRequestHandler, directory=str(Path(__file__).parent))

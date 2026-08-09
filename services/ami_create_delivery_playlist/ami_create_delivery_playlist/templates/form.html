@@ -11,12 +11,30 @@
         <div class="info-box">
           💡 Configure your delivery playlist name. The default name follows the pattern: delivery_YYYY-MM-DD_##
         </div>
-        <form method="post" action="/submit_playlist_creation">
+
+        <form method="post" action="/delivery-playlists">
+
+          <div>
+            <label for="name">Playlist Name</label>
+            <input id="name" type="text" name="name" placeholder="Enter playlist name">
+          </div>
+
+          <div>
+            <label for="project_id">Project ID</label>
+            <input id="project_id" type="text" value="{{ project_id }}" name="project_id" readonly>
+          </div>
+
+          <div>
+            <label for="selected_ids">Movies IDs</label>
+            <input id="selected_ids" type="text" name="selected_ids" value="{{ selected_ids | join(',') }}" readonly>
+          </div>
 
           <div>
             <button type="submit">Submit Playlist Cration</button>
           </div>
+
         </form>
+
       </div>
     </div>
   </div>
