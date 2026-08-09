@@ -1,0 +1,132 @@
+:root {
+  --bg: #f4f6fb;
+  --card-bg: #ffffff;
+  --text: #172033;
+  --muted: #5d667a;
+  --border: #d9deea;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --readonly-bg: #f1f5f9;
+  --success-bg: #ecfdf5;
+  --success-border: #86efac;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 30rem),
+    var(--bg);
+}
+
+.wrap {
+  width: min(720px, calc(100% - 32px));
+  margin: 48px auto;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+
+.header {
+  padding: 24px 28px 0;
+}
+
+.content {
+  padding: 28px;
+}
+
+h1 {
+  margin: 0 0 16px;
+  font-size: 28px;
+  line-height: 1.2;
+}
+
+.info-box {
+  margin-bottom: 24px;
+  padding: 14px 16px;
+  border: 1px solid var(--success-border);
+  border-radius: 12px;
+  color: #166534;
+  background: var(--success-bg);
+}
+
+.field {
+  margin-bottom: 18px;
+}
+
+label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+input {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: inherit;
+  color: var(--text);
+  background: #ffffff;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+input[readonly] {
+  color: var(--muted);
+  background: var(--readonly-bg);
+  cursor: default;
+}
+
+.actions {
+  margin-top: 24px;
+}
+
+button,
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 16px;
+  border: 0;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 700;
+  color: #ffffff;
+  background: var(--primary);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+button:hover,
+.btn:hover {
+  background: var(--primary-hover);
+}
+
+.message {
+  margin: 0 0 16px;
+  color: var(--muted);
+}
+
+.details {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text);
+}

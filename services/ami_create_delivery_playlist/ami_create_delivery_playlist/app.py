@@ -2,10 +2,13 @@ import logging
 import os
 import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import FastAPI, Form, Request
 from fastapi.templating import Jinja2Templates
+from fastapi.responses import FileResponse
+from fastapi.exceptions import HTTPException
 from jinja2 import ChoiceLoader, FileSystemLoader
 from pydantic import BaseModel, Field, field_validator
 
@@ -19,8 +22,8 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
-SERVICE_BASE_DIR = os.path.dirname(__file__)
+SERVICE_BASE_DIR = Path(__file__).parent
+TEMPLATES_DIR = SERVICE_BASE_DIR / "templates"
 
 loader = ChoiceLoader([
     FileSystemLoader(SERVICE_BASE_DIR),
@@ -120,6 +123,13 @@ class AMICreateDeliveryPlaylist(AmiBase):
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+@app.get("/styles.css")
+def styles_css():
+    path = Path(TEMPLATES_DIR / "styles.css")
+    if path.exists():
+        return FileResponse(path)
+    raise HTTPException(status_code=404, detail="Stylesheet not found")
 
 
 @app.post("/delivery-playlists/form")
