@@ -34,7 +34,7 @@ AMI_CREATE_DELIVERY_PLAYLIST_PORT = int(os.environ.get("AMI_CREATE_DELIVERY_PLAY
 
 
 class SubmitRequest(FormRequest):
-    name: str
+    playlist_name: str
 
 
 class AMICreateDeliveryPlaylist(AmiBase):
@@ -71,7 +71,7 @@ class AMICreateDeliveryPlaylist(AmiBase):
 
         context = payload.model_dump()
         context["playlist_name"] = self._generate_playlist_name(payload.project_id)
-        return templates.TemplateResponse(request=request, name="form.html", context=payload.model_dump())
+        return templates.TemplateResponse(request=request, name="form.html", context=context)
 
     def submit(self, request: Request, payload: SubmitRequest):
 
@@ -86,7 +86,7 @@ class AMICreateDeliveryPlaylist(AmiBase):
 
         data = {
             "project": {"id": payload.project_id, "type": "Project"},
-            "code": payload.name,
+            "code": payload.playlist_name,
             "versions": versions,
             "sg_type": "Delivery",
         }

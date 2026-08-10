@@ -11,10 +11,10 @@ from ami_create_delivery_playlist.app import (
 )
 from tests.open_test_page import open_test_page
 
-current_dir = Path(__file__).parent
+ami_common_dir = Path(__file__).parent.parent.parent / "ami_common" / "ami_common" / "tests"
 mockgun.Shotgun.set_schema_paths(
-    current_dir / "basic_sg_schema",
-    current_dir / "basic_sg_entity_schema",
+    ami_common_dir / "schema.bin",
+    ami_common_dir / "schema_entity.bin",
 )
 
 
