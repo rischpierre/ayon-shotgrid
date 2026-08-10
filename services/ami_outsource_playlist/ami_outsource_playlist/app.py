@@ -1,10 +1,8 @@
 import logging
 import os
 import sys
-import traceback
-from datetime import datetime
+
 from pathlib import Path
-from pprint import pformat
 from typing import Annotated
 
 from fastapi import FastAPI, Form, Request
@@ -12,7 +10,6 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import FileResponse
 from fastapi.exceptions import HTTPException
 from jinja2 import ChoiceLoader, FileSystemLoader
-from pydantic import BaseModel, Field, field_validator
 
 from ami_common import AmiBase, FormRequest
 
@@ -25,23 +22,34 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 SERVICE_BASE_DIR = Path(__file__).parent
+AMI_COMMON_DIR = SERVICE_BASE_DIR.parent / "ami_common"
+
 TEMPLATES_DIR = SERVICE_BASE_DIR / "templates"
+TEMPLATES_COMMON_DIR = AMI_COMMON_DIR / "templates"
 
 loader = ChoiceLoader([
     FileSystemLoader(SERVICE_BASE_DIR),
-    FileSystemLoader(TEMPLATES_DIR)
+    FileSystemLoader(TEMPLATES_DIR),
+    FileSystemLoader(TEMPLATES_COMMON_DIR)
 ])
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 templates.env.loader = loader
 
-app = FastAPI(title="AMI Create Delivery Playlist Service")
+app = FastAPI(title="AMI Outsource Playlist Service")
 
-AMI_CREATE_DELIVERY_PLAYLIST_PORT = int(os.environ.get("AMI_OUTSOURCE_PLAYLIST_PLAYLIST_PORT", 45142))
+AMI_OUTSOURCE_PLAYLIST_PORT = int(os.environ.get("AMI_OUTSOURCE_PLAYLIST_PORT", 45142))
 
 
 OUTSOURCE_SG_TYPE = "Outsource"
 DEPARTMENT = "outsource"
 HOWLER_SCRIPT = "/pipeline/AstralProjection/scripts/rvx-howler"
+
+
+class SubmitRequest(FormRequest):
+    vendor: str
+    description: str
+
+
 
 class AMIOutsourcePlaylist(AmiBase):
     """Submit an outsource collection job to the farm from a selected Playlist.
@@ -55,7 +63,8 @@ class AMIOutsourcePlaylist(AmiBase):
     def __init__(self):
         super().__init__()
 
-        playlist_id = self.selected_ids[0]
+    def _get_context(self, payload: FormRequest):
+        playlist_id = payload.selected_ids[0]
         playlist = self.sg_session.find_one(
             "Playlist",
             [["id", "is", playlist_id]],
@@ -72,67 +81,70 @@ class AMIOutsourcePlaylist(AmiBase):
                 f"expected '{OUTSOURCE_SG_TYPE}'"
             )
 
-        self._playlist = playlist
-        self._original_vendor = playlist.get("sg_vendor") or ""
-        if self._original_vendor:
-            self._original_vendor = sg_session.find_one("Group", [['id', "is", self._original_vendor["id"]]], ["code"])
+        original_vendor = playlist.get("sg_vendor") or ""
+        if original_vendor:
+            original_vendor = self.sg_session.find_one("Group", [['id', "is", original_vendor["id"]]], ["code"])
 
-        self._original_vendor_name = self._original_vendor.get("code") if self._original_vendor else ""
-        self._original_description = playlist.get("description") or ""
+        original_vendor_name = original_vendor.get("code") if original_vendor else ""
+        original_description = playlist.get("description") or ""
 
-        self.vendor_param = StringParameter("Vendor", default=self._original_vendor_name)
-        self.description_param = StringParameter(
-            "Description", default=self._original_description
-        )
+        return {
+            "project_id": payload.project_id,
+            "selected_ids": payload.selected_ids,
+            "vendor_name": original_vendor_name,
+            "description": original_description,
+            "playlist": playlist,
+            "playlist_id": playlist_id,
+        }
 
-    def parameters(self):
-        return [self.vendor_param, self.description_param]
+    def generate_from(self, request: Request, payload: FormRequest):
+        context = self._get_context(payload)
+        return templates.TemplateResponse(request, "form.html", context)
 
-    def get_request_page_template(self):
-        return "ami_outsource_playlist/request_page.html"
 
-    def main(self) -> int:
-        playlist_id = self.selected_ids[0]
+    def submit(self, request:  Request, payload: SubmitRequest) -> int:
+        context = self._get_context(payload)
+        playlist = context["playlist"]
+        playlist_id = context["playlist_id"]
+        project_id = context["project_id"]
+        original_description = context["description"]
+        original_vendor_name = context["vendor_name"]
 
         # Resolve project name (== AYON project name)
         project = self.sg_session.find_one(
-            "Project", [["id", "is", self.project_id]], ["name"]
+            "Project", [["id", "is", project_id]], ["name"]
         )
         project_name = project["name"]
 
-        ayon_playlist_id = self._playlist.get("sg_ayon_id")
+        ayon_playlist_id = playlist.get("sg_ayon_id")
         if not ayon_playlist_id:
             raise Exception("Playlist has no sg_ayon_id – not synced to AYON yet")
 
-        # Write back vendor and/or description if user changed them
-        new_vendor_name = self.vendor_param.value()
-        new_description = self.description_param.value()
+        new_vendor_name = payload.vendor_name
+        new_description = payload.description
 
         update_data = {}
-        if new_vendor_name != self._original_vendor_name:
+        if new_vendor_name != original_vendor_name:
             # Validate vendor exists
             new_vendor = self._get_vendor_from_name(new_vendor_name)
             if not new_vendor:
                 raise Exception(f"Vendor '{new_vendor_name}' is not a valid vendor")
             update_data["sg_vendor"] = new_vendor
 
-        if new_description != self._original_description:
+        if new_description != original_description:
             update_data["description"] = new_description
 
         if update_data:
             self.sg_session.update("Playlist", playlist_id, update_data)
 
-        # Build farm command with vendor and description flags
-        description = self.description_param.value()
-        vendor = self.vendor_param.value()
 
         command = (
             f"{HOWLER_SCRIPT} collect outsource "
             f"--project {project_name} --playlist-id {ayon_playlist_id} "
-            f"--vendor '{vendor}' --description '{description}'"
+            f"--vendor '{new_vendor_name}' --description '{new_description}'"
         )
 
-        job_name = f"Howler: collect {description} [{vendor}]"
+        job_name = f"Howler: collect {new_description} [{new_vendor_name}]"
 
         layer = rvx_beryl.farm.CommandLineLayer(
             job_name,
@@ -171,25 +183,17 @@ def styles_css():
     raise HTTPException(status_code=404, detail="Stylesheet not found")
 
 
-@app.get("/validate-playlist-name.js")
-def validate_playlist_name_js():
-    path = Path(TEMPLATES_DIR / "validate-playlist-name.js")
-    if path.exists():
-        return FileResponse(path)
-    raise HTTPException(status_code=404, detail="Script not found")
-
-
-@app.post("/delivery-playlists/form")
+@app.post("/outsource-playlist/form")
 async def form(
         request: Request,
         payload: Annotated[FormRequest, Form()],
 ):
     logger.info(f"Received payload: {payload}")
-    ami = AMICreateDeliveryPlaylist()
+    ami = AMIOutsourcePlaylist()
     return ami.generate_from(request, payload)
 
 
-@app.post("/delivery-playlists")
+@app.post("/outsource-playlists")
 async def submit(
         request: Request,
         payload: Annotated[SubmitRequest, Form()],
@@ -201,5 +205,5 @@ async def submit(
 
 def run():
     import uvicorn
-    logger.info(f"Starting AMI Create Delivery Playlist service on port {AMI_CREATE_DELIVERY_PLAYLIST_PORT}")
-    uvicorn.run(app, host="0.0.0.0", port=AMI_CREATE_DELIVERY_PLAYLIST_PORT)
+    logger.info(f"Starting AMI Create Outsource Playlist service on port {AMI_OUTSOURCE_PLAYLIST_PORT}")
+    uvicorn.run(app, host="0.0.0.0", port=AMI_OUTSOURCE_PLAYLIST_PORT)

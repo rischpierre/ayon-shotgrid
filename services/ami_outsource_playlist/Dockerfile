@@ -8,7 +8,7 @@ ENV no_proxy=localhost,127.0.0.0/8,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8,.loca
 ENV NO_PROXY=localhost,127.0.0.0/8,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8,.local,.eu.rvx.is
 ENV LOGLEVEL=DEBUG
 ENV SG_URL="https://apavatn.shotgrid.autodesk.com"
-ENV AMI_OUTSOURCE_PLAYLIST_PLAYLIST_PORT=45142
+ENV AMI_OUTSOURCE_PLAYLIST_PORT=45142
 
 RUN apk add --update --no-cache git curl build-base libffi-dev
 ENV UV_INSTALL_DIR=/usr/local/bin
@@ -18,7 +18,7 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/usr/local/bin:${PATH}"
 
 RUN mkdir /service
-COPY ami_create_delivery_playlist/pyproject.toml /service/pyproject.toml
+COPY ami_outsource_playlist/pyproject.toml /service/pyproject.toml
 WORKDIR /service
 
 RUN uv sync
@@ -29,7 +29,7 @@ RUN uv cache clean
 RUN addgroup -S ayonuser && adduser -S ayonuser -G ayonuser
 
 COPY ami_common /service
-COPY ami_create_delivery_playlist/ami_create_delivery_playlist /service/ami_create_delivery_playlist
+COPY ami_outsource_playlist/ami_outsource_playlist /service/ami_outsource_playlist
 
 RUN chown ayonuser:ayonuser -R /service
 RUN chown ayonuser:ayonuser -R /home/ayonuser
