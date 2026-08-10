@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ title }}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="header">
+        <h1>📤 {{ heading }}</h1>
+      </div>
+      <div class="content">
+        <div class="info-box">
+          💡 Configure the vendor and description for your outsource collection job. The job will be submitted to the farm.
+        </div>
+        <form method="post" action="{{ action_url }}">
+          {{ hidden_inputs|safe }}
+          {{ inputs_html|safe }}
+          <div>
+            <button type="submit">{{ submit_label }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

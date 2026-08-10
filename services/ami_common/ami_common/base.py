@@ -15,8 +15,6 @@ class FormRequest(BaseModel):
         return value
 
 class AmiBase:
-    
-    
     def __init__(self) -> None:
         self.sg_session = self.get_sg_session()
 
