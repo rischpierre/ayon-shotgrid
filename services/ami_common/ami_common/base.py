@@ -1,7 +1,25 @@
+from pathlib import Path
+import sys
+import traceback
+
+import logging
+from fastapi import FastAPI, Form, Request
+from fastapi.responses import FileResponse
+from fastapi.exceptions import HTTPException
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field, field_validator
 import os
 from shotgun_api3 import Shotgun
 import ayon_api
+
+
+TEMPLATES_COMMON_DIR = Path(__file__).parent / "templates"
+
+logging.basicConfig(
+    level=os.environ.get("LOGLEVEL") or os.environ.get("PYTHON_LOG_LEVEL") or logging.DEBUG,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    stream=sys.stdout,
+)
 
 class FormRequest(BaseModel):
     project_id: int
@@ -13,6 +31,37 @@ class FormRequest(BaseModel):
         if isinstance(value, list) and len(value) >= 1 and isinstance(value[0], str):
             return [int(i) for i in value[0].split(",")]
         return value
+
+def register_common_endpoints(
+    app: FastAPI,
+    templates: Jinja2Templates,
+    logger: logging.Logger,
+) -> None:
+
+    @app.exception_handler(Exception)
+    async def handle_unexpected_error(request: Request, exc: Exception):
+        logger.exception("Unhandled error while processing request")
+        context = {
+            "message": str(exc),
+            "traceback": traceback.format_exc(),
+        }
+        return templates.TemplateResponse(
+            request=request,
+            name="error.html",
+            context=context,
+            status_code=500,
+        )
+
+    @app.get("/health")
+    async def health_check():
+        return {"status": "ok"}
+
+    @app.get("/styles.css")
+    def styles_css():
+        path = Path(TEMPLATES_COMMON_DIR / "styles.css")
+        if path.exists():
+            return FileResponse(path)
+        raise HTTPException(status_code=404, detail="Stylesheet not found")
 
 class AmiBase:
     def __init__(self) -> None:

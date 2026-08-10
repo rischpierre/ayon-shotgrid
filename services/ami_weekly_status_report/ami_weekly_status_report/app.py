@@ -7,15 +7,13 @@ from typing import Literal
 
 import corder
 
-from ami.ami_weekly_status_report.path_templates import StringTemplate
-
 from fastapi import FastAPI, Form, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import FileResponse
 from fastapi.exceptions import HTTPException
 from jinja2 import ChoiceLoader, FileSystemLoader
 
-from ami_common import AmiBase, FormRequest
+from ami_common import AmiBase, FormRequest, register_common_endpoints, TEMPLATES_COMMON_DIR
 
 logging.basicConfig(
     level=os.environ.get("LOGLEVEL") or os.environ.get("PYTHON_LOG_LEVEL") or logging.DEBUG,
@@ -26,10 +24,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 SERVICE_BASE_DIR = Path(__file__).parent
-AMI_COMMON_DIR = SERVICE_BASE_DIR.parent / "ami_common"
-
 TEMPLATES_DIR = SERVICE_BASE_DIR / "templates"
-TEMPLATES_COMMON_DIR = AMI_COMMON_DIR / "templates"
 
 loader = ChoiceLoader([
     FileSystemLoader(SERVICE_BASE_DIR),
@@ -40,9 +35,8 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 templates.env.loader = loader
 
 AMI_WSR_PORT = int(os.environ.get("AMI_WSR_PORT", 45143))
-
 app = FastAPI(title="AMI Weekly Status Report")
-
+register_common_endpoints(app, templates, logger)
 
 class SubmitRequest(FormRequest):
     vendor: str
@@ -164,20 +158,6 @@ class AMIWeeklyStatusReport(AmiBase):
             out_file = "/tmp/ami_weekly_status_report_report.xlsx"
         print(f"Export excel file {out_file}")
         self.template.write(out_file)
-
-
-@app.get("/health")
-async def health_check():
-    return {"status": "ok"}
-
-
-@app.get("/styles.css")
-def styles_css():
-    path = Path(TEMPLATES_DIR / "styles.css")
-    if path.exists():
-        return FileResponse(path)
-    raise HTTPException(status_code=404, detail="Stylesheet not found")
-
 
 @app.post("/weekly-status-report/form")
 async def form(

@@ -1,5 +1,3 @@
-import os
-import webbrowser
 from pathlib import Path
 from threading import Timer
 
@@ -11,13 +9,14 @@ from ami_create_delivery_playlist.app import (
     app,
     AMI_CREATE_DELIVERY_PLAYLIST_PORT,
 )
+from tests.open_test_page import open_test_page
 
-
-_current_dir = os.path.dirname(__file__)
+current_dir = Path(__file__).parent
 mockgun.Shotgun.set_schema_paths(
-    os.path.join(_current_dir, "basic_sg_schema"),
-    os.path.join(_current_dir, "basic_sg_entity_schema"),
+    current_dir / "basic_sg_schema",
+    current_dir / "basic_sg_entity_schema",
 )
+
 
 def create_mock_sg():
     sg = mockgun.Shotgun("http://mock-shotgrid.local")
@@ -69,12 +68,6 @@ def get_mock_sg_session(self):
 
 
 AMICreateDeliveryPlaylist.get_sg_session = get_mock_sg_session
-
-
-def open_test_page():
-    test_page = Path(__file__).parent /  "test_request.html"
-    webbrowser.open(test_page.as_uri())
-
 
 if __name__ == "__main__":
     Timer(1.0, open_test_page).start()

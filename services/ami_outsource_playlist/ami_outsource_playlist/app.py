@@ -7,11 +7,9 @@ from typing import Annotated
 
 from fastapi import FastAPI, Form, Request
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import FileResponse
-from fastapi.exceptions import HTTPException
 from jinja2 import ChoiceLoader, FileSystemLoader
 
-from ami_common import AmiBase, FormRequest
+from ami_common import AmiBase, FormRequest, register_common_endpoints, TEMPLATES_COMMON_DIR
 
 logging.basicConfig(
     level=os.environ.get("LOGLEVEL") or os.environ.get("PYTHON_LOG_LEVEL") or logging.DEBUG,
@@ -22,10 +20,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 SERVICE_BASE_DIR = Path(__file__).parent
-AMI_COMMON_DIR = SERVICE_BASE_DIR.parent / "ami_common"
-
 TEMPLATES_DIR = SERVICE_BASE_DIR / "templates"
-TEMPLATES_COMMON_DIR = AMI_COMMON_DIR / "templates"
 
 loader = ChoiceLoader([
     FileSystemLoader(SERVICE_BASE_DIR),
@@ -36,6 +31,7 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 templates.env.loader = loader
 
 app = FastAPI(title="AMI Outsource Playlist Service")
+register_common_endpoints(app, templates, logger)
 
 AMI_OUTSOURCE_PLAYLIST_PORT = int(os.environ.get("AMI_OUTSOURCE_PLAYLIST_PORT", 45142))
 
@@ -169,19 +165,6 @@ class AMIOutsourcePlaylist(AmiBase):
 
     def _get_vendor_from_name(self, name: str):
         return self.sg_session.find_one("Group", [["code", "is", name]], ["code"])
-
-@app.get("/health")
-async def health_check():
-    return {"status": "ok"}
-
-
-@app.get("/styles.css")
-def styles_css():
-    path = Path(TEMPLATES_DIR / "styles.css")
-    if path.exists():
-        return FileResponse(path)
-    raise HTTPException(status_code=404, detail="Stylesheet not found")
-
 
 @app.post("/outsource-playlist/form")
 async def form(

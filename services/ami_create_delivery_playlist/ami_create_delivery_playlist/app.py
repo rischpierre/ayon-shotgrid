@@ -1,7 +1,6 @@
 import logging
 import os
 import sys
-import traceback
 from datetime import datetime
 from pathlib import Path
 from pprint import pformat
@@ -13,21 +12,12 @@ from fastapi.responses import FileResponse
 from fastapi.exceptions import HTTPException
 from jinja2 import ChoiceLoader, FileSystemLoader
 
-from ami_common import AmiBase, FormRequest
-
-logging.basicConfig(
-    level=os.environ.get("LOGLEVEL") or os.environ.get("PYTHON_LOG_LEVEL") or logging.DEBUG,
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    stream=sys.stdout,
-)
+from ami_common import AmiBase, FormRequest, register_common_endpoints, TEMPLATES_COMMON_DIR
 
 logger = logging.getLogger(__name__)
 
 SERVICE_BASE_DIR = Path(__file__).parent
-AMI_COMMON_DIR = SERVICE_BASE_DIR.parent / "ami_common"
-
 TEMPLATES_DIR = SERVICE_BASE_DIR / "templates"
-TEMPLATES_COMMON_DIR = AMI_COMMON_DIR / "templates"
 
 loader = ChoiceLoader([
     FileSystemLoader(SERVICE_BASE_DIR),
@@ -38,9 +28,9 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 templates.env.loader = loader
 
 app = FastAPI(title="AMI Create Delivery Playlist Service")
+register_common_endpoints(app, templates, logger)
 
 AMI_CREATE_DELIVERY_PLAYLIST_PORT = int(os.environ.get("AMI_CREATE_DELIVERY_PLAYLIST_PORT", 45141))
-
 
 
 class SubmitRequest(FormRequest):
@@ -107,29 +97,6 @@ class AMICreateDeliveryPlaylist(AmiBase):
             return templates.TemplateResponse(request=request, name="result.html", context=context)
 
         raise RuntimeError(f"Failed to create playlist with data: {pformat(data)}")
-
-
-@app.exception_handler(Exception)
-async def handle_unexpected_error(request: Request, exc: Exception):
-    logger.exception("Unhandled error while processing request")
-    context = {
-        "message": str(exc),
-        "traceback": traceback.format_exc(),
-    }
-    return templates.TemplateResponse(request=request, name="error.html", context=context, status_code=500)
-
-
-@app.get("/health")
-async def health_check():
-    return {"status": "ok"}
-
-
-@app.get("/styles.css")
-def styles_css():
-    path = Path(TEMPLATES_COMMON_DIR / "styles.css")
-    if path.exists():
-        return FileResponse(path)
-    raise HTTPException(status_code=404, detail="Stylesheet not found")
 
 
 @app.get("/validate-playlist-name.js")
