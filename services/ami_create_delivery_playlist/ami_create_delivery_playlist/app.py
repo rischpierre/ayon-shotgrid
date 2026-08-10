@@ -12,9 +12,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import FileResponse
 from fastapi.exceptions import HTTPException
 from jinja2 import ChoiceLoader, FileSystemLoader
-from pydantic import BaseModel, Field, field_validator
 
-from ami_common import AmiBase
+from ami_common import AmiBase, FormRequest
 
 logging.basicConfig(
     level=os.environ.get("LOGLEVEL") or os.environ.get("PYTHON_LOG_LEVEL") or logging.DEBUG,
@@ -25,11 +24,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 SERVICE_BASE_DIR = Path(__file__).parent
+AMI_COMMON_DIR = SERVICE_BASE_DIR.parent / "ami_common"
+
 TEMPLATES_DIR = SERVICE_BASE_DIR / "templates"
+TEMPLATES_COMMON_DIR = AMI_COMMON_DIR / "templates"
 
 loader = ChoiceLoader([
     FileSystemLoader(SERVICE_BASE_DIR),
-    FileSystemLoader(TEMPLATES_DIR)
+    FileSystemLoader(TEMPLATES_DIR),
+    FileSystemLoader(TEMPLATES_COMMON_DIR)
 ])
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 templates.env.loader = loader
@@ -38,17 +41,6 @@ app = FastAPI(title="AMI Create Delivery Playlist Service")
 
 AMI_CREATE_DELIVERY_PLAYLIST_PORT = int(os.environ.get("AMI_CREATE_DELIVERY_PLAYLIST_PORT", 45141))
 
-
-class FormRequest(BaseModel):
-    project_id: int
-    selected_ids: list[int] = Field(min_length=1)
-
-    @field_validator("selected_ids", mode="before")
-    @classmethod
-    def validate_selected_ids(cls, value):
-        if isinstance(value, list) and len(value) >= 1 and isinstance(value[0], str):
-            return [int(i) for i in value[0].split(",")]
-        return value
 
 
 class SubmitRequest(FormRequest):
@@ -134,7 +126,7 @@ async def health_check():
 
 @app.get("/styles.css")
 def styles_css():
-    path = Path(TEMPLATES_DIR / "styles.css")
+    path = Path(TEMPLATES_COMMON_DIR / "styles.css")
     if path.exists():
         return FileResponse(path)
     raise HTTPException(status_code=404, detail="Stylesheet not found")

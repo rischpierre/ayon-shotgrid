@@ -1,7 +1,18 @@
-from typing import Any, Dict, List, Optional
-import os 
+from pydantic import BaseModel, Field, field_validator
+import os
 from shotgun_api3 import Shotgun
 import ayon_api
+
+class FormRequest(BaseModel):
+    project_id: int
+    selected_ids: list[int] = Field(min_length=1)
+
+    @field_validator("selected_ids", mode="before")
+    @classmethod
+    def validate_selected_ids(cls, value):
+        if isinstance(value, list) and len(value) >= 1 and isinstance(value[0], str):
+            return [int(i) for i in value[0].split(",")]
+        return value
 
 class AmiBase:
     
