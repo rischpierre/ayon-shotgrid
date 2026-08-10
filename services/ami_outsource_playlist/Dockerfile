@@ -1,11 +1,11 @@
 FROM python:3.13-alpine3.24
 ENV PYTHONUNBUFFERED=1
-#ENV HTTP_PROXY=http://proxy-srv.eu.rvx.is:3128
-#ENV HTTPS_PROXY=http://proxy-srv.eu.rvx.is:3128
-#ENV http_proxy=http://proxy-srv.eu.rvx.is:3128
-#ENV https_proxy=http://proxy-srv.eu.rvx.is:3128
-#ENV no_proxy=localhost,127.0.0.0/8,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8,.local,.eu.rvx.is
-#ENV NO_PROXY=localhost,127.0.0.0/8,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8,.local,.eu.rvx.is
+ENV HTTP_PROXY=http://proxy-srv.eu.rvx.is:3128
+ENV HTTPS_PROXY=http://proxy-srv.eu.rvx.is:3128
+ENV http_proxy=http://proxy-srv.eu.rvx.is:3128
+ENV https_proxy=http://proxy-srv.eu.rvx.is:3128
+ENV no_proxy=localhost,127.0.0.0/8,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8,.local,.eu.rvx.is
+ENV NO_PROXY=localhost,127.0.0.0/8,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8,.local,.eu.rvx.is
 ENV LOGLEVEL=DEBUG
 ENV SG_URL="https://apavatn.shotgrid.autodesk.com"
 ENV AMI_OUTSOURCE_PLAYLIST_PLAYLIST_PORT=45142

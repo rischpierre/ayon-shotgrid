@@ -14,7 +14,7 @@ dependencies = [
     "uvicorn>=0.52.0",
 ]
 
-# [[tool.uv.index]]
-# name = "rvx-group"
-# url = "https://nexus.eu.rvx.is/repository/rvx-group/simple"
-# default = true
+ [[tool.uv.index]]
+ name = "rvx-group"
+ url = "https://nexus.eu.rvx.is/repository/rvx-group/simple"
+ default = true
