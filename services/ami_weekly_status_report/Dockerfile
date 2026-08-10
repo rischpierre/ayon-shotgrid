@@ -18,7 +18,7 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/usr/local/bin:${PATH}"
 
 RUN mkdir /service
-COPY ami_outsource_playlist/pyproject.toml /service/pyproject.toml
+COPY ami_weekly_status_report/pyproject.toml /service/pyproject.toml
 WORKDIR /service
 
 RUN uv sync
@@ -29,7 +29,7 @@ RUN uv cache clean
 RUN addgroup -S ayonuser && adduser -S ayonuser -G ayonuser
 
 COPY ami_common /service
-COPY ami_outsource_playlist/ami_outsource_playlist /service/ami_outsource_playlist
+COPY ami_weekly_status_report/ami_weekly_status_report /service/ami_weekly_status_report
 
 RUN chown ayonuser:ayonuser -R /service
 RUN chown ayonuser:ayonuser -R /home/ayonuser
