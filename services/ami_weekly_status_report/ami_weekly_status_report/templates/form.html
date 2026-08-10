@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ title }}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+  <div>
+    <div>
+      <div>
+        <h1>{{ heading }}</h1>
+      </div>
+      <div>
+        {% if project_template and project_template.exists %}
+        <div>
+          <p>
+            ✅ <strong>Project Template Found</strong><br>
+            There is already a template configured on the project: <strong>{{ project_template.name }}</strong>
+          </p>
+        </div>
+        {% endif %}
+        <div>
+          <p>
+            📊 <strong>Excel Template Upload</strong><br>
+            You can optionally upload a custom Excel template. If no file is provided, the default template will be used.
+          </p>
+        </div>
+        <form method="post" action="{{ action_url }}" enctype="multipart/form-data">
+          {{ hidden_inputs|safe }}
+          {{ inputs_html|safe }}
+          <div>
+            <label>Excel Template (Optional):</label>
+            <input type="file" name="template_file" accept=".xlsx,.xls">
+            <small>Accepted formats: .xlsx, .xls</small>
+          </div>
+          <div>
+            <button type="submit">
+              {{ submit_label }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
