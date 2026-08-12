@@ -1,0 +1,58 @@
+<table>
+  <!--          Columns headers-->
+  <thead>
+  <tr>
+    {% for field_id, field in per_version_fields.items() %}
+    <th>{{ field.label }}</th>
+    {% endfor %}
+  </tr>
+  </thead>
+
+  <tbody>
+  {% for version in versions %}
+  <tr>
+    {% for field_id, field in per_version_fields.items() %}
+    {% set field_key = field_id | replace(' ', '_') %}
+    <td>
+      {% set val = version.get(field.sg_field_name) if field.sg_field_name%}
+      {% if val is none %}{% set val = field.default %}{% endif %}
+
+      <!-- list fiedls-->
+      {% if field.type == 'list' %}
+      <select name="version__{{ version.id }}__{{ field_key }}">
+        {% if field.locked %}disabled{% endif %}
+        {% for option in field.options %}
+        <option value="{{ option }}" {% if val== option %}selected{% endif %}>
+          {{ option }}
+        </option>
+        {% endfor %}
+      </select>
+
+      <!-- bool field-->
+      {% elif field.type == 'checkbox' %}
+      <!--  second field to be able to parse true or false later on-->
+      <input type="hidden"
+             name="version__{{ version.id }}__{{ field_key }}"
+             value="false">
+      <input type="checkbox"
+             name="version__{{ version.id }}__{{ field_key }}"
+             value="true"
+             {% if val %}checked{% endif %}
+             {% if field.locked %}disabled{% endif %}
+      >
+
+      <!-- other fields -->
+      {% else %}
+      <input type="text"
+             name="version__{{ version.id }}__{{ field_key }}"
+             value="{{ val if val is not none else '' }}"
+             {% if field.locked %}disabled{% endif %}
+      >
+      {% endif %}
+    </td>
+    {% endfor %}
+  </tr>
+  {% endfor %}
+  </tbody>
+
+</table>

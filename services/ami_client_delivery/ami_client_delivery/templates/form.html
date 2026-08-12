@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ title or "Client Delivery" }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/client-delivery/validate.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="header">
+      <h1>{{ title or "Client Delivery" }}</h1>
+    </div>
+    <div class="content">
+      {% if description %}
+      <p class="message">
+        {{ description }}
+      </p>
+      {% endif %}
+
+      <form id="delivery-form" method="post" action="/client-delivery/submit">
+        <input type="hidden" name="user_id" value="{{ user_id }}">
+        <input type="hidden" name="user_login" value="{{ user_login }}">
+        <input type="hidden" name="project_id" value="{{ project_id }}">
+        <input type="hidden" name="entity_type" value="{{ entity_type }}">
+        <input type="hidden" name="selected_ids" value="{{ selected_ids | join(',') }}">
+
+        {% include "partials/per_version_form.html" %}
+
+        {% include "partials/per_delivery_form.html" %}
+
+        <div class="actions">
+          <button id="submit" type="submit" formaction="/client-delivery/submit">
+            Submit Delivery
+          </button>
+          <button id="save" type="submit" formaction="/client-delivery/fields/save">
+            Save Fields In Flow
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -153,7 +153,7 @@ class AMIOutsourcePlaylist(AmiBase):
 
         job_name = f"Howler: collect {new_description} [{new_vendor_name}]"
 
-        user = self._get_user(payload.user_id)
+        user = self.get_user(payload.user_id)
         logger.info(f"User: {user}")
         logger.info(f"Command: {command}")
         logger.info(f"Job name: {job_name}")
@@ -174,13 +174,6 @@ class AMIOutsourcePlaylist(AmiBase):
         return templates.TemplateResponse(
             request=request, name="result.html", context=context
         )
-
-    def _get_user(self, user_id) -> str:
-        sg_user = self.sg_session.find_one(
-            "HumanUser", [["id", "is", int(user_id)]], ["login"]
-        )
-        if sg_user:
-            return sg_user["login"].split("@")[0]
 
     def _get_vendor_from_name(self, name: str):
         return self.sg_session.find_one("Group", [["code", "is", name]], ["code"])

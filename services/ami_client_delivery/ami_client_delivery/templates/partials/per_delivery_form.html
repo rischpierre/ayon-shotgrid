@@ -1,0 +1,36 @@
+<div class="delivery-fields">
+  {% for field_id, field in per_delivery_fields.items() %}
+  <div class="field">
+    <label for="{{ field_id }}">{{ field.label }}</label>
+
+    <!--    text field-->
+    {% if field.type == 'text' %}
+    <textarea name="{{ field_id }}" id="{{ field_id }}">{{ field.default or '' }}</textarea>
+
+    <!--    choice field -->
+    {% elif field.type == 'list' %}
+    <select name="{{ field_id }}" id="{{ field_id }}">
+      {% for option in field.options %}
+      <option value="{{ option }}" {% if field.default== option %}selected{% endif %}>{{ option }}</option>
+      {% endfor %}
+    </select>
+
+    <!--    bool field -->
+    {% elif field.type == 'bool' %}
+    <input type="hidden"
+           name="{{ field_id}}"
+           value="false">
+    <input type="checkbox"
+           name="{{ field_id }}"
+           id="{{ field_id }}"
+           value="true"
+           {% if field.default %}checked{% endif %}
+    >
+
+    <!--    other types of fields -->
+    {% else %}
+    <input type="text" name="{{ field_id }}" id="{{ field_id }}" value="{{ field.default or '' }}">
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>

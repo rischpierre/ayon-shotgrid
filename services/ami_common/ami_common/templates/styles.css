@@ -29,7 +29,7 @@ body {
 }
 
 .wrap {
-  width: min(720px, calc(100% - 32px));
+  width: calc(100% - 32px);
   margin: 48px auto;
 }
 
@@ -95,8 +95,9 @@ label {
   color: var(--muted);
 }
 
-input,
-textarea {
+input:not([type="checkbox"]),
+textarea,
+select {
   width: 100%;
   padding: 11px 12px;
   border: 1px solid var(--border);
@@ -112,16 +113,22 @@ textarea {
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
-input[readonly] {
+input[readonly],
+select[readonly] {
   color: var(--muted);
   background: var(--readonly-bg);
   cursor: default;
+}
+
+.delivery-fields {
+  margin-top: 24px;
 }
 
 .actions {
@@ -152,6 +159,37 @@ button:hover,
 .message {
   margin: 0 0 16px;
   color: var(--muted);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+th,
+td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+th {
+  background-color: var(--readonly-bg);
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+.version-code {
+  font-weight: 600;
 }
 
 .details {
