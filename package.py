@@ -1,6 +1,6 @@
 name = "shotgrid"
 title = "Shotgrid"
-version = "0.6.14-rvx.16"
+version = "0.6.14-rvx.17"
 client_dir = "ayon_shotgrid"
 
 services = {
@@ -10,8 +10,12 @@ services = {
         "image": f"docker.eu.rvx.is/rvx/ayon-shotgrid-processor:{version}"},
     "ShotgridTransmitter": {
         "image": f"docker.eu.rvx.is/rvx/ayon-shotgrid-transmitter:{version}"},
-    "ShotgridAmi": {
-        "image": f"docker.eu.rvx.is/rvx/ayon-shotgrid-ami:{version}"},
+    "ShotgridAmiCreateDeliveryPlaylist": {
+            "image": f"docker.eu.rvx.is/rvx/ayon-shotgrid-ami-create-delivery-playlist:{version}"},
+    "ShotgridAmiOutsourcePlaylist": {
+        "image": f"docker.eu.rvx.is/rvx/ayon-shotgrid-ami-outsource-playlist:{version}"},
+    "ShotgridAmiWeeklyStatusReport": {
+        "image": f"docker.eu.rvx.is/rvx/ayon-shotgrid-ami-weekly-status-report:{version}"},
     "ShotgridWhiteboard": {
         "image": f"docker.eu.rvx.is/rvx/ayon-shotgrid-whiteboard:{version}"},
 }

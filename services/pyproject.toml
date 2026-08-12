@@ -11,3 +11,8 @@ dependencies = [
 [tool.pyright]
 venv = ".venv"
 venvPath = "."
+
+[tool.uv.workspace]
+members = [
+    "ami_common",
+]

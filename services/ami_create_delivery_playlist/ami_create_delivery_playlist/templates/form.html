@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ title or "Create Delivery Playlist" }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="header">
+        <h1>{{ title or "Create Delivery Playlist" }}</h1>
+      </div>
+      <div class="content">
+        <div class="info-box">
+          💡 Configure your delivery playlist name. The default name follows the pattern: delivery_YYYY-MM-DD_##
+        </div>
+
+        <form method="post" action="/delivery-playlists">
+          <input type="hidden" name="user_id" value="{{ user_id }}">
+          <input type="hidden" name="user_login" value="{{ user_login }}">
+          <input type="hidden" name="entity_type" value="{{ entity_type }}">
+
+          <div class="field" id="name-field">
+            <label for="playlist_name">Playlist Name</label>
+            <input id="playlist_name" type="text" name="playlist_name" value="{{ playlist_name }}">
+          </div>
+
+          <div class="field">
+            <label for="project_id">Project ID</label>
+            <input id="project_id" type="text" value="{{ project_id }}" name="project_id" readonly>
+          </div>
+
+          <div class="field">
+            <label for="selected_ids">Movies IDs</label>
+            <input id="selected_ids" type="text" name="selected_ids" value="{{ selected_ids | join(',') }}" readonly>
+          </div>
+
+          <div class="actions">
+            <button type="submit">Submit Playlist Creation</button>
+          </div>
+
+        </form>
+
+      </div>
+    </div>
+  </div>
+  <script src="/validate-playlist-name.js" defer></script>
+</body>
+</html>
