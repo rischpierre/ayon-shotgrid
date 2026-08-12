@@ -1,4 +1,7 @@
 .claude
+.zed
+.junie
+
 ### js
 .~lock.*
 node_modules

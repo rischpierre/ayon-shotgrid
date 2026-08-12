@@ -33,8 +33,8 @@ RUN npm run build
 # Remove unnecessary packages to make the image smaller
 RUN apk del git curl build-base libffi-dev nodejs npm
 RUN python -m pip cache purge
-RUN pip-autoremove -y setuptools poetry
-RUN python -m pip uninstall -y pip pip-autoremove
+# RUN pip-autoremove -y setuptools poetry
+# RUN python -m pip uninstall -y pip pip-autoremove
 
 RUN addgroup -S ayonuser && adduser -SH ayonuser -G ayonuser
 RUN chown ayonuser:ayonuser -R /service

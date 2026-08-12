@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ title or "Weekly Status Report" }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="header">
+      <h1>{{ title or "Weekly Status Report" }}</h1>
+    </div>
+    <div class="content">
+      {% if project_template %}
+      <div class="info-box">
+        ✅ <strong>Project Template Found</strong><br>
+        There is already a template configured on the project: <strong>{{ project_template.name }}</strong>
+      </div>
+      {% endif %}
+      <p class="message">
+        📊 <strong>Excel Template Upload</strong><br>
+        You can optionally upload a custom Excel template. If no file is provided, the default template will
+        be used.
+      </p>
+      <form method="post" action="/weekly-status-report" enctype="multipart/form-data">
+        <input type="hidden" name="user_id" value="{{ user_id }}">
+        <input type="hidden" name="user_login" value="{{ user_login }}">
+        <input type="hidden" name="project_id" value="{{ project_id }}">
+        <input type="hidden" name="entity_type" value="{{ entity_type }}">
+        <input type="hidden" name="selected_ids" value="{{ selected_ids | join(',') }}">
+        <div class="field">
+          <label for="template_file">Excel Template (Optional):</label>
+          <input id="template_file" type="file" name="template_file" accept=".xlsx,.xls">
+          <small>Accepted formats: .xlsx, .xls</small>
+        </div>
+        <div class="actions">
+          <button type="submit">
+            Generate Report
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+</body>
+</html>

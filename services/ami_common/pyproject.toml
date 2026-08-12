@@ -1,0 +1,10 @@
+[project]
+name = "ami-common"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.13"
+dependencies = [
+    "ayon-python-api>=1.2.6",
+    "fastapi>=0.141.1",
+    "shotgun-api3>=3.8.5",
+]

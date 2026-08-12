@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{{ title or "Outsource Playlist" }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="wrap">
+    <div class="card">
+        <div class="header">
+            <h1>{{ title or "Outsource Playlist" }}</h1>
+        </div>
+        <div class="content">
+            <div class="info-box">
+                💡 Configure the vendor and description for your outsource collection job. The job will be submitted to
+                the farm.
+            </div>
+            <form method="post" action="/outsource-playlists">
+                <input type="hidden" name="user_id" value="{{ user_id }}">
+                <input type="hidden" name="user_login" value="{{ user_login }}">
+                <input type="hidden" name="project_id" value="{{ project_id }}">
+                <input type="hidden" name="entity_type" value="{{ entity_type }}">
+                <input type="hidden" name="selected_ids" value="{{ selected_ids | join(',') }}">
+
+                <div class="field">
+                    <label for="vendor_name">Vendor</label>
+                    <input
+                            id="vendor_name"
+                            type="text"
+                            name="vendor_name"
+                            value="{{ vendor_name }}"
+                            required
+                    >
+                </div>
+
+                <div class="field">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" required>{{ description }}</textarea>
+                </div>
+
+                <div class="actions">
+                    <button type="submit">Submit Outsource Job</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+</body>
+</html>
